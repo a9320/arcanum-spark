@@ -1,0 +1,39 @@
+```mermaid
+flowchart TB
+    subgraph INPUT["输入源"]
+        A1[Git 仓库]
+        A2[ZIP 上传]
+        A3[本地文件]
+    end
+
+    subgraph PIPELINE["CodeRisk Cloud 分析流水线"]
+        direction TB
+        B0["Agent 0 · Input Sanitizer / PITAX 预扫描<br/><i>AI 新漏洞：提示注入 · Unicode 走私 · 配置后门 · 编码载荷</i>"]
+        B1["Agent 1 · 静态分析<br/>SQLi / XSS / 路径遍历"]
+        B2["Agent 2 · 语义分析<br/>误报过滤 / 交叉验证"]
+        B3["Agent 3 · 深度验证<br/>Taint / 依赖扫描"]
+        B4["Agent 4 · 报告生成<br/>JSON / SARIF / PDF"]
+    end
+
+    subgraph GUARD["主线 A · 自我加固（Arcanum 七支柱）"]
+        G1["System Prompt Vault"]
+        G2["Output Guardrail"]
+    end
+
+    subgraph OUTPUT["输出"]
+        O1["统一报告<br/>传统漏洞 + ai_findings 区块"]
+        O2["SARIF 2.1"]
+        O3["营养 PDF（SHA-256 签名）"]
+    end
+
+    INPUT --> B0
+    B0 --> B1 --> B2 --> B3 --> B4
+    B0 -.PITAX findings.-> B4
+    GUARD -.保护全部 Agent.-> PIPELINE
+    B4 --> OUTPUT
+
+    style B0 fill:#7c3aed,stroke:#5b21b6,color:#fff
+    style G1 fill:#065f46,stroke:#047857,color:#fff
+    style G2 fill:#065f46,stroke:#047857,color:#fff
+    style OUTPUT fill:#1e3a8a,stroke:#1e40af,color:#fff
+```

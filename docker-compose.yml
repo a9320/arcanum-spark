@@ -1,0 +1,78 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: coderisk-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build: .
+    container_name: coderisk-api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CODERISK_API_KEY=dev-key-change-in-production
+      - CODERISK_PATH=/app/engine
+      - NUTRIENT_DWS_API_KEY=${NUTRIENT_DWS_API_KEY:-}
+      - REPORTS_DIR=/app/reports
+      - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-2}
+    volumes:
+      - ./reports:/app/reports
+      - ./repos:/repos:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    container_name: coderisk-worker
+    command: celery -A app.tasks worker --loglevel=info --concurrency=${WORKER_CONCURRENCY:-2}
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CODERISK_API_KEY=dev-key-change-in-production
+      - CODERISK_PATH=/app/engine
+      - PYTHONPATH=/app:/app/engine
+      - NUTRIENT_DWS_API_KEY=${NUTRIENT_DWS_API_KEY:-}
+      - REPORTS_DIR=/app/reports
+      - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-2}
+    volumes:
+      - ./reports:/app/reports
+      - ./repos:/repos:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # 可选：Dashboard（docker compose --profile dashboard up）
+  dashboard:
+    build: .
+    container_name: coderisk-dashboard
+    command: streamlit run app/dashboard.py --server.port=8501 --server.address=0.0.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000
+    profiles:
+      - dashboard
+
+  # 零依赖演示：PITAX CLI 扫描（docker compose --profile demo up）
+  demo:
+    build: .
+    container_name: coderisk-demo
+    command: sh -c "python demo/generate_demo_repo.py && python -m app.pitax.cli demo/vuln-demo-repo && python -m app.pitax.cli demo/vuln-demo-repo --sarif"
+    profiles:
+      - demo
+
+  # 测试套件（docker compose --profile test up）
+  test:
+    build: .
+    container_name: coderisk-test
+    command: python -m pytest tests/ -v
+    profiles:
+      - test

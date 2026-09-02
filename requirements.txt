@@ -1,0 +1,23 @@
+# CodeRisk Cloud × Arcanum — Python 依赖（Python 3.10+）
+# 说明：PITAX 检测引擎（app/pitax/）零第三方依赖，纯标准库即可运行。
+
+# ── API 服务层 ──
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+pydantic==2.9.0
+python-multipart==0.0.17
+
+# ── 任务队列 ──
+redis==5.2.0
+celery==5.4.0
+
+# ── 引擎层（engine/，传统漏洞检测：静态分析/污点/依赖/LLM 语义）──
+rich>=13.0        # 引擎控制台输出（硬依赖）
+httpx==0.27.0     # Nutrient DWS PDF + LLM client（llama.cpp OpenAI 兼容接口）
+
+# ── 测试 ──
+pytest==9.1.1
+
+# ── 可选增强（不装也能跑完整流水线，对应模块优雅降级）──
+# semgrep>=1.0     # Agent 1 增强：semgrep 规则扫描（subprocess 调 CLI）
+# streamlit>=1.36  # Dashboard（docker compose --profile dashboard）
