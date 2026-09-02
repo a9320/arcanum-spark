@@ -1,3 +1,8 @@
+---
+deployspec:
+  entry_file: app.py
+---
+
 # CodeRisk Cloud × Arcanum
 
 **检测 AI 时代新型代码漏洞的代码安全平台** —— 基于 [Arcanum Prompt Injection Taxonomy](https://arcanum-sec.com/pitax)（Jason Haddix, Arcanum Information Security）。
