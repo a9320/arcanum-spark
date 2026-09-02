@@ -22,5 +22,3 @@ pytest==9.1.1
 # semgrep>=1.0     # Agent 1 增强：semgrep 规则扫描（subprocess 调 CLI）
 
 # ── 魔搭创空间部署入口（gradio 类型 app.py + streamlit 备用入口）──
-gradio>=4.0
-streamlit>=1.36
