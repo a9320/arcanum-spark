@@ -1,0 +1,18 @@
+[project]
+name = "codeark"
+version = "0.1.0"
+description = "CodeRisk Arcanum — 云原生 AI 代码安全分析平台（Strands SDK + AWS Bedrock）"
+requires-python = ">=3.11"
+
+dependencies = [
+    "strands-agents>=1.54",
+    "strands-agents-tools>=0.8",
+    "pydantic>=2.13",
+]
+
+[project.optional-dependencies]
+bedrock = ["boto3>=1.43", "aws-requests-auth"]
+test = ["pytest", "pytest-asyncio"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

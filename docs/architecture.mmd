@@ -1,39 +1,56 @@
 ```mermaid
 flowchart TB
     subgraph INPUT["输入源"]
-        A1[Git 仓库]
-        A2[ZIP 上传]
-        A3[本地文件]
+        A1["Git 仓库"]
+        A2["ZIP 上传"]
+        A3["本地文件"]
     end
 
-    subgraph PIPELINE["CodeRisk Cloud 分析流水线"]
+    subgraph PIPELINE["CodeRisk Arcana · 6 节点 Agent Graph"]
         direction TB
-        B0["Agent 0 · Input Sanitizer / PITAX 预扫描<br/><i>AI 新漏洞：提示注入 · Unicode 走私 · 配置后门 · 编码载荷</i>"]
-        B1["Agent 1 · 静态分析<br/>SQLi / XSS / 路径遍历"]
-        B2["Agent 2 · 语义分析<br/>误报过滤 / 交叉验证"]
-        B3["Agent 3 · 深度验证<br/>Taint / 依赖扫描"]
-        B4["Agent 4 · 报告生成<br/>JSON / SARIF / PDF"]
+        N0["Agent 0 · PITAX 规则层（无 LLM，确定性）<br/><i>9 条 AI 漏洞规则：不可见字符 · 提示注入 · 指令覆盖 · 文档投毒</i>"]
+        N1["侦察 Agent · 提假设（DeepSeek）<br/>工具：pitax_scan<br/>输出：HypothesisSet"]
+        N2["验证 Agent · 证实/证伪（DeepSeek）<br/>工具：pitax_scan + static_scan + taint_flow + dep_scan<br/>输出：VerificationSet（CONFIRMED/REFUTED/UNCERTAIN）"]
+        N3["深挖 Agent · 攻击链推演（DeepSeek）<br/>输出：AttackChain（前置条件/横向移动/影响/修复）"]
+        N4["裁判官 Agent · 多源合议（DeepSeek）<br/>无工具（物理隔离防越权）<br/>输出：FinalReport"]
+        N5["报告 Agent · 渲染（无 LLM，纯模板）<br/>输出：JSON / SARIF 2.1.0 / Markdown"]
     end
 
-    subgraph GUARD["主线 A · 自我加固（Arcanum 七支柱）"]
-        G1["System Prompt Vault"]
-        G2["Output Guardrail"]
+    subgraph ENGINE["确定性引擎（工具层）"]
+        T1["pitax_scan"]
+        T2["static_scan"]
+        T3["taint_flow"]
+        T4["dep_scan"]
+    end
+
+    subgraph GUARD["工程机制（蓝图 §5）"]
+        G1["权威计算确定性<br/>compute_risk_score"]
+        G2["证据可追溯<br/>grounded or absent"]
+        G3["多源交叉验证"]
     end
 
     subgraph OUTPUT["输出"]
         O1["统一报告<br/>传统漏洞 + ai_findings 区块"]
-        O2["SARIF 2.1"]
-        O3["营养 PDF（SHA-256 签名）"]
+        O2["SARIF 2.1.0"]
+        O3["Markdown / JSON"]
     end
 
-    INPUT --> B0
-    B0 --> B1 --> B2 --> B3 --> B4
-    B0 -.PITAX findings.-> B4
-    GUARD -.保护全部 Agent.-> PIPELINE
-    B4 --> OUTPUT
+    INPUT --> N0
+    N0 -->|PITAX 基线事实| N1
+    N1 -->|5 条假设| N2
+    N2 -->|CONFIRMED 条目| N3
+    N3 -->|攻击链| N4
+    N4 -->|FinalReport| N5
+    N5 --> OUTPUT
 
-    style B0 fill:#7c3aed,stroke:#5b21b6,color:#fff
-    style G1 fill:#065f46,stroke:#047857,color:#fff
-    style G2 fill:#065f46,stroke:#047857,color:#fff
-    style OUTPUT fill:#1e3a8a,stroke:#1e40af,color:#fff
+    N1 -.调用.-> T1
+    N2 -.调用.-> T1 & T2 & T3 & T4
+    N0 -.迁移自 app/pitax.-> T1
+    GUARD -.约束全部 Agent.-> PIPELINE
+
+    style N0 fill:#7c3aed,stroke:#5b21b6,color:#fff
+    style N4 fill:#065f46,stroke:#047857,color:#fff
+    style N5 fill:#1e3a8a,stroke:#1e40af,color:#fff
+    style ENGINE fill:#1e293b,stroke:#334155,color:#e2e8f0
+    style OUTPUT fill:#0f172a,stroke:#1e40af,color:#fff
 ```

@@ -5,4 +5,11 @@
 *.zip
 *.bak
 *.bak_*
+*.bak-*
 requirements.txt.bak
+.venv/
+.venv-*/
+venv/
+venv-*/
+.pytest_cache/
+.backup-pitax-migration/

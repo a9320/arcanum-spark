@@ -1,0 +1,229 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 935.3909999999998 1629.2999999999997" width="935.3909999999998" height="1629.2999999999997" style="--bg:#1a1b26;--fg:#a9b1d6;--line:#3d59a1;--accent:#7aa2f7;--muted:#565f89;--surface:#24283b;--border:#414868;background:var(--bg);--_line:#3d59a1;--_arrow:#3d59a1;--_text:#a9b1d6;--_text-sec:#565f89;--_text-muted:#565f89;--_node-fill:#1a1b26;--_node-stroke:#565f89;--_group-fill:#7aa2f718;--_group-hdr:#7aa2f7;--_inner-stroke:#565f89" id="bm-diagram-1">
+<style>
+#bm-diagram-1 {
+  /* 覆盖 CSS 变量 */
+  --_text:       #a9b1d6       !important;
+  --_text-sec:   #565f89 !important;
+  --_line:       #3d59a1      !important;
+  --_arrow:      #3d59a1      !important;
+  --_node-fill:  #1a1b26       !important;
+  --_node-stroke:#565f89    !important;
+  --_group-fill: #7aa2f718 !important;
+  --_group-hdr:  #7aa2f7 !important;
+}
+#bm-diagram-1 text {
+  font-family: 'SF Pro Text', sans-serif !important;
+  font-size:   13px !important;
+  dominant-baseline: central;
+  dy: 0.35em;
+}
+/* 直接覆盖元素属性 */
+#bm-diagram-1 rect[fill="var(--_node-fill)"],
+#bm-diagram-1 circle[fill="var(--_node-fill)"],
+#bm-diagram-1 ellipse[fill="var(--_node-fill)"],
+#bm-diagram-1 polygon[fill="var(--_node-fill)"] {
+  fill:         #1a1b26        !important;
+  stroke:       #565f89     !important;
+  stroke-width: 1px !important;
+  rx:           12px !important;
+  ry:           12px !important;
+  filter: drop-shadow(0 8px 16px rgba(255,255,255,0.1)) !important;
+}
+/* 节点文字 */
+#bm-diagram-1 g.node text {
+  fill: #a9b1d6 !important;
+}
+/* 子图/cluster 标题 */
+#bm-diagram-1 .cluster-label text {
+  fill:        #7aa2f7 !important;
+  font-size:   12px !important;
+  font-weight: 600 !important;
+}
+/* 边/连线 */
+#bm-diagram-1 .edge, #bm-diagram-1 .edgePath .path {
+  stroke:       #3d59a1  !important;
+  stroke-width: 1.5px !important;
+}
+#bm-diagram-1 path {
+  stroke:       #3d59a1  !important;
+  stroke-width: 1.5px !important;
+}
+/* 箭头 */
+#bm-diagram-1 .arrowhead polygon,
+#bm-diagram-1 marker polygon {
+  stroke: #3d59a1 !important;
+  fill:   #3d59a1 !important;
+}
+/* 边标签 */
+#bm-diagram-1 .edgeLabel text {
+  fill:      #565f89 !important;
+  font-size: 11px  !important;
+}</style>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<g class="subgraph" data-id="INPUT" data-label="输入源">
+  <rect x="590.6195" y="40" width="133.23" height="210.70000000000002" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="590.6195" y="40" width="133.23" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="602.6195" y="54" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">输入源</text>
+</g>
+<g class="subgraph" data-id="PIPELINE" data-label="CodeRisk Arcana · 6 节点 Agent Graph">
+  <rect x="419.07800000000003" y="298.70000000000005" width="476.3129999999999" height="1014.9999999999999" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="419.07800000000003" y="298.70000000000005" width="476.3129999999999" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="431.07800000000003" y="312.70000000000005" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">CodeRisk Arcana · 6 节点 Agent Graph</text>
+</g>
+<g class="subgraph" data-id="ENGINE" data-label="确定性引擎（工具层）">
+  <rect x="40" y="40" width="142.122" height="267.6" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="40" y="40" width="142.122" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="52" y="54" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">确定性引擎（工具层）</text>
+</g>
+<g class="subgraph" data-id="GUARD" data-label="工程机制（蓝图 §5）">
+  <rect x="202.122" y="40" width="196.95600000000002" height="244.50000000000003" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="202.122" y="40" width="196.95600000000002" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="214.122" y="54" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">工程机制（蓝图 §5）</text>
+</g>
+<g class="subgraph" data-id="OUTPUT" data-label="输出">
+  <rect x="536.8969999999999" y="1361.6999999999998" width="240.675" height="227.60000000000002" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="536.8969999999999" y="1361.6999999999998" width="240.675" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="548.8969999999999" y="1375.6999999999998" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">输出</text>
+</g>
+<polyline class="edge" data-from="INPUT" data-to="N0" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="657.2345,250.70000000000002 657.2345,298.70000000000005 657.2345,342.70000000000005" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="N5" data-to="OUTPUT" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="657.2345,1297.6999999999998 657.2345,1313.6999999999998 657.2344999999999,1361.6999999999998" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="N0" data-to="N1" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="PITAX 基线事实" points="657.2345,396.50000000000006 657.2345,512.8000000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="N1" data-to="N2" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="5 条假设" points="657.2345,583.5 657.2345,699.8000000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="N2" data-to="N3" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="CONFIRMED 条目" points="657.2345,770.5 657.2345,886.8000000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="N3" data-to="N4" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="攻击链" points="657.2345,940.6 657.2345,1056.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="N4" data-to="N5" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="FinalReport" points="657.2345,1127.6 657.2345,1243.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="N0" data-to="N1" data-label="PITAX 基线事实">
+  <rect x="608.2345" y="439.5000000000001" width="97.84000000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="657.1545" y="454.6500000000001" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">PITAX 基线事实</text>
+</g>
+<g class="edge-label" data-from="N1" data-to="N2" data-label="5 条假设">
+  <rect x="626.2345" y="626.5000000000001" width="61.012" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="656.7405" y="641.6500000000001" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">5 条假设</text>
+</g>
+<g class="edge-label" data-from="N2" data-to="N3" data-label="CONFIRMED 条目">
+  <rect x="604.7344999999999" y="813.5" width="104.37400000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="656.9214999999999" y="828.65" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">CONFIRMED 条目</text>
+</g>
+<g class="edge-label" data-from="N3" data-to="N4" data-label="攻击链">
+  <rect x="630.2345" y="983.6" width="53.29" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="656.8795" y="998.75" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">攻击链</text>
+</g>
+<g class="edge-label" data-from="N4" data-to="N5" data-label="FinalReport">
+  <rect x="620.2344999999999" y="1170.6" width="73.486" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="656.9775" y="1185.75" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">FinalReport</text>
+</g>
+<g class="node" data-id="A1" data-label="Git 仓库" data-shape="rectangle">
+  <rect x="606.6195" y="84" width="88.633" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="650.936" y="102.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Git 仓库</text>
+</g>
+<g class="node" data-id="A2" data-label="ZIP 上传" data-shape="rectangle">
+  <rect x="606.6195" y="140.9" width="94.561" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="653.9" y="159.35000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">ZIP 上传</text>
+</g>
+<g class="node" data-id="A3" data-label="本地文件" data-shape="rectangle">
+  <rect x="606.6195" y="206.25" width="101.22999999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="657.2345" y="224.7" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">本地文件</text>
+</g>
+<g class="node" data-id="N0" data-label="Agent 0 · PITAX 规则层（无 LLM，确定性）
+&lt;i&gt;9 条 AI 漏洞规则：不可见字符 · 提示注入 · 指令覆盖 · 文档投毒&lt;/i&gt;" data-shape="rectangle">
+  <rect x="435.07800000000003" y="342.70000000000005" width="444.3129999999999" height="53.800000000000004" rx="0" ry="0" fill="#7c3aed" stroke="#5b21b6" stroke-width="0.75" />
+  <text x="657.2345" y="369.6" text-anchor="middle" font-size="13" font-weight="500" fill="#fff"><tspan x="657.2345" dy="-3.9000000000000012">Agent 0 · PITAX 规则层（无 LLM，确定性）</tspan><tspan x="657.2345" dy="16.900000000000002"><tspan font-style="italic">9 条 AI 漏洞规则：不可见字符 · 提示注入 · 指令覆盖 · 文档投毒</tspan></tspan></text>
+</g>
+<g class="node" data-id="N1" data-label="侦察 Agent · 提假设（DeepSeek）
+工具：pitax_scan
+输出：HypothesisSet" data-shape="rectangle">
+  <rect x="529.185" y="512.8000000000001" width="256.09899999999993" height="70.7" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="657.2344999999999" y="548.1500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="657.2344999999999" dy="-12.350000000000001">侦察 Agent · 提假设（DeepSeek）</tspan><tspan x="657.2344999999999" dy="16.900000000000002">工具：pitax_scan</tspan><tspan x="657.2344999999999" dy="16.900000000000002">输出：HypothesisSet</tspan></text>
+</g>
+<g class="node" data-id="N2" data-label="验证 Agent · 证实/证伪（DeepSeek）
+工具：pitax_scan + static_scan + taint_flow + dep_scan
+输出：VerificationSet（CONFIRMED/REFUTED/UNCERTAIN）" data-shape="rectangle">
+  <rect x="446.19299999999987" y="699.8000000000001" width="422.0830000000002" height="70.7" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="657.2345" y="735.1500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="657.2345" dy="-12.350000000000001">验证 Agent · 证实/证伪（DeepSeek）</tspan><tspan x="657.2345" dy="16.900000000000002">工具：pitax_scan + static_scan + taint_flow + dep_scan</tspan><tspan x="657.2345" dy="16.900000000000002">输出：VerificationSet（CONFIRMED/REFUTED/UNCERTAIN）</tspan></text>
+</g>
+<g class="node" data-id="N3" data-label="深挖 Agent · 攻击链推演（DeepSeek）
+输出：AttackChain（前置条件/横向移动/影响/修复）" data-shape="rectangle">
+  <rect x="469.164" y="886.8000000000001" width="376.141" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="657.2345" y="913.7" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="657.2345" dy="-3.9000000000000012">深挖 Agent · 攻击链推演（DeepSeek）</tspan><tspan x="657.2345" dy="16.900000000000002">输出：AttackChain（前置条件/横向移动/影响/修复）</tspan></text>
+</g>
+<g class="node" data-id="N4" data-label="裁判官 Agent · 多源合议（DeepSeek）
+无工具（物理隔离防越权）
+输出：FinalReport" data-shape="rectangle">
+  <rect x="514.365" y="1056.9" width="285.7389999999999" height="70.7" rx="0" ry="0" fill="#065f46" stroke="#047857" stroke-width="0.75" />
+  <text x="657.2345" y="1092.25" text-anchor="middle" font-size="13" font-weight="500" fill="#fff"><tspan x="657.2345" dy="-12.350000000000001">裁判官 Agent · 多源合议（DeepSeek）</tspan><tspan x="657.2345" dy="16.900000000000002">无工具（物理隔离防越权）</tspan><tspan x="657.2345" dy="16.900000000000002">输出：FinalReport</tspan></text>
+</g>
+<g class="node" data-id="N5" data-label="报告 Agent · 渲染（无 LLM，纯模板）
+输出：JSON / SARIF 2.1.0 / Markdown" data-shape="rectangle">
+  <rect x="515.106" y="1243.9" width="284.25699999999995" height="53.800000000000004" rx="0" ry="0" fill="#1e3a8a" stroke="#1e40af" stroke-width="0.75" />
+  <text x="657.2345" y="1270.8000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="#fff"><tspan x="657.2345" dy="-3.9000000000000012">报告 Agent · 渲染（无 LLM，纯模板）</tspan><tspan x="657.2345" dy="16.900000000000002">输出：JSON / SARIF 2.1.0 / Markdown</tspan></text>
+</g>
+<g class="node" data-id="T1" data-label="pitax_scan" data-shape="rectangle">
+  <rect x="56" y="206.25" width="107.158" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="109.57900000000001" y="224.7" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">pitax_scan</text>
+</g>
+<g class="node" data-id="T2" data-label="static_scan" data-shape="rectangle">
+  <rect x="56" y="254.70000000000002" width="110.122" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="111.061" y="273.15000000000003" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">static_scan</text>
+</g>
+<g class="node" data-id="T3" data-label="taint_flow" data-shape="rectangle">
+  <rect x="56" y="84" width="95.30199999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="103.651" y="102.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">taint_flow</text>
+</g>
+<g class="node" data-id="T4" data-label="dep_scan" data-shape="rectangle">
+  <rect x="56" y="140.9" width="101.22999999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="106.615" y="159.35000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">dep_scan</text>
+</g>
+<g class="node" data-id="G1" data-label="权威计算确定性
+compute_risk_score" data-shape="rectangle">
+  <rect x="218.122" y="206.25" width="164.95600000000002" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="300.6" y="233.15" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="300.6" dy="-3.9000000000000012">权威计算确定性</tspan><tspan x="300.6" dy="16.900000000000002">compute_risk_score</tspan></text>
+</g>
+<g class="node" data-id="G2" data-label="证据可追溯
+grounded or absent" data-shape="rectangle">
+  <rect x="218.122" y="140.9" width="157.546" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="296.895" y="167.8" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="296.895" dy="-3.9000000000000012">证据可追溯</tspan><tspan x="296.895" dy="16.900000000000002">grounded or absent</tspan></text>
+</g>
+<g class="node" data-id="G3" data-label="多源交叉验证" data-shape="rectangle">
+  <rect x="218.122" y="84" width="130.87" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="283.557" y="102.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">多源交叉验证</text>
+</g>
+<g class="node" data-id="O1" data-label="统一报告
+传统漏洞 + ai_findings 区块" data-shape="rectangle">
+  <rect x="552.8969999999999" y="1519.4999999999998" width="208.675" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="657.2344999999999" y="1546.3999999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="657.2344999999999" dy="-3.9000000000000012">统一报告</tspan><tspan x="657.2344999999999" dy="16.900000000000002">传统漏洞 + ai_findings 区块</tspan></text>
+</g>
+<g class="node" data-id="O2" data-label="SARIF 2.1.0" data-shape="rectangle">
+  <rect x="552.8969999999999" y="1405.6999999999998" width="106.41699999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="606.1054999999999" y="1424.1499999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">SARIF 2.1.0</text>
+</g>
+<g class="node" data-id="O3" data-label="Markdown / JSON" data-shape="rectangle">
+  <rect x="552.8969999999999" y="1462.6" width="148.654" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="627.2239999999999" y="1481.05" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Markdown / JSON</text>
+</g>
+</svg>
