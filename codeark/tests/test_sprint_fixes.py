@@ -182,3 +182,26 @@ def test_render_report_includes_chains_conclusion_meta():
     payload = _json.loads(reports["json"])
     assert payload["attack_chains"] and payload["conclusion"]
     assert payload["meta"]["quarantine_stats"]["files_changed"] == 2
+
+
+# ── 凭证脱敏（占位链 raw 节选进报告前必须掩码）──
+def test_redact_creds_masks_provider_tokens():
+    from codeark.agents.deepen_agent import _redact_creds
+
+    # 合成假凭证（勿用真实 key 做测试样本——测试文件会进公开仓库）
+    raw = (
+        "Error code: 429 - Your account org-0123456789abcdef0123456789abcdef "
+        "<ak-fakekey0123456789> is suspended; key sk-faketoken0123456789 too"
+    )
+    out = _redact_creds(raw)
+    assert "org-0123456789abcdef0123456789abcdef" not in out
+    assert "ak-fakekey0123456789" not in out
+    assert "sk-faketoken0123456789" not in out
+    assert "[REDACTED-CREDENTIAL]" in out
+
+
+def test_redact_creds_no_false_positive_on_project_url():
+    from codeark.agents.deepen_agent import _redact_creds
+
+    url = "https://www.modelscope.cn/studios/Weike22/coderisk-arcanum"
+    assert _redact_creds(url) == url

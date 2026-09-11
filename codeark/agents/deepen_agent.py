@@ -330,6 +330,15 @@ async def _deepen_one(agent: Agent, data_block: str) -> tuple[AttackChain | None
     return chain2, raw
 
 
+# 凭证标识脱敏：模型/invoke 错误原文可能内嵌供应商账号标识（org-/ak-/sk- 等），
+# 占位链会把 raw 节选写进报告——公开仓库前必须掩码，否则报告本身成为泄露面。
+_CRED_RE = re.compile(r"\b(?:sk|ak|org)-[A-Za-z0-9_]{8,}")
+
+
+def _redact_creds(text: str) -> str:
+    return _CRED_RE.sub("[REDACTED-CREDENTIAL]", text or "")
+
+
 # ── 运行入口（供 Graph 编排调用）──
 async def run_deepen(
     confirmed: list[VerificationResult],
@@ -366,7 +375,7 @@ async def run_deepen(
                 lateral_moves=[],
                 impact=(
                     f"【Deepen 格式解析失败·需人工复核】原假设：{v.hypothesis_title}；"
-                    f"模型原始输出节选：{raw[:400]}"
+                    f"模型原始输出节选：{_redact_creds(raw[:400])}"
                 ),
                 remediation="（自动链推演失败；验证层证据仍然有效，请人工推演攻击链）",
             )

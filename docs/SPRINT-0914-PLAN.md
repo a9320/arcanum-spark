@@ -70,6 +70,23 @@
 
 > 收工线：1-5 + 8。第 8 步失败不阻塞睡觉，明早第一时间看日志定位。
 
+### 今晚执行日志（9/11 深夜，Windows 侧 `.venv-win`）
+
+- ✅ 0.1/0.2：提交保护完成；新建 Windows venv（strands 1.55.1 / openai 3.13.0 / pydantic 2.13.5）；test_e2e.py 路径可移植化（`Path(__file__).parent`）
+- ✅ 任务 1：**发现 `pitax/sanitizer.py` 实为目录扫描器而非 prompt 消毒器**→ 新写 `codeark/graph/quarantine.py` 三层隔离（不可见/Bidi 剥离 + 注入触发词中和 + UNTRUSTED DATA 边界），LLM prompt 用消毒版、工具/Agent0 跑原始版；中间产物（假设/裁决/链 JSON）也再过一遍隔离
+- ✅ 任务 2：四个工具模块加 `make_bound_tool(files)` 闭包工厂（空 schema 无参），Scout/Verify 注册绑定版
+- ✅ 任务 3：Arbiter 重写——解析失败重试 1 次→确定性兜底定稿（CONFIRMED 机械汇总+conclusion 披露，杜绝静默空报告）；render_report 渲染攻击链/结论/隔离统计/节点降级；去重口径 file_path+vuln_type
+- ✅ 任务 4：Deepen 改每链一调 + 严格 JSON 模板 + 括号配平解析器 + 回炉修复 + `ChainList.failures` 降级计数（坏链占位披露，绝不静默 0）
+- ✅ 任务 5：Arbiter 构造链 GLM-5.3 PRO 置顶（异构第二票）
+- ✅ 任务 7：pipeline 节点级容错——任一 LLM 节点失败落确定性降级路径 + `node_errors` 进报告/摘要/summary.json
+- ✅ 确定性测试 39/39 绿（含隔离层 8 项、新解析器、兜底定稿、去重渲染、全节点降级演练）；旧测试裸导入修为 `codeark.` 前缀，repo 根目录 `pytest` 可跑
+- ✅ 任务 8：第三次真实端到端跑完（22:07→22:40，EXIT=0，日志 `reports/e2e_run_0911.log` 129KB 归档）。结果：agent0 12 命中 → Scout 8 假设 → Verify 8/8 CONFIRMED → Deepen 8 链（**仅 1 条真实推演，其余 7 条 Kimi 配额 429 走占位披露**）→ Arbiter 定稿 7 条（2 条 invisible-char 条目按 file+vuln_type 合并）→ **risk_score 24 = 3×critical(4) + 4×high(3)，首次基于定稿 findings 计算（旧版恒 22）**；三格式报告齐 + 攻击链区块 + 隔离统计（9 文件中 5 文件消毒、9 处触发词中和）+ 降级披露全部呈现
+- 🏆 **抗注入实锤（演示素材）**：Scout 对 `[QUARANTINED]` 声明"其存在本身即可疑信号，如实上报未执行"；Arbiter 把 429 错误消息里内嵌的"请充值"指令样文字与疑似密钥标识判定为"数据块内注入证据，只上报不执行"——模型面对注入诱饵全程只当数据
+- 🔴 **P0 阻塞项：Kimi(Moonshot) 账户余额耗尽**（429 insufficient balance），非格式问题。9/12 上午必须解决：Verify/Deepen 切 DeepSeek-V4-Pro 主用（降级链已就位，需真实验证一次工具调用+JSON 质量），Kimi 降备选；保持"≥2 家模型合议"叙事
+- 🔒 **凭证脱敏修复**：占位链的 raw 错误节选曾把供应商 `org-…/<ak-…>` 账号标识带进报告文件（HEAD 干净、仅工作区，已就地清洗）；deepen_agent 加 `_redact_creds`（词边界+8 位起，避免误伤 coderisk-arcanum URL），2 条回归测试入库，41/41 绿
+- ⚠ 验收线复核：`attack_chains ≥ 10` 不达——本输入 CONFIRMED 上限即 8（每链一调），该阈值定高了；实质缺口是 7/8 占位链等 Kimi 恢复后补跑
+- ⏭ 明日顺延：任务 6（severity 打底）；旧 deepen_agent.py.bak-* 系列已忽略不入库
+
 ## 明天（9/12）：P1 —— 让评委问不倒
 
 上午做两个**架构级改造**（行为变化大，放端到端跑通之后；各自带回滚线），下午做度量项。
