@@ -31,7 +31,7 @@ from ..pitax.detectors import (
     is_doc_path,
 )
 
-__all__ = ["pitax_scan", "scan_file", "scan_repo"]
+__all__ = ["pitax_scan", "make_bound_tool", "scan_file", "scan_repo"]
 
 
 # ── 单文件扫描：按路径分流，返回该文件命中的 report_dict 列表 ──
@@ -118,3 +118,32 @@ else:  # pragma: no cover - 无 Strands 时退化为普通函数，保证可单�
     def pitax_scan(files: dict[str, str]) -> list[dict]:
         """PITAX 确定性扫描（无 Strands 环境时退化实现）。"""
         return scan_repo(files)
+
+
+# ── 闭包绑定工具工厂 ──
+# 模型不该、也不能在工具调用参数里重传仓库内容：仓库快照在 prompt 里给一次，
+# 工具在 Agent 构造时闭包绑定。消除"模型把 files 抄进工具参数"的 token 黑洞
+# 与转写失真风险，同时模型无需知道文件路径清单即可取证。
+_BOUND_EMPTY_SCHEMA = {"type": "object", "properties": {}, "required": []}
+
+
+def make_bound_tool(files: dict[str, str]):
+    """构造绑定 files 快照的**无参数** pitax_scan 工具（供 Agent 注册）。"""
+    if _HAS_STRANDS:
+        @_strands_tool(inputSchema=_BOUND_EMPTY_SCHEMA)
+        def pitax_scan() -> list[dict]:  # noqa: F811 - 对模型保持同名，仅去掉参数
+            """对当前审计任务已绑定的仓库文件跑 PITAX 确定性检测（9 条 AI 提示注入/欺骗规则）。
+
+            无需任何参数——文件集已内置于本工具。
+
+            Returns:
+                report_dict 列表；每条含
+                type(pitax_code)/severity/confidence/evidence/file/line/code_snippet/pitax。
+                这是确定性工具，结果可直接作为漏洞证据引用。
+            """
+            return scan_repo(files)
+        return pitax_scan
+
+    def pitax_scan() -> list[dict]:  # pragma: no cover - 无 Strands 退化路径
+        return scan_repo(files)
+    return pitax_scan

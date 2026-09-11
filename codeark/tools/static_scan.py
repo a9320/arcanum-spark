@@ -133,4 +133,29 @@ else:  # pragma: no cover - 无 Strands 时退化为普通函数
         return scan_repo(files)
 
 
-__all__ = ["scan_file", "scan_repo", "static_scan", "_RULES", "_SKIP_SUFFIXES"]
+__all__ = ["scan_file", "scan_repo", "static_scan", "make_bound_tool", "_RULES", "_SKIP_SUFFIXES"]
+
+
+# ── 闭包绑定工具工厂（无参数，文件集内置；理由同 pitax_scan.make_bound_tool）──
+_BOUND_EMPTY_SCHEMA = {"type": "object", "properties": {}, "required": []}
+
+
+def make_bound_tool(files: dict[str, str]):
+    """构造绑定 files 快照的**无参数** static_scan 工具（供 Agent 注册）。"""
+    if _HAS_STRANDS:
+        @_strands_tool(inputSchema=_BOUND_EMPTY_SCHEMA)
+        def static_scan() -> list[dict]:  # noqa: F811 - 对模型保持同名，仅去掉参数
+            """对当前审计任务已绑定的仓库代码文件做启发式静态扫描，找常见漏洞模式。
+
+            无需任何参数——文件集已内置于本工具。
+
+            Returns:
+                findings 列表；每条含 type/severity/confidence/evidence/file/line/code_snippet/rule。
+                这是确定性工具，结果可直接作为漏洞证据引用。
+            """
+            return scan_repo(files)
+        return static_scan
+
+    def static_scan() -> list[dict]:  # pragma: no cover - 无 Strands 退化路径
+        return scan_repo(files)
+    return static_scan

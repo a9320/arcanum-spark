@@ -6,7 +6,7 @@ import json
 import sys
 from pathlib import Path
 
-ROOT = Path("/mnt/d/desk-top/code-risk-arcanum")
+ROOT = Path(__file__).resolve().parent  # 可移植：仓库根 = 本文件所在目录
 sys.path.insert(0, str(ROOT))
 
 from codeark.graph.pipeline import CodeRiskGraph

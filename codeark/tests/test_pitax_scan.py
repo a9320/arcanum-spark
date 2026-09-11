@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-from tools.pitax_scan import scan_repo
+from codeark.tools.pitax_scan import scan_repo
 
 # ── 恶意样本集：每类漏洞一条可命中的真实样例 ──
 SAMPLES: dict[str, str] = {

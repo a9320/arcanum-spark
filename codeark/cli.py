@@ -80,6 +80,17 @@ async def _main(args: argparse.Namespace) -> int:
     print(f"   侦察假设: {len(hyps)}")
     print(f"   验证裁决: {len(result.verifications)} (CONFIRMED={sum(1 for v in result.verifications if getattr(v,'verdict','')=='CONFIRMED')})")
     print(f"   攻击链: {len(result.attack_chains)}")
+    qs = getattr(result, "quarantine_stats", {}) or {}
+    if qs:
+        print(
+            f"   🛡️ Prompt 隔离: {qs.get('files_changed', 0)}/{qs.get('files_total', 0)} 文件被消毒，"
+            f"中和注入触发词 {qs.get('patterns_neutralized', 0)} 处、"
+            f"剥离不可见字符 {qs.get('chars_removed', 0)} 个"
+        )
+    if getattr(result, "deepen_failures", 0):
+        print(f"   ⚠️ 深挖降级: {result.deepen_failures} 条链自动推演失败（已占位披露，需的人工复核）")
+    for node, err in (getattr(result, "node_errors", {}) or {}).items():
+        print(f"   ⚠️ 节点降级 [{node}]: {err}")
 
     # 落盘报告
     out_dir = Path(args.out).resolve()
@@ -117,6 +128,9 @@ async def _main(args: argparse.Namespace) -> int:
             "verifications": len(result.verifications),
             "confirmed": sum(1 for v in result.verifications if getattr(v, "verdict", "") == "CONFIRMED"),
             "attack_chains": len(result.attack_chains),
+            "deepen_failures": getattr(result, "deepen_failures", 0),
+            "quarantine_stats": getattr(result, "quarantine_stats", {}),
+            "node_errors": getattr(result, "node_errors", {}),
             "dry_run": args.dry,
         }, ensure_ascii=False, indent=2),
         encoding="utf-8",

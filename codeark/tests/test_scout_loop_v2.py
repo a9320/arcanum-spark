@@ -16,8 +16,8 @@ import json
 
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))  # 跨环境便携路径(原 WSL 硬编码)
 
-from agents.scout_agent import build_scout_agent, run_scout
-from models.schemas import HypothesisSet
+from codeark.agents.scout_agent import build_scout_agent, run_scout
+from codeark.models.schemas import HypothesisSet
 
 # 真实恶意样例文件
 MALICIOUS_FILES = {

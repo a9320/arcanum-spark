@@ -28,7 +28,7 @@ AMD_BASE = "https://developer.amd.com.cn/radeon/api/v1"
 
 from strands import Agent
 from strands.models import OpenAIModel
-from tools.pitax_scan import pitax_scan
+from codeark.tools.pitax_scan import pitax_scan
 
 # 真实恶意样例文件（含不可见字符 + 注释指令）
 MALICIOUS_FILES = {

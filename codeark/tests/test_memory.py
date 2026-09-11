@@ -15,7 +15,7 @@ import tempfile
 
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))  # 跨环境便携路径(原 WSL 硬编码)
 
-from memory.memory import MemoryService, LocalBackend, DynamoDBBackend, get_memory_service
+from codeark.memory.memory import MemoryService, LocalBackend, DynamoDBBackend, get_memory_service
 
 
 def test_local_record_and_read() -> None:

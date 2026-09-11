@@ -149,4 +149,29 @@ else:  # pragma: no cover
         return scan_repo(files)
 
 
-__all__ = ["scan_repo", "taint_flow"]
+__all__ = ["scan_repo", "taint_flow", "make_bound_tool"]
+
+
+# ── 闭包绑定工具工厂（无参数，文件集内置；理由同 pitax_scan.make_bound_tool）──
+_BOUND_EMPTY_SCHEMA = {"type": "object", "properties": {}, "required": []}
+
+
+def make_bound_tool(files: dict[str, str]):
+    """构造绑定 files 快照的**无参数** taint_flow 工具（供 Agent 注册）。"""
+    if _HAS_STRANDS:
+        @_strands_tool(inputSchema=_BOUND_EMPTY_SCHEMA)
+        def taint_flow() -> list[dict]:  # noqa: F811 - 对模型保持同名，仅去掉参数
+            """对当前审计任务已绑定的仓库代码文件做污点追踪（source→sink）。
+
+            无需任何参数——文件集已内置于本工具。
+
+            Returns:
+                flows 列表；每条含 type/severity/confidence/source/sink/evidence/file/line。
+                这是确定性工具，结果可直接作为漏洞证据引用。
+            """
+            return scan_repo(files)
+        return taint_flow
+
+    def taint_flow() -> list[dict]:  # pragma: no cover - 无 Strands 退化路径
+        return scan_repo(files)
+    return taint_flow

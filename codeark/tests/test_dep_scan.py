@@ -14,7 +14,7 @@ import sys
 
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))  # 跨环境便携路径(原 WSL 硬编码)
 
-from tools.dep_scan import scan_deps, _parse_requirements, _parse_pyproject, _parse_package_json
+from codeark.tools.dep_scan import scan_deps, _parse_requirements, _parse_pyproject, _parse_package_json
 
 
 def test_requirements_hit() -> None:

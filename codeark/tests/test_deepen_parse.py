@@ -12,7 +12,7 @@ import sys
 
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))  # 跨环境便携路径(原 WSL 硬编码)
 
-from agents.deepen_agent import _parse_attack_chains, _parse_markdown_chains
+from codeark.agents.deepen_agent import _parse_attack_chains, _parse_markdown_chains
 
 
 def test_parse_json_array() -> None:

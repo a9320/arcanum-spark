@@ -234,3 +234,29 @@ if _HAS_STRANDS:
 else:  # pragma: no cover
     def dep_scan(files: dict[str, str]) -> list[dict]:
         return scan_deps(files)
+
+
+# ── 闭包绑定工具工厂（无参数，文件集内置；理由同 pitax_scan.make_bound_tool）──
+_BOUND_EMPTY_SCHEMA = {"type": "object", "properties": {}, "required": []}
+
+
+def make_bound_tool(files: dict[str, str]):
+    """构造绑定 files 快照的**无参数** dep_scan 工具（供 Agent 注册）。"""
+    if _HAS_STRANDS:
+        @_strands_tool(inputSchema=_BOUND_EMPTY_SCHEMA)
+        def dep_scan() -> list[dict]:  # noqa: F811 - 对模型保持同名，仅去掉参数
+            """对当前审计任务已绑定的依赖清单做已知漏洞（OSV/内置库）比对。
+
+            无需任何参数——文件集已内置于本工具。
+
+            Returns:
+                findings 列表；每条含 package/version/ecosystem/cwe/description/fix/
+                source/file/severity/confidence/rule。
+                确定性工具，结果可直接作为漏洞证据引用。
+            """
+            return scan_deps(files)
+        return dep_scan
+
+    def dep_scan() -> list[dict]:  # pragma: no cover - 无 Strands 退化路径
+        return scan_deps(files)
+    return dep_scan
