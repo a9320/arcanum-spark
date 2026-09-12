@@ -62,37 +62,37 @@ def _read_repo(repo_dir: Path, limit_kb: int = 512) -> dict[str, str]:
 async def _main(args: argparse.Namespace) -> int:
     repo_dir = Path(args.repo).resolve()
     if not repo_dir.is_dir():
-        print(f"❌ 仓库目录不存在: {repo_dir}")
+        print(f"❌ Repo directory not found: {repo_dir}")
         return 1
 
-    print(f"📂 读取仓库: {repo_dir}")
+    print(f"📂 Reading repo: {repo_dir}")
     files = _read_repo(repo_dir)
-    print(f"   读取 {len(files)} 个代码文件")
+    print(f"   Read {len(files)} code files")
     if not files:
-        print("   未读取到任何代码文件，退出。")
+        print("   No code files read, exiting.")
         return 1
 
-    print(f"{'🧪' if args.dry else '🤖'} 运行 6 节点流水线（{'dry-run' if args.dry else '真实 LLM'}）...")
+    print(f"{'🧪' if args.dry else '🤖'} Running the 6-node pipeline ({'dry-run' if args.dry else 'real LLMs'})...")
     result = await run_pipeline(files, dry=args.dry)
 
     # 打印摘要
-    print(f"\n⚖️  风险分: {result.risk_score}/100")
-    print(f"   agent0 PITAX 命中: {len(result.agent0_findings)}")
+    print(f"\n⚖️  Risk score: {result.risk_score}/100")
+    print(f"   Agent0 PITAX hits: {len(result.agent0_findings)}")
     hyps = getattr(result.hypothesis_set, "hypotheses", [])
-    print(f"   侦察假设: {len(hyps)}")
-    print(f"   验证裁决: {len(result.verifications)} (CONFIRMED={sum(1 for v in result.verifications if getattr(v,'verdict','')=='CONFIRMED')})")
-    print(f"   攻击链: {len(result.attack_chains)}")
+    print(f"   Scout hypotheses: {len(hyps)}")
+    print(f"   Verify verdicts: {len(result.verifications)} (CONFIRMED={sum(1 for v in result.verifications if getattr(v,'verdict','')=='CONFIRMED')})")
+    print(f"   Attack chains: {len(result.attack_chains)}")
     qs = getattr(result, "quarantine_stats", {}) or {}
     if qs:
         print(
-            f"   🛡️ Prompt 隔离: {qs.get('files_changed', 0)}/{qs.get('files_total', 0)} 文件被消毒，"
-            f"中和注入触发词 {qs.get('patterns_neutralized', 0)} 处、"
-            f"剥离不可见字符 {qs.get('chars_removed', 0)} 个"
+            f"   🛡️ Prompt quarantine: {qs.get('files_changed', 0)}/{qs.get('files_total', 0)} files sanitized, "
+            f"{qs.get('patterns_neutralized', 0)} injection trigger phrases neutralized, "
+            f"{qs.get('chars_removed', 0)} invisible characters stripped"
         )
     if getattr(result, "deepen_failures", 0):
-        print(f"   ⚠️ 深挖降级: {result.deepen_failures} 条链自动推演失败（已占位披露，需的人工复核）")
+        print(f"   ⚠️ Deepen degradation: {result.deepen_failures} chains failed auto-derivation (disclosed as placeholders; manual review required)")
     for node, err in (getattr(result, "node_errors", {}) or {}).items():
-        print(f"   ⚠️ 节点降级 [{node}]: {err}")
+        print(f"   ⚠️ Node degradation [{node}]: {err}")
 
     # 落盘报告
     out_dir = Path(args.out).resolve()
@@ -101,7 +101,7 @@ async def _main(args: argparse.Namespace) -> int:
     written: list[Path] = []
     for name in formats:
         if name not in result.reports:
-            print(f"   ⚠️ 未生成格式: {name}")
+            print(f"   ⚠️ Format not produced: {name}")
             continue
         data = result.reports[name]
         if name == "json":
@@ -117,7 +117,7 @@ async def _main(args: argparse.Namespace) -> int:
             continue
         written.append(fp)
 
-    print(f"\n📄 报告已生成（生成≠发布，未发送任何外部渠道）:")
+    print(f"\n📄 Reports written (generation ≠ publication; nothing sent externally):")
     for fp in written:
         print(f"   - {fp} ({fp.stat().st_size} B)")
 
@@ -141,11 +141,11 @@ async def _main(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="CodeRisk Arcana — 6 节点 AI 漏洞扫描流水线")
-    parser.add_argument("repo", help="待扫描的仓库目录")
-    parser.add_argument("--dry", action="store_true", help="离线 dry-run（不调 LLM）")
-    parser.add_argument("--out", default="./reports", help="报告输出目录（默认 ./reports）")
-    parser.add_argument("--formats", default="json,sarif,markdown", help="输出格式，逗号分隔")
+    parser = argparse.ArgumentParser(description="CodeRisk Arcana — 6-agent AI vulnerability scan pipeline")
+    parser.add_argument("repo", help="repository directory to scan")
+    parser.add_argument("--dry", action="store_true", help="offline dry-run (no LLM calls)")
+    parser.add_argument("--out", default="./reports", help="report output directory (default ./reports)")
+    parser.add_argument("--formats", default="json,sarif,markdown", help="output formats, comma-separated")
     args = parser.parse_args()
     return asyncio.run(_main(args))
 

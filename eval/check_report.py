@@ -61,23 +61,23 @@ def check_main(report_path: Path, expected_path: Path) -> int:
         key = (_norm(req["file_path"]), req["vuln_type"])
         sev = fmap.get(key)
         if sev is None:
-            failures.append(f"定稿缺条目: {req['file_path']} [{req['vuln_type']}]")
+            failures.append(f"final finding missing: {req['file_path']} [{req['vuln_type']}]")
         elif _SEV_ORDER.get(sev, 9) > _SEV_ORDER.get(req["min_severity"], 9):
             failures.append(
-                f"定稿降级: {req['file_path']} [{req['vuln_type']}] 底线 {req['min_severity']} 实得 {sev}"
+                f"final downgrade: {req['file_path']} [{req['vuln_type']}] floor {req['min_severity']} got {sev}"
             )
     # 额外条目（Scout 语义增量）：提示不判失败
     expected_keys = {(_norm(r["file_path"]), r["vuln_type"]) for r in expected.get("final_required", [])}
     extras = sorted(k for k in fmap if k not in expected_keys)
     for e in extras:
-        print(f"  [info] 额外定稿条目（语义增量，放行）: {e[0]} [{e[1]}] sev={fmap[e]}")
+        print(f"  [info] extra confirmed finding (semantic increment, allowed): {e[0]} [{e[1]}] sev={fmap[e]}")
 
-    print(f"agent0: {len(agent0)} 命中 / 定稿: {len(findings)} 条")
+    print(f"agent0: {len(agent0)} hits / confirmed: {len(findings)} findings")
     if failures:
         for x in failures:
             print(f"  [FAIL] {x}")
         return 1
-    print("  [PASS] 预期检出全覆盖，无降级")
+    print("  [PASS] all expected detections covered, no severity downgrade")
     return 0
 
 
@@ -86,22 +86,22 @@ def check_clean(report_path: Path) -> int:
     findings = report.get("findings") or []
     if findings:
         for f in findings:
-            print(f"  [FAIL] 干净仓误报: {f.get('file_path') or f.get('file')} "
+            print(f"  [FAIL] clean-repo false positive: {f.get('file_path') or f.get('file')} "
                   f"[{f.get('vuln_type') or f.get('rule') or f.get('type')}]")
         return 1
-    print("  [PASS] 干净仓 FP=0")
+    print("  [PASS] clean repo FP=0")
     return 0
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="确定性 eval 校验器（零 LLM）")
-    ap.add_argument("--report", required=True, help="report.json 路径")
+    ap = argparse.ArgumentParser(description="Deterministic eval checker (zero LLM)")
+    ap.add_argument("--report", required=True, help="path to report.json")
     ap.add_argument("--expected", default=str(Path(__file__).parent / "expected.json"))
-    ap.add_argument("--clean", action="store_true", help="干净仓 FP=0 校验模式")
+    ap.add_argument("--clean", action="store_true", help="clean-repo FP=0 check mode")
     args = ap.parse_args()
     report_path = Path(args.report)
     if not report_path.exists():
-        print(f"[FAIL] 报告不存在: {report_path}")
+        print(f"[FAIL] report not found: {report_path}")
         return 1
     if args.clean:
         return check_clean(report_path)
