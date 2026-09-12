@@ -20,3 +20,6 @@ reports/verify_clean/
 reports/dry_eval/
 reports/dry_clean/
 _internal-backup/
+
+# 创空间 LFS hook 拒绝 zip 大对象：快照产物一律仓库外保存
+*.zip
