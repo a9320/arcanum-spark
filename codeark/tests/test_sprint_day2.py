@@ -87,11 +87,11 @@ class _FakeResult:
 
 
 class FakeAgent:
-    """structured_output 缺失 → 走文本 JSON 截取回退路径；可注入异常。"""
+    """structured_output 缺失 → 走文本 JSON 截取回退路径；前 fail_times 次调用抛异常。"""
 
-    def __init__(self, payloads=None, exc_at=None):
+    def __init__(self, payloads=None, fail_times=0):
         self.payloads = payloads or []
-        self.exc_at = exc_at
+        self.fail_times = fail_times
         self.calls: list[str] = []
         self._i = 0
 
@@ -99,7 +99,7 @@ class FakeAgent:
         self.calls.append(prompt)
         i = self._i
         self._i += 1
-        if self.exc_at is not None and i == self.exc_at:
+        if i < self.fail_times or not self.payloads:
             raise RuntimeError("boom")
         payload = self.payloads[min(i, len(self.payloads) - 1)]
         return _FakeResult(payload)
@@ -136,6 +136,22 @@ def test_run_verify_split_id_alignment_and_order(monkeypatch):
     assert "<hypothesis-H2.json>" in fake.calls[1]
 
 
+def test_run_verify_split_invoke_retry_recovers(monkeypatch):
+    import codeark.agents.verify_agent as va
+
+    files = {"src/a.py": "x = 1\n"}
+    hs = _mk_hyps()
+    hs.hypotheses = hs.hypotheses[:1]
+    assign_hypothesis_ids(hs)
+
+    fake = FakeAgent(payloads=[_verdict_json("CONFIRMED")], fail_times=1)
+    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files: fake)
+    results = _run(run_verify_split, hs, files)
+    assert len(results) == 1
+    assert results[0].verdict == "CONFIRMED"     # 第 1 次失败，重试恢复
+    assert len(fake.calls) == 2
+
+
 def test_run_verify_split_invoke_failure_degrades(monkeypatch):
     import codeark.agents.verify_agent as va
 
@@ -144,12 +160,14 @@ def test_run_verify_split_invoke_failure_degrades(monkeypatch):
     hs.hypotheses = hs.hypotheses[:1]
     assign_hypothesis_ids(hs)
 
-    fake = FakeAgent(exc_at=0)
+    fake = FakeAgent(fail_times=99)              # 重试后仍失败 → 降级
     monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files: fake)
     results = _run(run_verify_split, hs, files)
     assert len(results) == 1
     assert results[0].verdict == "UNCERTAIN"
     assert "降级" in results[0].evidence and "boom" in results[0].evidence
+    assert "重试" in results[0].evidence
+    assert len(fake.calls) == 2                  # 恰好 1 次重试
 
 
 def _run(coro_fn, *args, **kwargs):

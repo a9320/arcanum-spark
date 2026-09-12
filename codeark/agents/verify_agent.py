@@ -207,19 +207,30 @@ def build_verify_one_agent(
 async def _verify_one(
     agent: Agent, hyp: "VulnHypothesisLike", data_block: str
 ) -> VerificationResult:
-    """单假设裁决：永不抛异常，最坏返回 UNCERTAIN 降级（含 invoke 错误原文）。"""
-    try:
-        result = await agent.invoke_async(
-            "请对数据块中的唯一假设做出裁决（CONFIRMED/REFUTED/UNCERTAIN），"
-            "输出单个 VerificationResult。\n" + data_block
-        )
-    except Exception as exc:
+    """单假设裁决：失败退避重试一次，仍失败 UNCERTAIN 降级——绝不抛异常。"""
+    import asyncio as _aio
+
+    result = None
+    last_exc: Exception | None = None
+    for attempt in range(2):  # 503/瞬时故障退避重试一次
+        try:
+            result = await agent.invoke_async(
+                "请对数据块中的唯一假设做出裁决（CONFIRMED/REFUTED/UNCERTAIN），"
+                "输出单个 VerificationResult。\n" + data_block
+            )
+            last_exc = None
+            break
+        except Exception as exc:
+            last_exc = exc
+            if attempt == 0:
+                await _aio.sleep(5)
+    if result is None:
         return VerificationResult(
             hypothesis_id=getattr(hyp, "id", ""),
             hypothesis_title=getattr(hyp, "title", ""),
             verdict="UNCERTAIN",
             confidence=0.3,
-            evidence=f"[verify invoke 失败，降级人工复核] {exc}",
+            evidence=f"[verify invoke 失败（含 1 次重试），降级人工复核] {last_exc}",
             verification_method="none(degraded)",
         )
     out = getattr(result, "structured_output", None)
@@ -278,15 +289,17 @@ async def run_verify_split(
     files: dict[str, str],
     model: OpenAIModel | None = None,
     prompt_files: dict[str, str] | None = None,
-    inter_call_delay: float = 0.5,
-    max_concurrency: int = 2,
+    inter_call_delay: float = 1.0,
+    max_concurrency: int = 1,
 ) -> list[VerificationResult]:
     """每条假设独立小调用裁决（REFUTED 空间 + id 结构化对齐）。
 
     工具结果由 pipeline **确定性预跑**并按假设文件过滤后内嵌进各自 prompt——
     模型拿到的证据是工具真跑的原文，只是不用它再全仓扫一遍。
-    max_concurrency 并发 + inter_call_delay 起步间隔（免费额度礼貌值）。
-    单条失败降级 UNCERTAIN，绝不拖垮整批。
+    max_concurrency 默认 1：**AMD 免费档实测不支持并发调用**
+    （2026-09-12 e2e：并发 2 → 8/8 条 503 no_available_workers/"并发调用不支持"）；
+    顺序 + inter_call_delay 是唯一稳定档位。单条失败重试一次后降级 UNCERTAIN，
+    绝不拖垮整批。
     """
     import asyncio
 
