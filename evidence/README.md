@@ -7,6 +7,7 @@
 | 文件 | 内容 | 生成方式 |
 |---|---|---|
 | `e2e_report.json` / `.markdown` / `.sarif` | 第三次真实端到端（2026-09-11）定稿报告：7 条 findings、8 条攻击链、隔离统计、降级披露 | `python test_e2e.py`（真实 LLM，约 30 分钟） |
+| `e2e_report_EN.md` | 上报告的英文对照版（供国际评委阅读；中文原稿为准） | 人工忠实翻译自 `e2e_report.markdown` |
 | `anti-injection-quotes-0911.md` | 模型面对注入诱饵"只当数据、如实上报"的日志原话摘录（含行号） | 摘自 `reports/e2e_run_0911.log` |
 | `verify-run.md` | 一键验证 4/4 通过输出：测试套件、dry 秒扫、eval 回归校验、干净仓 FP=0 | `bash verify.sh` |
 
