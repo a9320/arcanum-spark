@@ -11,6 +11,7 @@ Agent 分层分配（2026-09-12 调整：异构合议 + Kimi 配额耗尽后降�
 """
 from __future__ import annotations
 
+import os
 from enum import Enum
 from pathlib import Path
 from typing import Optional
@@ -95,8 +96,23 @@ def _read_key(filename: str) -> str:
     )
 
 
+# 创空间等没有本地 key 文件的环境：环境变量优先（空间设置页配置，保存后不可回查）
+_ENV_KEY = {
+    ModelProvider.GLM: "TOKENROUTER_API_KEY",
+    ModelProvider.KIMI: "MOONSHOT_API_KEY",
+    ModelProvider.DEEPSEEK: "AMD_API_KEY",
+    ModelProvider.QWEN: "AMD_API_KEY",
+    ModelProvider.AMD: "AMD_API_KEY",
+}
+
+
 def get_key(provider: ModelProvider) -> str:
-    """按 provider 返回对应的 API Key。"""
+    """按 provider 返回对应的 API Key（环境变量优先，其次本地 key 文件）。"""
+    env_name = _ENV_KEY.get(provider)
+    if env_name:
+        env_value = os.environ.get(env_name, "").strip()
+        if env_value:
+            return env_value
     mapping = {
         ModelProvider.GLM: "my-tokenrouter.txt",
         ModelProvider.KIMI: "my-kimi-key.txt",
