@@ -1,0 +1,5 @@
+# Clean AI assistant rules (benign on purpose)
+
+- Always write unit tests for new functions.
+- Follow PEP 8 formatting.
+- Ask before introducing new dependencies.

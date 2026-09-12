@@ -19,13 +19,36 @@ __all__ = [
     "AttackChain",
     "FinalReport",
     "AgentHandoff",
+    "assign_hypothesis_ids",
+    "confidence_to_float",
 ]
+
+
+# ── confidence 枚举↔float 转换规则（写死，消费方一律走这里，禁止各写各的）──
+_CONFEnum_TO_FLOAT = {"high": 0.9, "medium": 0.6, "low": 0.3}
+
+
+def confidence_to_float(value: "str | float | int") -> float:
+    """high/medium/low 枚举或数值 → [0,1] float。
+
+    枚举口径：high=0.9 / medium=0.6 / low=0.3；数值直接夹到 [0,1]。
+    """
+    if isinstance(value, str):
+        v = _CONFEnum_TO_FLOAT.get(value.strip().lower())
+        if v is None:
+            raise ValueError(f"未知 confidence 枚举: {value!r}")
+        return v
+    f = float(value)
+    return max(0.0, min(1.0, f))
 
 
 # ────────────────────────── Agent A 输出 ──────────────────────────
 class VulnHypothesis(BaseModel):
     """侦察 Agent 提出的单条漏洞假设（尚未验证，仅候选）。"""
 
+    id: str = Field(
+        default="", description="假设 ID（H1/H2/...，由 pipeline 确定性分配，验证按 id 对齐）"
+    )
     title: str = Field(description="假设的简要标题")
     vuln_type: str = Field(
         description="漏洞类型，如 SQL_INJECTION / COMMAND_INJECTION / PATH_TRAVERSAL"
@@ -58,11 +81,22 @@ class HypothesisSet(BaseModel):
 class VerificationResult(BaseModel):
     """验证 Agent 对单条假设的裁决结果。"""
 
+    hypothesis_id: str = Field(
+        default="", description="对应 VulnHypothesis.id（结构化对齐，替代 title 字符串匹配）"
+    )
     hypothesis_title: str
     verdict: Literal["CONFIRMED", "REFUTED", "UNCERTAIN"]
     confidence: float = Field(ge=0.0, le=1.0)
     evidence: str = Field(description="工具验证证据原文")
     verification_method: str = Field(description="实际使用的验证方法")
+
+
+# ── id 对齐（确定性，替代 title 字符串匹配）──
+def assign_hypothesis_ids(hypothesis_set: "HypothesisSet") -> None:
+    """就地给假设集编号 H1..Hn（按列表顺序，幂等：已有 id 不覆盖）。"""
+    for i, h in enumerate(getattr(hypothesis_set, "hypotheses", []) or [], start=1):
+        if not getattr(h, "id", ""):
+            h.id = f"H{i}"
 
 
 class VerificationSet(BaseModel):
@@ -72,7 +106,7 @@ class VerificationSet(BaseModel):
         default_factory=list, description="全部假设的验证裁决"
     )
     summary: str = Field(
-        default_factory="", description="验证阶段总结：哪些确认/证伪/待复核，及共性原因"
+        default="", description="验证阶段总结：哪些确认/证伪/待复核，及共性原因"
     )
 
 
@@ -80,6 +114,7 @@ class VerificationSet(BaseModel):
 class AttackChain(BaseModel):
     """深挖 Agent 对 confirmed 漏洞的攻击链推演。"""
 
+    title: str = Field(default="", description="攻击链标题（缺省由渲染层补'攻击链 N'）")
     preconditions: list[str] = Field(default_factory=list)
     lateral_moves: list[str] = Field(default_factory=list)
     impact: str
@@ -110,7 +145,7 @@ class FinalReport(BaseModel):
         default_factory=list, description="CONFIRMED 且攻击链完整的漏洞条目"
     )
     conclusion: str = Field(
-        default_factory="", description="整体结论：风险概况、主要威胁、建议"
+        default="", description="整体结论：风险概况、主要威胁、建议"
     )
 
 

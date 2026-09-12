@@ -21,7 +21,7 @@ def _fake_scout_result(_files, _model=None, prompt_files=None):
 
 async def test_all_llm_nodes_down_pipeline_survives(monkeypatch):
     monkeypatch.setattr(pl, "run_scout", _boom)
-    monkeypatch.setattr(pl, "run_verify", _boom)
+    monkeypatch.setattr(pl, "run_verify_split", _boom)
     monkeypatch.setattr(pl, "run_deepen", _boom)
     monkeypatch.setattr(pl, "run_arbiter", _boom)
 
@@ -40,10 +40,10 @@ async def test_all_llm_nodes_down_pipeline_survives(monkeypatch):
 
 
 async def test_partial_degrade_only_verify(monkeypatch):
-    async def ok_scout(files, model=None, prompt_files=None):
+    async def ok_scout(files, model=None, prompt_files=None, agent0_findings=None):
         return _fake_scout_result(files)
     monkeypatch.setattr(pl, "run_scout", ok_scout)
-    monkeypatch.setattr(pl, "run_verify", _boom)
+    monkeypatch.setattr(pl, "run_verify_split", _boom)
     monkeypatch.setattr(pl, "run_deepen", _boom)
     monkeypatch.setattr(pl, "run_arbiter", _boom)
 

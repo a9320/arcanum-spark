@@ -3,7 +3,7 @@
 6 节点架构第 5 节点（Agent C 验证之后，裁判官之前）。
 - 输入：Agent C 的 VerificationResult（仅处理 CONFIRMED 条目）
 - 输出：AttackChain 列表（preconditions / lateral_moves / impact / remediation）
-- 模型：Kimi-K3（主力）；GLM-5.3（备选）；DeepSeek-V4-Pro（fallback）
+- 模型：DeepSeek-V4-Flash（主力，AMD 免费）；Kimi-K3（备选，余额耗尽降级）；GLM-5.3（再备选）
 
 治本改造（§11-I/J，2026-09-11）：
 - **每条 CONFIRMED 单独一次调用**（此前 12 条挤一次调用，长输出格式漂移 → 0 链）；
@@ -185,7 +185,7 @@ DEEPEN_SYSTEM_PROMPT = """\
 def build_deepen_agent(model: OpenAIModel | None = None) -> Agent:
     """构造深挖 Agent：无独立工具（依赖传入的证据，推理为主）。
 
-    默认模型：Kimi-K3（强推理）。GLM-5.3 可作为备选。
+    默认模型：DeepSeek-V4-Flash（强推理 + 严格 JSON）。Kimi-K3 备选。
     """
     return Agent(
         name="deepen_agent",
@@ -196,12 +196,12 @@ def build_deepen_agent(model: OpenAIModel | None = None) -> Agent:
 
 
 def _make_model_fallback() -> OpenAIModel:
-    """按优先级尝试构造模型。"""
+    """按优先级尝试构造模型（2026-09-12：DeepSeek 主力，Kimi 因余额耗尽降备选）。"""
     attempts = [
+        ("DeepSeek-V4-Flash", lambda: make_model(ModelProvider.DEEPSEEK, ModelTier.PRO)),
         ("Kimi-K3", lambda: make_model(ModelProvider.KIMI, ModelTier.PRO)),
         ("GLM-5.3", lambda: make_model(ModelProvider.GLM, ModelTier.PRO)),
-        ("DeepSeek-V4-Pro", lambda: make_model(ModelProvider.DEEPSEEK, ModelTier.PRO)),
-        ("DeepSeek-V4-Flash", lambda: make_model(ModelProvider.DEEPSEEK, ModelTier.FLASH)),
+        ("Qwen-3.8-Flash-Next", lambda: make_model(ModelProvider.QWEN, ModelTier.FLASH)),
     ]
     for name, fn in attempts:
         try:

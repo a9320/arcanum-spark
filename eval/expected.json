@@ -1,0 +1,28 @@
+{
+  "description": "CodeRisk Arcanum 私有回归集（蓝图 §8 预期检出表，demo/vuln-demo-repo）。校验脚本 eval/check_report.py 确定性比对，不调 LLM。",
+  "agent0_required": [
+    {"file_path": ".cursor/rules", "rule": "PIT-T-46", "count": 4, "severity": "critical", "why": "AI 规则文件指令覆盖+角色劫持+安全旁路（4 处触发词，CVE-2025-53773 模式）"},
+    {"file_path": ".github/copilot-instructions.md", "rule": "PIT-T-46", "count": 2, "severity": "critical", "why": "Copilot 上下文文件指令覆盖+禁用安全准则"},
+    {"file_path": "docs/AGENT_GUIDE.md", "rule": "PIT-N-06", "count": 1, "severity": "high", "why": "文档投毒：诱导上传 .env 到外传端点"},
+    {"file_path": "src/admin_panel.py", "rule": "PIT-E-54", "count": 1, "severity": "high", "why": "Trojan Source 双向控制符视觉欺骗（CVE-2021-42574）"},
+    {"file_path": "src/config.py", "rule": "PIT-E-57", "count": 1, "severity": "critical", "why": "双层 base64 编码注入载荷伪装硬编码秘密"},
+    {"file_path": "src/rewards.py", "rule": "PIT-E-23", "count": 2, "severity": "high", "why": "不可见字符走私：U+200B 零宽空格 + U+E0041 Tag 字符"},
+    {"file_path": "src/rewards.py", "rule": "PIT-T-51", "count": 1, "severity": "high", "why": "注释伪装 system: 消息诱导泄露系统提示"}
+  ],
+  "final_required": [
+    {"file_path": ".cursor/rules", "vuln_type": "PIT-T-46", "min_severity": "critical"},
+    {"file_path": ".github/copilot-instructions.md", "vuln_type": "PIT-T-46", "min_severity": "critical"},
+    {"file_path": "docs/AGENT_GUIDE.md", "vuln_type": "PIT-N-06", "min_severity": "high"},
+    {"file_path": "src/admin_panel.py", "vuln_type": "PIT-E-54", "min_severity": "high"},
+    {"file_path": "src/config.py", "vuln_type": "PIT-E-57", "min_severity": "critical"},
+    {"file_path": "src/rewards.py", "vuln_type": "PIT-E-23", "min_severity": "high"},
+    {"file_path": "src/rewards.py", "vuln_type": "PIT-T-51", "min_severity": "high"}
+  ],
+  "notes": {
+    "agent0_total": 12,
+    "final_total_min": 7,
+    "dedup_note": "同 (file_path, vuln_type) 合并后最终条目 7 条；Scout 语义增量可能产出额外 findings（extra 仅提示不判失败）",
+    "clean_repo": "demo/clean-repo 全 5 文件对 pitax/static/dep 均 0 命中；FP 检查用 --clean-report 传入该仓的报告（应 0 findings）",
+    "severity_floor": "min_severity 为规则底线（§11-H）：LLM 只能带证据升级，report.json 出现更低级别即判失败"
+  }
+}

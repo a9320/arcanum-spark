@@ -19,10 +19,10 @@ from typing import Any, Callable
 
 from codeark.agents.agent0_pitax import run_agent0
 from codeark.agents.scout_agent import run_scout
-from codeark.agents.verify_agent import run_verify
+from codeark.agents.verify_agent import run_verify_split
 from codeark.agents.deepen_agent import run_deepen
 from codeark.agents.arbiter_agent import run_arbiter
-from codeark.agents.report_agent import render_report
+from codeark.agents.report_agent import render_report, apply_severity_floor
 from codeark.graph.quarantine import quarantine_files
 
 __all__ = [
@@ -75,6 +75,8 @@ class GraphResult:
         self.deepen_failures: int = 0
         # 节点级故障披露（invoke 级容错：失败节点降级为确定性路径并记录）
         self.node_errors: dict[str, str] = {}
+        # severity 确定性打底（§11-H）：LLM 试图降级规则级别时被抬回的条数
+        self.severity_floor_upgraded: int = 0
 
     def to_dict(self) -> dict:
         def _dump(x: Any) -> Any:
@@ -95,6 +97,7 @@ class GraphResult:
             "quarantine_stats": self.quarantine_stats,
             "deepen_failures": self.deepen_failures,
             "node_errors": self.node_errors,
+            "severity_floor_upgraded": self.severity_floor_upgraded,
         }
 
 
@@ -137,6 +140,7 @@ class CodeRiskGraph:
         out = []
         for h in hypothesis_set.hypotheses:
             out.append(VerificationResult(
+                hypothesis_id=getattr(h, "id", ""),
                 hypothesis_title=h.title,
                 verdict="CONFIRMED",
                 confidence=0.9,
@@ -167,25 +171,30 @@ class CodeRiskGraph:
         if not self.dry:
             safe_files, res.quarantine_stats = quarantine_files(files)
 
-        # 2. 侦察：提出漏洞假设（失败 → 降级为规则基线假设，不中断流水线）
+        # 2. 侦察：基线之外的**语义增量**发现（失败 → 降级为规则基线假设，不中断流水线）
         if self.dry:
             res.hypothesis_set = self._dry_scout(files, res.agent0_findings)
         else:
             try:
                 res.hypothesis_set = await run_scout(
-                    files, self.model, prompt_files=safe_files
+                    files, self.model, prompt_files=safe_files,
+                    agent0_findings=res.agent0_findings,
                 )
             except Exception as exc:
                 res.node_errors["scout"] = f"{type(exc).__name__}: {exc}"
                 print(f"[Pipeline] ⚠ Scout 失败，降级为规则基线假设: {exc}")
                 res.hypothesis_set = self._dry_scout(files, res.agent0_findings)
+        # 假设编号 H1..Hn（确定性，验证/报告按 id 结构化对齐，替代 title 字符串匹配）
+        from codeark.models.schemas import assign_hypothesis_ids
+        assign_hypothesis_ids(res.hypothesis_set)
 
-        # 3. 验证：逐条证实/证伪（失败 → 降级为规则证实口径）
+        # 3. 验证：**逐假设拆分**裁决（每条独立小调用，REFUTED/UNCERTAIN 有出现空间；
+        #    失败 → 降级为规则证实口径）
         if self.dry:
             res.verifications = self._dry_verify(res.hypothesis_set)
         else:
             try:
-                res.verifications = await run_verify(
+                res.verifications = await run_verify_split(
                     res.hypothesis_set, files, self.model, prompt_files=safe_files
                 )
             except Exception as exc:
@@ -230,8 +239,16 @@ class CodeRiskGraph:
                     reason=f"arbiter 异常 {type(exc).__name__}: {exc}",
                 )
 
+        # 5.5 severity 确定性打底（§11-H）：规则级别是底线，LLM 只能带证据升级
+        res.severity_floor_upgraded = apply_severity_floor(
+            res.final_report, res.agent0_findings
+        )
+        if res.severity_floor_upgraded:
+            print(f"[Pipeline] severity 打底: {res.severity_floor_upgraded} 条被 LLM 降级，已抬回规则底线")
+
         # 6. 报告：确定性渲染（JSON/SARIF/Markdown），生成≠发布
         # 攻击链与隔离层统计一并进报告（§11：链曾只存不渲）
+        # meta 同时携带 agent0 基线摘要（eval/check_report.py 的确定性校验输入）
         res.reports = render_report(
             res.final_report,
             ["json", "sarif", "markdown"],
@@ -240,6 +257,8 @@ class CodeRiskGraph:
                 "quarantine_stats": res.quarantine_stats,
                 "deepen_failures": res.deepen_failures,
                 "node_errors": res.node_errors,
+                "severity_floor_upgraded": res.severity_floor_upgraded,
+                "agent0_findings": res.agent0_findings,
             },
         )
 

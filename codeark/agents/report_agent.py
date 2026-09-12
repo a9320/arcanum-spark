@@ -24,6 +24,7 @@ __all__ = [
     "build_markdown",
     "render_report",
     "dedup_findings",
+    "apply_severity_floor",
 ]
 
 
@@ -37,6 +38,45 @@ def _f(f: Any, key: str, default: Any = "") -> Any:
     if isinstance(f, dict):
         return f.get(key, default)
     return getattr(f, key, default)
+
+
+def _path_key(p: Any) -> str:
+    return str(p or "").replace("\\", "/").strip().lower()
+
+
+def apply_severity_floor(final_report: object, agent0_findings: list[dict] | None) -> int:
+    """§11-H severity 确定性打底：PITAX 规则默认级别是底线。
+
+    LLM（Verify/Arbiter）只能**带证据升级**，不可降级、不可凭空造级。
+    匹配口径：(file_path 归一化, vuln_type=PITAX 规则码)。返回被升级的条数。
+    """
+    floor: dict[tuple[str, str], str] = {}
+    for a in agent0_findings or []:
+        file_key = _path_key(_f(a, "file") or _f(a, "file_path"))
+        rule = str(_f(a, "rule") or _f(a, "type") or _f(a, "vuln_type") or "").strip()
+        sev = str(_f(a, "severity") or "").lower()
+        if not file_key or not rule or sev not in _SEV_ORDER:
+            continue
+        key = (file_key, rule)
+        if key not in floor or _SEV_ORDER[sev] < _SEV_ORDER[floor[key]]:
+            floor[key] = sev
+
+    upgraded = 0
+    for f in getattr(final_report, "findings", None) or []:
+        cur = str(_f(f, "severity") or "low").lower()
+        file_key = _path_key(_f(f, "file_path") or _f(f, "file"))
+        rule = str(_f(f, "vuln_type") or "").strip()
+        base = floor.get((file_key, rule))
+        if base and _SEV_ORDER.get(cur, 9) > _SEV_ORDER[base]:
+            if isinstance(f, dict):
+                f["severity"] = base
+            else:
+                try:
+                    f.severity = base
+                except Exception:
+                    continue
+            upgraded += 1
+    return upgraded
 
 
 def dedup_findings(findings: list[dict]) -> list[dict]:
@@ -166,7 +206,8 @@ def build_markdown(
     if attack_chains:
         lines += ["## 攻击链推演（Deepen）", ""]
         for i, c in enumerate(attack_chains, start=1):
-            lines.append(f"### 攻击链 {i}")
+            ctitle = str(_f(c, "title") or "").strip()
+            lines.append(f"### 攻击链 {i}" + (f"：{ctitle}" if ctitle else ""))
             pre = _f(c, "preconditions", []) or []
             lat = _f(c, "lateral_moves", []) or []
             if pre:

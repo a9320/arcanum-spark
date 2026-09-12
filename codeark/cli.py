@@ -44,7 +44,9 @@ def _read_repo(repo_dir: Path, limit_kb: int = 512) -> dict[str, str]:
         rel = str(p.relative_to(repo_dir)).replace("\\", "/")
         if any(part in _SKIP_DIRS for part in p.parts):
             continue
-        if p.suffix.lower() not in _SOURCE_EXTS:
+        # 无扩展名文件（如 .cursor/rules）是 AI 助手加载的高危注入面，必须纳入扫描；
+        # 二进制基本都有扩展名，且下方 utf-8+strip 兜底可再滤一层
+        if p.suffix and p.suffix.lower() not in _SOURCE_EXTS:
             continue
         try:
             if p.stat().st_size > limit_kb * 1024:

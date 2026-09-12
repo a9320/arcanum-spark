@@ -1,11 +1,11 @@
 """统一模型工厂 — 支持 GLM / Kimi / DeepSeek / Qwen（AMD Radeon Cloud 路由）。
 
-Agent 分层分配（Weike 定稿 2026-09-09）：
-- Scout (1):  GLM-5.2（商汤 SenseNova，Flash 档）
-- Verify (2): Kimi-K3（主判）
-- Deepen (3): Kimi-K3（主力）
-- Arbiter (4): Kimi-K3（最终裁决）
-- Fallback:  DeepSeek-V4-Flash / Qwen-3.8-Flash-Next（AMD Radeon Cloud 免费兜底）
+Agent 分层分配（2026-09-12 调整：异构合议 + Kimi 配额耗尽后降级 + AMD 目录实测修正）：
+- Scout (1):   GLM-5.3（TokenRouter 免费档；docstring 曾写 5.2，实际 model_id 早已是 5.3）
+- Verify (2):  DeepSeek-V4-Flash（主判，AMD 免费；AMD 目录无 V4-Pro，models.list 实测）
+- Deepen (3):  DeepSeek-V4-Flash（主力）
+- Arbiter (4): GLM-5.3（§11-G：与 Scout 同源、与 Verify/Deepen 异构的去相关第二票）
+- Fallback:    Kimi-K3（余额耗尽，充值后恢复备选）/ GLM / Qwen-3.8-Flash-Next
 
 架构：保留 OpenAIModel（Strands SDK），通过 base_url/model_id 路由到不同 provider。
 """
@@ -30,7 +30,7 @@ __all__ = [
 
 class ModelProvider(str, Enum):
     """支持的 API provider。"""
-    GLM = "glm"           # 商汤 SenseNova（GLM-5.2）
+    GLM = "glm"           # TokenRouter（GLM-5.3，OpenAI 兼容）
     KIMI = "kimi"         # Moonshot Kimi-K3
     DEEPSEEK = "deepseek" # AMD Radeon Cloud (DeepSeek-V4-Flash)
     QWEN = "qwen"         # AMD Radeon Cloud (Qwen-3.8-Flash-Next)
@@ -132,14 +132,14 @@ _MODEL_MAP: dict[tuple[ModelProvider, ModelTier], dict[str, str]] = {
         "base_url": "https://api.moonshot.cn/v1",
         "timeout": 180.0,
     },
-    # DeepSeek-V4-Flash（AMD Radeon Cloud）
+    # DeepSeek 系列（AMD Radeon Cloud；实测目录仅 Flash 档，V4-Pro 不存在——2026-09-12 models.list 验证）
     (ModelProvider.DEEPSEEK, ModelTier.FLASH): {
         "model_id": "DeepSeek-V4-Flash",
         "base_url": "https://developer.amd.com.cn/radeon/api/v1",
         "timeout": 180.0,
     },
     (ModelProvider.DEEPSEEK, ModelTier.PRO): {
-        "model_id": "DeepSeek-V4-Pro",
+        "model_id": "DeepSeek-V4-Flash",  # AMD 最强 DeepSeek 即 Flash；PRO 语义=验证/深挖主判档
         "base_url": "https://developer.amd.com.cn/radeon/api/v1",
         "timeout": 300.0,
     },
