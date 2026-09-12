@@ -12,7 +12,7 @@
 | 公开代码仓（完整源码+安装说明） | github.com/a9320/code-risk-arcanum 匿名可访问（200） | ✅ 本地 8+ 提交待推送（e2e 收口后统一推） |
 | MIT 或 Apache 许可证，且 GitHub About 可见 | 根目录 LICENSE = MIT | ✅ 提交前确认 GitHub About 侧栏显示 "MIT license" |
 | README | 已含 6 节点流水线快速开始 + verify.sh | ✅ |
-| 架构图 | docs/architecture-6node.png / .svg | ✅ |
+| 架构图 | docs/architecture-6node.png | ✅ |
 | 演示视频 ≤5 分钟、公开链接（YouTube/Vimeo）、覆盖三问 | 脚本 2-3 分钟；**需英文口播或英文字幕**；`docs/DEMO-SCRIPT.md` 已加英文口播段 | ⬜ 你录（9/13） |
 | 文本描述（英文） | `docs/DEVPOST-DESCRIPTION-EN.md` 草稿 | ⬜ 你粘贴进 Devpost |
 | AWS Builder ID | — | ⬜ 你注册/提供 |
