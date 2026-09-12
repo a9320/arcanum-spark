@@ -289,15 +289,21 @@ class ChainList(list):
     failures: int = 0
 
 
-async def _deepen_one(agent: Agent, data_block: str) -> tuple[AttackChain | None, str]:
+async def _deepen_one(
+    agent: Agent, data_block: str, per_invoke_timeout: float = 360.0
+) -> tuple[AttackChain | None, str]:
     """对单条 CONFIRMED 推演一链：调用 → 严格解析 → 失败回炉修复一次。
 
+    硬看门狗 wait_for 兜底供应商挂起（客户端 timeout 实测可能不触发）。
     返回 (chain|None, 原始文本)。绝不抛异常——最坏返回 None 由调用方降级。
     """
     try:
-        result = await agent.invoke_async(
-            "请对数据块中的 CONFIRMED 漏洞推演攻击链，严格按系统提示的 JSON 模板输出"
-            "单个 JSON 对象。\n" + data_block
+        result = await asyncio.wait_for(
+            agent.invoke_async(
+                "请对数据块中的 CONFIRMED 漏洞推演攻击链，严格按系统提示的 JSON 模板输出"
+                "单个 JSON 对象。\n" + data_block
+            ),
+            timeout=per_invoke_timeout,
         )
     except Exception as exc:
         return None, f"[invoke error] {exc}"
@@ -314,12 +320,15 @@ async def _deepen_one(agent: Agent, data_block: str) -> tuple[AttackChain | None
         return chain, raw
     # 一次性回炉：让模型把自己的输出改写成严格 JSON（只转格式，不改内容）
     try:
-        fix = await agent.invoke_async(
-            "请把下面这段攻击链分析改写成严格 JSON 对象。只转格式，不得增删内容，"
-            "不要代码围栏与任何解释。字段必须是：\n"
-            '{"preconditions": ["..."], "lateral_moves": ["..."], '
-            '"impact": "...", "remediation": "..."}\n\n'
-            "原始分析：\n" + raw[:6000]
+        fix = await asyncio.wait_for(
+            agent.invoke_async(
+                "请把下面这段攻击链分析改写成严格 JSON 对象。只转格式，不得增删内容，"
+                "不要代码围栏与任何解释。字段必须是：\n"
+                '{"preconditions": ["..."], "lateral_moves": ["..."], '
+                '"impact": "...", "remediation": "..."}\n\n'
+                "原始分析：\n" + raw[:6000]
+            ),
+            timeout=per_invoke_timeout,
         )
     except Exception as exc:
         return None, raw + f"\n[repair invoke error] {exc}"

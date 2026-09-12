@@ -32,6 +32,9 @@ __all__ = [
 
 
 # ── 返回归一化：兼容模型返回单条 / 列表 / 包装对象 ──
+_VERIFY_RETRY_BACKOFF = 5.0  # 单假设调用失败后的退避秒数（模块级常量，单测可monkeypatch）
+
+
 def _normalize_verifications(out: object) -> list[VerificationResult]:
     """把模型的 structured_output 归一化为 VerificationResult 列表。"""
     if out is None:
@@ -205,32 +208,41 @@ def build_verify_one_agent(
 
 
 async def _verify_one(
-    agent: Agent, hyp: "VulnHypothesisLike", data_block: str
+    agent: Agent, hyp: "VulnHypothesisLike", data_block: str,
+    per_invoke_timeout: float = 360.0,
 ) -> VerificationResult:
-    """单假设裁决：失败退避重试一次，仍失败 UNCERTAIN 降级——绝不抛异常。"""
+    """单假设裁决：硬看门狗超时 + 失败退避重试一次，仍失败 UNCERTAIN 降级——绝不抛异常、绝不挂死。
+
+    per_invoke_timeout 必须存在：2026-09-12 e2e 实测某免费端点会无限挂起且
+    客户端 timeout 参数不触发（H2 静默 18 分钟），代码层 wait_for 是最后防线。
+    """
     import asyncio as _aio
 
     result = None
     last_exc: Exception | None = None
-    for attempt in range(2):  # 503/瞬时故障退避重试一次
+    for attempt in range(2):  # 超时/瞬时故障退避重试一次
         try:
-            result = await agent.invoke_async(
-                "请对数据块中的唯一假设做出裁决（CONFIRMED/REFUTED/UNCERTAIN），"
-                "输出单个 VerificationResult。\n" + data_block
+            result = await _aio.wait_for(
+                agent.invoke_async(
+                    "请对数据块中的唯一假设做出裁决（CONFIRMED/REFUTED/UNCERTAIN），"
+                    "输出单个 VerificationResult。\n" + data_block
+                ),
+                timeout=per_invoke_timeout,
             )
             last_exc = None
             break
         except Exception as exc:
             last_exc = exc
             if attempt == 0:
-                await _aio.sleep(5)
+                await _aio.sleep(_VERIFY_RETRY_BACKOFF)
     if result is None:
+        reason = "invoke 超时" if isinstance(last_exc, _aio.TimeoutError) else "invoke 失败"
         return VerificationResult(
             hypothesis_id=getattr(hyp, "id", ""),
             hypothesis_title=getattr(hyp, "title", ""),
             verdict="UNCERTAIN",
             confidence=0.3,
-            evidence=f"[verify invoke 失败（含 1 次重试），降级人工复核] {last_exc}",
+            evidence=f"[verify {reason}（含 1 次重试），降级人工复核] {last_exc}",
             verification_method="none(degraded)",
         )
     out = getattr(result, "structured_output", None)
@@ -291,6 +303,7 @@ async def run_verify_split(
     prompt_files: dict[str, str] | None = None,
     inter_call_delay: float = 1.0,
     max_concurrency: int = 1,
+    per_invoke_timeout: float = 360.0,
 ) -> list[VerificationResult]:
     """每条假设独立小调用裁决（REFUTED 空间 + id 结构化对齐）。
 
@@ -340,7 +353,8 @@ async def run_verify_split(
                 data[f"<precomputed-{tool}-results.json>"] = quarantine_text(
                     json.dumps(hits, ensure_ascii=False, indent=2)
                 )[0]
-            return await _verify_one(agent, hyp, render_data_block(data))
+            return await _verify_one(agent, hyp, render_data_block(data),
+                                     per_invoke_timeout=per_invoke_timeout)
 
     results = await asyncio.gather(*[_run(i, h) for i, h in enumerate(hyps)])
     # 按假设顺序回排，保证 hypothesis_id 单调

@@ -265,3 +265,47 @@ def test_check_report_clean_fp_zero(tmp_path):
         {"file_path": "src/utils.py", "vuln_type": "PIT-E-23", "severity": "low"},
     ]})
     assert cr.check_clean(fp) == 1
+
+
+# ────────────────────────── 看门狗超时（供应商挂起兜底）──────────────────────────
+
+class SlowAgent:
+    """invoke_async 永远挂起（模拟 2026-09-12 e2e 的 H2 挂死，客户端超时不触发）。"""
+
+    def __init__(self):
+        self.calls = 0
+
+    async def invoke_async(self, prompt: str):
+        import asyncio
+        self.calls += 1
+        await asyncio.sleep(999)
+
+
+def test_run_verify_split_watchdog_timeout_degrades(monkeypatch):
+    import asyncio
+    import codeark.agents.verify_agent as va
+
+    monkeypatch.setattr(va, "_VERIFY_RETRY_BACKOFF", 0.01)
+    files = {"src/a.py": "x = 1\n"}
+    hs = _mk_hyps()
+    hs.hypotheses = hs.hypotheses[:1]
+    assign_hypothesis_ids(hs)
+
+    slow = SlowAgent()
+    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files: slow)
+    results = _run(run_verify_split, hs, files, None, None, 0.0, 1, 0.05)
+    assert len(results) == 1
+    assert results[0].verdict == "UNCERTAIN"
+    assert "超时" in results[0].evidence
+    assert slow.calls == 2            # 看门狗打断后恰好重试一次
+
+
+def test_deepen_one_watchdog_timeout_returns_none():
+    import asyncio
+    from codeark.agents.deepen_agent import _deepen_one
+
+    async def run():
+        return await _deepen_one(SlowAgent(), "data", per_invoke_timeout=0.05)
+
+    chain, raw = asyncio.run(run())
+    assert chain is None and "invoke error" in raw
