@@ -58,7 +58,26 @@
 
 ---
 
-## 三、答辩 PPT 大纲（10-15 页）
+## 二.5 · 英文口播（视频硬性要求：英文或配英文字幕；≤5 分钟）
+
+**Elevator pitch (30s):**
+> "CodeRisk Arcana: using AI to find the vulnerabilities of the AI era. A deterministic rule layer sets the floor, multiple domestic models cross-examine each other, every conclusion carries tool evidence, and every degradation is honestly disclosed."
+
+**Per-shot one-liners (EN):**
+
+| Shot | EN narration |
+|---|---|
+| 1 Hook | "There is an attack no human eye can see and no classic scanner can catch — it hides in the rule files and comments your AI assistant reads every day. We call it the PITAX attack surface." |
+| 2 Deterministic scan | "Agent0 runs nine PITAX rules with zero model calls — twelve hits on the demo repo, on screen in seconds. Deterministic, offline, reproducible." |
+| 3 Pipeline | "Strands SDK orchestrates six agents: the rule layer sets the baseline; the Scout proposes semantic hypotheses beyond it; the Verifier judges each hypothesis in its own call, with bound tools — and it can refute; the Deepen agent derives full attack chains; the Arbiter — a different model family — delivers the final verdict. Every conclusion carries tool evidence." |
+| 4 Attack chain | "The report is not a list, it's a threat playbook: how the attacker gets in, where they move laterally, the impact, and how to fix it — all anchored to verification evidence." |
+| 5 Anti-injection | "We fed a poisoned repository to our own agents. The quarantine layer neutralizes invisible characters and trigger phrases first; the models treated every injection bait as data — and reported it as evidence. This is not a slogan; it's quotable behavior in our logs." |
+| 6 Trust engineering | "A private regression set and a clean control repo: full expected coverage, zero false positives. Even a mid-run provider outage was disclosed item by item. A security tool must be honest first." |
+| 7 Cost & close | "The rule layer and all tools run locally; every model comes from a free-tier domestic matrix — a full multi-agent audit costs near zero. CodeRisk Arcana — let AI guard AI." |
+
+**三问覆盖核对（Devpost 硬性要求）**：问题=镜头 1（PITAX 攻击面）；给谁=镜头 3/6（开发者与安全团队，CI 门禁场景）；为何重要=镜头 4/5（AI 助手自动加载即触发，供应链级后果）。
+
+
 
 1. **封面**：项目名 + 电梯词 + 赛道
 2. **痛点**：PITAX 攻击面（AI 助手读取的规则/文档/注释=新的攻击载荷）；传统扫描器盲区
