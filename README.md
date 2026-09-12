@@ -25,6 +25,26 @@ python -m app.pitax.cli demo/vuln-demo-repo --json
 python -m app.pitax.cli demo/vuln-demo-repo --sarif
 ```
 
+## 6 节点 Agent 流水线（codeark/，Strands SDK + 国产模型异构合议）
+
+```bash
+# 0. 一键验证（确定性测试 + dry 秒扫 + eval 回归校验 + 干净仓 FP=0，零 LLM API）
+bash verify.sh
+
+# 1. 确定性秒扫（Agent0 规则层，不调大模型）
+python -m codeark.cli demo/vuln-demo-repo --dry
+
+# 2. 完整流水线：Agent0(PITAX 规则) → Scout(GLM-5.3 语义增量侦察)
+#    → Verify(DeepSeek-V4-Flash 逐假设拆分裁决) → Deepen(逐条攻击链)
+#    → Arbiter(GLM-5.3 异构合议) → Report(JSON/SARIF/Markdown)
+python test_e2e.py            # 真实 LLM，10-30 分钟，报告落 reports/
+
+# 3. 对报告跑私有回归集（预期检出全覆盖 + severity 底线 + FP=0）
+python eval/check_report.py --report reports/dry_eval/report.json
+```
+
+关键机制：**prompt 隔离层**（不可见字符剥离/注入触发词中和/UNTRUSTED DATA 边界，模型只见消毒版、工具跑原始版）；**severity 确定性底线**（LLM 只能带证据升级）；**节点级降级披露**（任一模型故障走确定性路径并在报告标注，绝不静默）；证据包见 `evidence/`，演示叙事见 `docs/DEMO-SCRIPT.md`。
+
 ## 检测能力（9 条规则，与官方 taxonomy v1.6.1 编号严格对齐）
 
 | 规则 | 名称 | 严重级 | CWE | MITRE ATLAS | CVE |
