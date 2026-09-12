@@ -22,3 +22,8 @@ pytest==9.1.1
 # semgrep>=1.0     # Agent 1 增强：semgrep 规则扫描（subprocess 调 CLI）
 
 # ── 魔搭创空间部署入口（gradio 类型 app.py + streamlit 备用入口）──
+
+# ── 6-agent 流水线（codeark/，verify.sh 一键验证所需）──
+strands-agents>=1.55
+openai>=3.0
+pydantic>=2.9

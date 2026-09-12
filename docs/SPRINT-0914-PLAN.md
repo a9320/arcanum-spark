@@ -86,8 +86,9 @@
 - ✅ e2e #4（12:21-12:42，`reports/e2e_run_0912.log`）：**架构改造全部起效**——Scout 语义增量产出 8 条假设，含规则库外的 **H8「README 审计锚定操纵」**（识别出 demo 仓 README"预期检出 8 条"文本是操纵审计 Agent 预期的新型注入面，实际命中 12）与 H9 跨文件协同链假设；Verify 拆分后 8 条全部 invoke 失败 → **降级设计完美工作**：全部 UNCERTAIN(0.3)+降级证据，Arbiter 产出诚实空 findings 报告（"空 findings ≠ 无风险"+冲突披露+复验建议），管线零崩溃
 - 🐛 **根因定位与修复（`10e2a05`）**：AMD 免费档**不支持并发调用**（503 no_available_workers/"并发调用不支持"）——Verify 拆分并发 2 → 8/8 全灭。修复：默认并发 1（顺序）+ 单假设退避 5s 重试一次；回归测试覆盖"重试恢复"与"重试后仍降级"两路径，52/52 绿
 - ⏳→✅ e2e #5（`reports/e2e_run_0912b.log`）：顺序 Verify 首条 **H1 CONFIRMED（DeepSeek 主判实锤）**；H2 起供应商端点挂死（18 分钟静默、客户端超时不触发）→ 主动终止。**代码层加固**：verify/deepen 每次调用加 `asyncio.wait_for` 硬看门狗（360s）+ 重试退避参数化，54/54 绿
-- 📦 **交付冻结（9/12 晚）**：提交体系就绪——GitHub 仓库公开 + MIT + 默认分支已切 master（原 main 过期）；ModelScope Studio 已同步推送；`docs/HACKATHON-SUBMISSION-CHECKLIST.md`（规则合规对照）、`docs/DEVPOST-DESCRIPTION-EN.md`（英文描述草稿）、DEMO-SCRIPT 英文口播、evidence/ 证据包全部入库。**剩余动作全部为人工**：录英文视频、Devpost 填表、builder.aws.com 加分帖（≤3 篇）、AWS Builder ID 已就绪（builder-id@example.com）
+- 📦 **交付冻结（9/12 晚）**：提交体系就绪——GitHub 仓库公开 + MIT + 默认分支已切 master（原 main 过期）；ModelScope Studio 已同步推送；`docs/HACKATHON-SUBMISSION-CHECKLIST.md`（规则合规对照）、`docs/DEVPOST-DESCRIPTION-EN.md`（英文描述草稿）、DEMO-SCRIPT 英文口播、evidence/ 证据包全部入库。**剩余动作全部为人工**：录英文视频、Devpost 填表、builder.aws.com 加分帖（≤3 篇）、AWS Builder ID 已就绪
 - 📋 演示素材口径：完整成功链路用 e2e #3 报告（evidence/）；抗注入日志原话（evidence/anti-injection-quotes-0911.md）；诚实降级叙事用 e2e #4（全 UNCERTAIN 空报告 + 披露）；顺序修复实证用 e2e #5 的 H1 CONFIRMED——三个真实运行各司其职
+- 🔐 **密钥泄露事件与处置（9/12 晚）**：外部审查发现两份内部文档含明文供应商密钥（已推公开仓）。处置：相关内部文档（reports/BLUEPRINT.md、GLM_REVIEW.md、GLM_REVIEW_结论.md）已从**全部 git 历史**中清除（git-filter-repo，33 提交重写），个人邮箱同批全历史替换；其余 19 个本地密钥扫描零泄露。根修复=在供应商侧立即作废并轮换该密钥（提交人执行）；教训入库：密钥指纹扫描纳入交付前检查
 
 ### 今晚执行日志（9/11 深夜，Windows 侧 `.venv-win`）
 

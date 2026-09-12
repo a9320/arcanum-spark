@@ -10,7 +10,7 @@
 
 ## 发布步骤
 
-1. 用 AWS Builder ID（builder-id@example.com）登录 https://builder.aws.com/
+1. 用你的 AWS Builder ID 登录 https://builder.aws.com/
 2. 顶部导航进入创建/发布文章入口，选择相关 space、打上 **#strands-agents** 话题
 3. 粘贴正文（Markdown），标题**必须**含 "Agents for Humans" 字样
 4. 建议配图（可选但加分观感）：

@@ -16,6 +16,8 @@ It ships in two layers:
 
 ## One-click verification (zero LLM API calls)
 
+> Prerequisites: Python 3.10+ with the pipeline dependencies — `pip install -r requirements.txt` (strands-agents, openai, pydantic, pytest). The script prefers a local `.venv-win` if present and falls back to your system Python otherwise.
+
 ```bash
 bash verify.sh
 # → deterministic test suite (54 tests)

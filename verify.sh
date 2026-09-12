@@ -5,7 +5,7 @@ set -uo pipefail
 cd "$(dirname "$0")"
 
 PY=".venv-win/Scripts/python.exe"
-[ -x "$PY" ] || PY="python"
+[ -x "$PY" ] || PY="$(command -v python3 || command -v python)"
 
 pass=0; fail=0
 step() { echo; echo "==== $1 ===="; }
