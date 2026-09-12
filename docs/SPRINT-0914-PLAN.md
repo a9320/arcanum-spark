@@ -83,6 +83,10 @@
 - ✅ 测试 51/51 全绿（新增 9 项：id 幂等/confidence 规则/拆分对齐/异常降级/文件匹配/打底升级与不造级/eval 正反例）；已提交 `5589f64`
 - ⏳ 今日唯一真实 e2e 运行中（`reports/e2e_run_0912.log`）：验证 Scout 增量 + Verify 拆分 + DeepSeek 主判全链路
 
+- ✅ e2e #4（12:21-12:42，`reports/e2e_run_0912.log`）：**架构改造全部起效**——Scout 语义增量产出 8 条假设，含规则库外的 **H8「README 审计锚定操纵」**（识别出 demo 仓 README"预期检出 8 条"文本是操纵审计 Agent 预期的新型注入面，实际命中 12）与 H9 跨文件协同链假设；Verify 拆分后 8 条全部 invoke 失败 → **降级设计完美工作**：全部 UNCERTAIN(0.3)+降级证据，Arbiter 产出诚实空 findings 报告（"空 findings ≠ 无风险"+冲突披露+复验建议），管线零崩溃
+- 🐛 **根因定位与修复（`10e2a05`）**：AMD 免费档**不支持并发调用**（503 no_available_workers/"并发调用不支持"）——Verify 拆分并发 2 → 8/8 全灭。修复：默认并发 1（顺序）+ 单假设退避 5s 重试一次；回归测试覆盖"重试恢复"与"重试后仍降级"两路径，52/52 绿
+- ⏳ e2e #5（最终验证，`reports/e2e_run_0912b.log`）运行中：顺序 Verify + DeepSeek 主判全链路复跑
+
 ### 今晚执行日志（9/11 深夜，Windows 侧 `.venv-win`）
 
 - ✅ 0.1/0.2：提交保护完成；新建 Windows venv（strands 1.55.1 / openai 3.13.0 / pydantic 2.13.5）；test_e2e.py 路径可移植化（`Path(__file__).parent`）
