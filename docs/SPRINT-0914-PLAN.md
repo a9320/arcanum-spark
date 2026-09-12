@@ -70,6 +70,19 @@
 
 > 收工线：1-5 + 8。第 8 步失败不阻塞睡觉，明早第一时间看日志定位。
 
+### 今日执行日志（9/12，任务 6/9-15 全部落地）
+
+- ✅ **P0 模型切换（含计划外发现）**：昨夜 Kimi 余额耗尽后，把 Verify/Deepen 主用切 DeepSeek——但 AMD 真调即 404：**工厂里 `DeepSeek-V4-Pro` 路由从未被验证，AMD 目录（models.list 实测）只有 DeepSeek-V4-Flash / Qwen3.8-Flash-Next / MiniCPM5-2B**。修正为 DeepSeek-V4-Flash 主判（PRO 档语义保留），Kimi 充值后恢复备选；Qwen 真实小调用验证通过（任务 13 ✓）保留 Scout 兜底。异构合议叙事不变：GLM（Scout/Arbiter）vs DeepSeek（Verify/Deepen）
+- ✅ 任务 9 Scout 语义增量：agent0 基线注入 `<agent0-baseline-findings.json>` 数据块，职责改为基线外增量发现（文档投毒意图/跨文件逻辑/规则库外注入面），禁止复述基线；无基线时退回旧行为（兼容）
+- ✅ 任务 10 Verify 逐假设拆分：`run_verify_split` 每假设独立小调用（假设+该文件原文+四个工具对该文件的确定性预跑结果内嵌），REFUTED/UNCERTAIN 有出现空间；id 结构化对齐（`assign_hypothesis_ids` H1..Hn）替代 title 字符串匹配；semaphore(2) 并发限幅；单条失败降级 UNCERTAIN 不拖垮整批
+- ✅ 任务 14 schema 一致性：VulnHypothesis.id / VerificationResult.hypothesis_id / AttackChain.title 落地；confidence 枚举↔float 转换规则写死（high=0.9/medium=0.6/low=0.3）；顺手修掉 `Field(default_factory="")` 隐患（导致 FinalReport.conclusion 实际必填）
+- ✅ 任务 6 severity 确定性打底：`apply_severity_floor`——(file_path 归一化, PITAX 规则码) 匹配规则底线，LLM 只能带证据升级；升级条数进 GraphResult/报告 meta
+- ✅ 任务 12 eval 回归集：`eval/expected.json`（agent0 12 条按 (file,rule,count) + 定稿 7 条按 (file,vuln_type,min_severity)）+ `eval/check_report.py`（确定性，额外条目仅提示不判败）
+- ✅ 任务 11 FP 度量：新建 `demo/clean-repo/`（5 文件含良性 .cursor/rules），实测 pitax/static 均 0 命中；`--clean` 模式验收 FP=0
+- 🐛 **计划外修复：CLI 加载器漏扫无扩展名文件**——`.cursor/rules`（AI 助手注入最高危面）被扩展名白名单过滤，dry-run 只读 8 文件丢 4 条 critical 命中；修复后 9 文件 12 命中，风险分 27→43
+- ✅ 测试 51/51 全绿（新增 9 项：id 幂等/confidence 规则/拆分对齐/异常降级/文件匹配/打底升级与不造级/eval 正反例）；已提交 `5589f64`
+- ⏳ 今日唯一真实 e2e 运行中（`reports/e2e_run_0912.log`）：验证 Scout 增量 + Verify 拆分 + DeepSeek 主判全链路
+
 ### 今晚执行日志（9/11 深夜，Windows 侧 `.venv-win`）
 
 - ✅ 0.1/0.2：提交保护完成；新建 Windows venv（strands 1.55.1 / openai 3.13.0 / pydantic 2.13.5）；test_e2e.py 路径可移植化（`Path(__file__).parent`）
