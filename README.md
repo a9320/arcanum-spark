@@ -146,6 +146,11 @@ curl -H "Authorization: Bearer dev-key-change-in-production" \
 - [Hackathon submission checklist](docs/HACKATHON-SUBMISSION-CHECKLIST.md)
 - [PITAX integration notes](docs/PITAX.md) · [Roadmap](docs/ROADMAP.md) · [Competition positioning](docs/COMPETITION.md)
 
+## Acknowledgements
+
+- **koljiu** — for uploading our demo video to YouTube on our behalf. This hackathon submission would not have been possible without your help.
+- The Agents for Humans hackathon organizers — for accommodating participants from network-restricted regions.
+
 ## License & attribution
 
 - Code: original work for this project, MIT licensed (see [LICENSE](LICENSE))
