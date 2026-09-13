@@ -70,6 +70,6 @@ Each of these became a regression test. The suite is 54 deterministic tests, zer
 
 - Repository (MIT): https://github.com/a9320/code-risk-arcanum — `bash verify.sh` runs the whole proof offline
 - Evidence pack with real run logs: [`evidence/`](https://github.com/a9320/code-risk-arcanum/tree/master/evidence)
-- Devpost entry: https://agents-for-humans.devpost.com/
+- Devpost entry: https://agentsforhumans.devpost.com/
 
 *Part 3 covers the prompt quarantine layer — how we strip invisible characters, neutralize injection triggers, and turn injection attempts into reportable evidence.*

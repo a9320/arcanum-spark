@@ -61,6 +61,6 @@ A Strands detail that paid off: tools are registered as **closure-bound no-argum
 
 - Repository (MIT): https://github.com/a9320/code-risk-arcanum
 - One-click verification: `bash verify.sh` (no API keys needed)
-- Devpost entry: https://agents-for-humans.devpost.com/
+- Devpost entry: https://agentsforhumans.devpost.com/
 
 *Next posts in this series: what happens when a model provider dies mid-audit (honest degradation in practice), and how our prompt quarantine layer turns injection attempts into evidence.*

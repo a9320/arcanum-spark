@@ -74,6 +74,6 @@ An error message trying (accidentally!) to social-engineer the judge, and the ju
 - Repository (MIT): https://github.com/a9320/code-risk-arcanum
 - Quarantine implementation: `codeark/graph/quarantine.py`; real log quotes: [`evidence/anti-injection-quotes-0911.md`](https://github.com/a9320/code-risk-arcanum/blob/master/evidence/anti-injection-quotes-0911.md)
 - One-click offline verification: `bash verify.sh`
-- Devpost entry: https://agents-for-humans.devpost.com/
+- Devpost entry: https://agentsforhumans.devpost.com/
 
 *Thanks for reading the series — part 1 covers the 6-agent architecture, part 2 the honest-degradation design.*
