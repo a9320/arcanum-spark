@@ -29,7 +29,7 @@ Agent0 (PITAX rules, no LLM)
 
 Three design decisions matter more than the rest:
 
-**1. Deterministic floor, semantic increment.** Agent0 is a pure rule engine — free, offline, reproducible. Its 12 findings on our demo repo are the baseline *facts*. The Scout agent receives that baseline as context and is instructed to hunt *beyond* it. In our latest end-to-end run it proposed 8 hypotheses, including one completely outside the rulebook: it noticed the demo README stated "expected detections: 8" (the real count is 12) and flagged it as *audit-expectation poisoning* — a manipulation aimed at the auditing agent itself. No keyword rule would ever catch that.
+**1. Deterministic floor, semantic increment.** Agent0 is a pure rule engine — free, offline, reproducible. Its 12 findings on our demo repo are the baseline *facts*. The Scout agent receives that baseline as context and is instructed to hunt *beyond* it. In our latest end-to-end run it proposed 8 hypotheses, including one completely outside the rulebook: it noticed the demo README stated "expected detections: 8" (the rule layer's raw count is 12 — the online Space demo shows the deduplicated 8) and flagged it as *audit-expectation poisoning* — a manipulation aimed at the auditing agent itself. No keyword rule would ever catch that.
 
 **2. Per-hypothesis verification with bound tools.** Instead of asking one model call to judge eight hypotheses at once (which produces lazy "all CONFIRMED" answers), each hypothesis gets its own isolated call with its own evidence bundle: the file content plus per-file precomputed results from four deterministic tools (PITAX / static / taint-flow / dependency). The verdict schema is CONFIRMED / REFUTED / UNCERTAIN — and it can REFUTE, not just rubber-stamp.
 

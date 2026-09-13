@@ -107,7 +107,13 @@ def scan_demo():
     for i, f in enumerate(findings, 1):
         code, title, sev, path, line = _finding_fields(f)
         lines.append(f"[{i}] **{title}** ({sev}) @ `{path}:{line}`")
-    lines += ["", "_Deterministic PITAX rule layer — zero LLM calls, fully reproducible._"]
+    lines += [
+        "",
+        "_Deterministic PITAX rule layer — zero LLM calls, fully reproducible. "
+        f"{len(findings)} unique detections (deduplicated per location); the full 6-agent "
+        "pipeline's rule layer (Agent0) reports 12 raw signature matches on this repo — "
+        "reproduce with `bash verify.sh`._",
+    ]
     return "\n".join(lines)
 
 
