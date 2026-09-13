@@ -1,4 +1,4 @@
-# CodeRisk Arcana 项目蓝图（Blueprint v2.1 - 修订版）
+# CodeRisk Arcanum 项目蓝图（Blueprint v2.1 - 修订版）
 
 > 修订时间：2026-09-10 23:00（GMT+8）
 > 修订依据：GLM-5.3 审核报告（`reports/GLM_REVIEW.md`）
@@ -10,7 +10,7 @@
 
 ## 0. 一句话定位
 
-**CodeRisk Arcana** = 面向「AI 供应链攻击」的自动化代码安全审计平台。
+**CodeRisk Arcanum** = 面向「AI 供应链攻击」的自动化代码安全审计平台。
 用多智能体（Multi-Agent）流水线，检测**藏在代码/文档/配置里的提示注入（Prompt Injection）与 AI 层后门**。
 
 **比赛叙事（修订）：** 模型层以**国产大模型**（GLM-5.3 / Kimi-K3）为主力，采用**多供应商路由 + AMD Radeon Cloud 免费兜底**保障可用性。

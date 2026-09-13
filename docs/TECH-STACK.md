@@ -1,7 +1,7 @@
-# CodeRisk Arcana — 技术栈文档
+# CodeRisk Arcanum — 技术栈文档
 
 > 整理日期：2026-09-06
-> 项目：CodeRisk Arcana（AI 杭州·码动未来 竞赛项目，AI+超级智能体赛道）
+> 项目：CodeRisk Arcanum（AI 杭州·码动未来 竞赛项目，AI+超级智能体赛道）
 > 架构：6 节点 Agent Graph（模型提假设 + 工具证实/证伪）
 > 状态：阶段 A（无卡）全部完成，本地端到端验证通过；阶段 B（Bedrock）等 AWS Visa 卡
 

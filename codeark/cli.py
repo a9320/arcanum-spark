@@ -1,4 +1,4 @@
-"""CodeRisk Arcana — 命令行入口。
+"""CodeRisk Arcanum — 命令行入口。
 
 用法：
     python -m codeark.cli <repo_dir> [--dry] [--out OUT] [--formats json,sarif,markdown]
@@ -141,7 +141,7 @@ async def _main(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="CodeRisk Arcana — 6-agent AI vulnerability scan pipeline")
+    parser = argparse.ArgumentParser(description="CodeRisk Arcanum — 6-agent AI vulnerability scan pipeline")
     parser.add_argument("repo", help="repository directory to scan")
     parser.add_argument("--dry", action="store_true", help="offline dry-run (no LLM calls)")
     parser.add_argument("--out", default="./reports", help="report output directory (default ./reports)")

@@ -135,7 +135,7 @@ def build_sarif(findings: list[dict]) -> dict:
         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
         "version": SARIF_VERSION,
         "runs": [{
-            "tool": {"driver": {"name": "CodeRisk Arcana", "informationUri": "https://www.modelscope.cn/studios/Weike22/coderisk-arcanum", "rules": list(rules.values())}},
+            "tool": {"driver": {"name": "CodeRisk Arcanum", "informationUri": "https://www.modelscope.cn/studios/Weike22/coderisk-arcanum", "rules": list(rules.values())}},
             "results": results,
         }],
     }

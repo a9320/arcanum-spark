@@ -1,4 +1,4 @@
-"""CodeRisk Arcana — 6 节点 Graph 仪表盘（Streamlit）。
+"""CodeRisk Arcanum — 6 节点 Graph 仪表盘（Streamlit）。
 
 Day 13 本地前端：跑完整 6 节点流水线并可视化各阶段结果。
 - 本地即用（dry-run 或 DeepSeek 真实模型）
