@@ -14,6 +14,8 @@ It ships in two layers:
 1. **`codeark/` — a 6-agent audit pipeline** (Strands Agents SDK + heterogeneous domestic-model council): a deterministic rule layer, semantic reconnaissance, per-hypothesis verification with bound tools, attack-chain derivation, multi-source arbiter, and deterministic report rendering.
 2. **`app/` — the legacy deterministic platform**: the pure-stdlib PITAX engine, FastAPI service, and Celery pipeline (powers the [live demo](https://www.modelscope.cn/studios/Weike22/code-risk-arcanum)).
 
+![6-agent pipeline architecture — rule layer, Scout, Verify, Deepen, Arbiter, Report with heterogeneous model routing](docs/architecture-6node.png)
+
 ## One-click verification (zero LLM API calls)
 
 > Prerequisites: Python 3.10+ with the pipeline dependencies — `pip install -r requirements.txt` (strands-agents, openai, pydantic, pytest). The script prefers a local `.venv-win` if present and falls back to your system Python otherwise.
