@@ -12,7 +12,7 @@ CodeRisk Arcanum is among the first tools designed to detect **AI prompt injecti
 It ships in two layers:
 
 1. **`codeark/` — a 6-agent audit pipeline** (Strands Agents SDK + heterogeneous domestic-model council): a deterministic rule layer, semantic reconnaissance, per-hypothesis verification with bound tools, attack-chain derivation, multi-source arbiter, and deterministic report rendering.
-2. **`app/` — the legacy deterministic platform**: the pure-stdlib PITAX engine, FastAPI service, and Celery pipeline (powers the [live demo](https://www.modelscope.cn/studios/Weike22/coderisk-arcanum)).
+2. **`app/` — the legacy deterministic platform**: the pure-stdlib PITAX engine, FastAPI service, and Celery pipeline (powers the [live demo](https://www.modelscope.cn/studios/Weike22/code-risk-arcanum)).
 
 ## One-click verification (zero LLM API calls)
 

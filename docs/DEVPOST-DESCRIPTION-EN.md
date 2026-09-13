@@ -58,8 +58,12 @@ The human only sees: confirmed vulnerabilities to fix, attack chains to understa
 
 All code in the repository was written during the Submission Period (first commit 2026-09-02). The PITAX rule layer is our own implementation, aligned by rule ID with the publicly documented Arcanum PITAX taxonomy; no third-party proprietary code is incorporated. Third-party dependencies: strands-agents (Apache-2.0), openai (Apache-2.0), pydantic (MIT).
 
+## AI-assistance disclosure
+
+AI tools were used during development for code generation, documentation drafting, diagram generation, and narration script polishing. All core logic, security rules, agent orchestration, and validation were designed, reviewed, and tested manually by the team; every shipped rule and report artifact was verified against real execution logs.
+
 ## Links
 
 - Code: https://github.com/a9320/code-risk-arcanum (MIT)
-- Live demo (deterministic scanner + demo repo): https://www.modelscope.cn/studios/Weike22/coderisk-arcanum
+- Live demo (deterministic scanner + demo repo): https://www.modelscope.cn/studios/Weike22/code-risk-arcanum
 - One-click verification: `bash verify.sh` (deterministic tests + dry scan + eval regression + clean-repo FP=0; zero LLM API calls)

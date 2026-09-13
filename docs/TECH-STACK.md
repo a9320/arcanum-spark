@@ -109,7 +109,7 @@ python -m codeark.cli <repo_dir> [--dry] [--out OUT] [--formats json,sarif,markd
 
 ### 2.7 部署（阶段 B，等卡后）
 - **AWS Lambda + Bedrock AgentCore**（Serverless，蓝图 §十一）
-- ModelScope 创空间（已部署：https://www.modelscope.cn/studios/Weike22/coderisk-arcanum）
+- ModelScope 创空间（已部署：https://www.modelscope.cn/studios/Weike22/code-risk-arcanum）
 - Docker / Docker Compose（CPU + GPU 模式）
 
 ---

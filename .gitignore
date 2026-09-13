@@ -23,3 +23,9 @@ _internal-backup/
 
 # 创空间 LFS hook 拒绝 zip 大对象：快照产物一律仓库外保存
 *.zip
+
+# ephemeral dry-run outputs (default --out)
+reports/report.json
+reports/report.md
+reports/report.sarif
+reports/summary.json
