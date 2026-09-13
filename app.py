@@ -1,9 +1,10 @@
 """
-CodeRisk Arcanum — 魔搭创空间 Gradio 入口 (app.py)
-当前创空间为 gradio 类型，默认入口是 app.py。
-本文件调用 PITAX 引擎做 AI 代码安全审计（纯本地零依赖，不需要 LLM API / Redis / Docker）。
+CodeRisk Arcanum — ModelScope Space Gradio entry (app.py)
+Gradio-type Space; app.py is the default entry file.
+Runs the PITAX engine for AI-era code security auditing (fully local, zero
+external dependencies — no LLM API / Redis / Docker required).
 
-用法: python app.py  (魔搭 gradio 类型自动以 app.py 为入口启动)
+Usage: python app.py  (ModelScope gradio Spaces launch app.py automatically)
 """
 import os
 import sys
@@ -15,7 +16,7 @@ from pathlib import Path
 
 import gradio as gr
 
-# 确保项目根目录在 sys.path（app.pitax 可导入）
+# Make sure the project root is on sys.path (so app.pitax is importable)
 ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -24,112 +25,125 @@ from app.pitax.sanitizer import scan_directory  # noqa: E402
 from app.pitax.rules import PITAX_VERSION  # noqa: E402
 
 SEVERITY_LABEL = {
-    "critical": "严重(Critical)",
-    "high": "高危(High)",
-    "medium": "中危(Medium)",
-    "low": "低危(Low)",
+    "critical": "CRITICAL",
+    "high": "HIGH",
+    "medium": "MEDIUM",
+    "low": "LOW",
 }
 
 
 def scan_path(path: Path) -> tuple[list, dict]:
-    """对目录跑 PITAX 扫描，返回 (findings, stats)。"""
+    """Scan a directory with the PITAX engine. Returns (findings, stats)."""
     return scan_directory(str(path))
 
 
 def extract_zip(data: bytes, dest: Path) -> None:
-    """解压用户上传的 zip 到临时目录。"""
+    """Extract an uploaded zip into a temp directory."""
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
         zf.extractall(dest)
 
 
+def _finding_fields(f: dict) -> tuple[str, str, str, str, str]:
+    """Pull (rule_code, title, severity_label, file, line) from a finding dict."""
+    sev = SEVERITY_LABEL.get(str(f.get("severity", "")).lower(), str(f.get("severity", "")).upper())
+    code = f.get("type") or f.get("rule_id") or "?"
+    title = f.get("title", "?")
+    loc = f.get("location") if isinstance(f.get("location"), dict) else {}
+    path = f.get("file") or loc.get("path", "?")
+    line = f.get("line", loc.get("line", "?"))
+    return str(code), str(title), sev, str(path), str(line)
+
+
 def run_scan(zip_file):
-    """Gradio 回调：接收 zip 文件，解压后扫描，返回结果文本。"""
+    """Gradio callback: receive a zip, extract it, scan, return report text."""
     if zip_file is None:
-        return "请先上传一个包含代码的 zip 压缩包（或点击'扫描内置示例仓库'）。"
+        return "Please upload a code archive (.zip) first — or click 'Scan the built-in vulnerable demo'."
     try:
-        # 解压到临时目录
         tmp = Path(tempfile.mkdtemp(prefix="coderisk_"))
         extract_zip(zip_file, tmp)
         findings, stats = scan_path(tmp)
         shutil.rmtree(tmp, ignore_errors=True)
     except Exception as e:
-        return f"⚠️ 扫描出错：{e}"
+        return f"⚠️ Scan error: {e}"
 
     if not findings:
-        return "✅ 未检出 AI 提示注入类漏洞（这个仓库很干净）。"
+        return "✅ No AI-era vulnerabilities detected — this repository looks clean."
 
-    # 组织结果文本
-    lines = [f"⚠️ 检出 {len(findings)} 条 AI 时代漏洞", "", f"扫描耗时：{stats.get('elapsed_ms', '?')}ms，扫描文件：{stats.get('files_scanned', '?')} 个", ""]
+    lines = [
+        f"⚠️ Detected {len(findings)} AI-era vulnerabilities",
+        "",
+        f"Scanned {stats.get('files_scanned', '?')} files in {stats.get('elapsed_ms', '?')} ms",
+        "",
+    ]
     for i, f in enumerate(findings, 1):
-        sev = SEVERITY_LABEL.get(str(f.get("severity", "")).lower(), str(f.get("severity", "")))
-        lines.append(f"### [{i}] {f.get('rule_id', '?')} — {f.get('title', '?')} ({sev})")
-        loc = f.get("location") or {}
-        path = loc.get("path", "?") if isinstance(loc, dict) else "?"
-        lines.append(f"  文件: {path}  行: {loc.get('line', '?') if isinstance(loc, dict) else '?'}")
+        code, title, sev, path, line = _finding_fields(f)
+        lines.append(f"### [{i}] {title} ({sev})")
+        lines.append(f"  File: `{path}`  Line: {line}")
         desc = f.get("description", "")
         if desc:
-            lines.append(f"  说明: {desc}")
+            lines.append(f"  Details: {desc}")
         lines.append("")
     return "\n".join(lines)
 
 
 def scan_demo():
-    """扫描内置示例仓库 demo/vuln-demo-repo。"""
+    """Scan the built-in vulnerable demo repository."""
     demo_dir = ROOT / "demo" / "vuln-demo-repo"
     if not demo_dir.exists():
-        # 尝试生成
         try:
             import subprocess
             subprocess.run([sys.executable, str(ROOT / "demo" / "generate_demo_repo.py")], check=True, cwd=str(ROOT))
         except Exception as e:
-            return f"⚠️ 内置示例仓库不存在且生成失败：{e}"
+            return f"⚠️ Built-in demo repo missing and generation failed: {e}"
         if not demo_dir.exists():
-            return "⚠️ 内置示例仓库生成失败。"
+            return "⚠️ Built-in demo repo generation failed."
     try:
         findings, stats = scan_path(demo_dir)
     except Exception as e:
-        return f"⚠️ 扫描出错：{e}"
+        return f"⚠️ Scan error: {e}"
     if not findings:
-        return "✅ 内置示例仓库未检出漏洞（不应出现，请检查）。"
-    lines = [f"⚠️ 内置示例仓库检出 {len(findings)} 条 AI 时代漏洞", ""]
+        return "✅ Built-in demo repo came back clean (unexpected — please check)."
+    lines = [f"⚠️ Detected {len(findings)} AI-era vulnerabilities in the built-in demo repo", ""]
     for i, f in enumerate(findings, 1):
-        sev = SEVERITY_LABEL.get(str(f.get("severity", "")).lower(), str(f.get("severity", "")))
-        loc = f.get("location") or {}
-        path = loc.get("path", "?") if isinstance(loc, dict) else "?"
-        lines.append(f"[{i}] {f.get('rule_id', '?')} — {f.get('title', '?')} ({sev}) @ {path}:{loc.get('line', '?') if isinstance(loc, dict) else '?'}")
+        code, title, sev, path, line = _finding_fields(f)
+        lines.append(f"[{i}] **{title}** ({sev}) @ `{path}:{line}`")
+    lines += ["", "_Deterministic PITAX rule layer — zero LLM calls, fully reproducible._"]
     return "\n".join(lines)
 
 
 def build_app():
-    """构建 Gradio 界面。"""
+    """Build the Gradio UI."""
     with gr.Blocks(title="CodeRisk Arcanum", theme=gr.themes.Soft()) as demo:
         gr.Markdown(
-            f"# CodeRisk Arcanum — AI 代码安全审计数字员工\n\n"
-            f"专攻 AI 时代新型漏洞（提示注入、Trojan Source、不可见字符、文档投毒、多层编码载荷）。\n"
-            f"检测规则：Arcanum PITAX Taxonomy v{PITAX_VERSION}（9 条规则），纯本地运行，源码不出域。"
+            f"# CodeRisk Arcanum — AI-era code security auditor\n\n"
+            f"Specialized in AI-era vulnerabilities: prompt injection, Trojan Source, "
+            f"invisible-character smuggling, document poisoning, layered-encoding payloads.\n\n"
+            f"Detection rules: Arcanum PITAX Taxonomy v{PITAX_VERSION} (9 rules). "
+            f"Runs fully locally — your source code never leaves this Space."
         )
-        with gr.Tab("上传代码扫描"):
-            file_input = gr.File(label="上传代码压缩包 (zip)")
-            scan_btn = gr.Button("开始扫描", variant="primary")
+        with gr.Tab("Scan your code (zip)"):
+            file_input = gr.File(label="Upload a code archive (.zip)")
+            scan_btn = gr.Button("Start scan", variant="primary")
             out = gr.Markdown()
             scan_btn.click(run_scan, inputs=file_input, outputs=out)
-        with gr.Tab("扫描内置示例"):
-            demo_btn = gr.Button("扫描内置示例仓库（含 6 类 AI 漏洞）")
+        with gr.Tab("Scan the built-in demo"):
+            demo_btn = gr.Button("Scan the built-in vulnerable demo repo", variant="primary")
             demo_out = gr.Markdown()
             demo_btn.click(scan_demo, outputs=demo_out)
-        with gr.Tab("关于"):
+        with gr.Tab("About"):
             gr.Markdown(
-                "**CodeRisk Arcanum** 基于 [Arcanum Prompt Injection Taxonomy](https://arcanum-sec.com/pitax)（Jason Haddix）。\n\n"
-                "- 静态规则 + AI 语义三重交叉验证\n"
-                "- 每条漏洞附完整证据链\n"
-                "- 输出 SARIF 2.1 标准报告\n"
-                "- 本地 GPU/CPU 离线推理，源码不出域\n\n"
-                "作品仓库：https://github.com/a9320/code-risk-arcanum"
+                "**CodeRisk Arcanum** is built on the [Arcanum Prompt Injection Taxonomy]"
+                "(https://arcanum-sec.com/pitax) (Jason Haddix, Arcanum Information Security).\n\n"
+                "- Deterministic rules + multi-source AI cross-verification\n"
+                "- Every finding carries its full evidence chain\n"
+                "- SARIF 2.1 standard reports\n"
+                "- Runs fully locally — source code never leaves this Space\n\n"
+                "Repository: https://github.com/a9320/code-risk-arcanum"
             )
     return demo
 
 
-# 魔搭 gradio 类型会执行 app.py 并期望启动一个 Gradio 应用
+# ModelScope gradio-type Spaces execute app.py and expect a running Gradio app
 demo = build_app()
 
 if __name__ == "__main__":

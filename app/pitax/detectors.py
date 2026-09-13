@@ -57,7 +57,8 @@ class Finding:
             "code_snippet": self.evidence[:240],
             "agent": "agent_0_sanitizer",
             "suggestion": (
-                "移除隐藏内容/恶意指令；若为误报请在 CI 中标记豁免并说明理由。"
+                "Remove the hidden content / malicious instruction. If this is a false positive, "
+                "mark it as waived in CI with a justification."
             ),
             "pitax": {
                 "code": self.pitax_code,
@@ -122,8 +123,8 @@ def detect_invisible_text(code: str, file: str) -> list[Finding]:
             line=lines[0],
             evidence=f"{label} at line(s) {lines[:5]}",
             message=(
-                f"检测到不可见 Unicode 字符（{label}，共 {len(lines)} 行出现）。"
-                "不可见字符常用于在人类阅读不可见的情况下向 LLM 走私指令。"
+                f"Invisible Unicode characters detected ({label}, on {len(lines)} line(s)). "
+                "Invisible characters are a common vehicle for smuggling instructions to LLMs, unseen by human reviewers."
             ),
             extra={"occurrence_lines": lines[:20]},
         ))
@@ -163,9 +164,9 @@ def detect_trojan_source(code: str, file: str) -> list[Finding]:
         line=lines[0],
         evidence="; ".join(labels[:5]) + ("..." if len(labels) > 5 else ""),
         message=(
-            f"检测到双向文本控制符（{', '.join(sorted(set(labels))[:3])}，"
-            f"共 {len(hits)} 处）。Bidi 字符可改变源码视觉呈现顺序（Trojan Source，"
-            "CVE-2021-42574），使代码看起来与实际逻辑不一致，同时欺骗人类评审与 AI 助手。"
+            f"Bidirectional text control characters detected ({', '.join(sorted(set(labels))[:3])}, "
+            f"{len(hits)} occurrence(s)). Bidi characters can reorder how source code renders (Trojan Source, "
+            "CVE-2021-42574), making code look different from what it does — deceiving both human reviewers and AI assistants."
         ),
         extra={"occurrence_lines": lines[:20]},
     )]
@@ -227,9 +228,9 @@ def detect_ai_config_injection(code: str, file: str) -> list[Finding]:
             line=lines[0],
             evidence=evidence[:120],
             message=(
-                f"AI 指令文件中检测到指令覆盖/角色劫持模式（{evidence[:60]}，"
-                f"共 {len(lines)} 行出现）。攻击者可能在仓库的 AI 助手配置中植入后门"
-                "（同 CVE-2025-53773 攻击模式）。"
+                f"Instruction-override / role-hijack pattern detected in an AI instruction file ({evidence[:60]}, "
+                f"on {len(lines)} line(s)). An attacker may have planted a backdoor in the repo's "
+                "AI assistant configuration (same pattern as CVE-2025-53773)."
             ),
             extra={"occurrence_lines": lines[:20]},
         ))
@@ -268,9 +269,9 @@ def detect_doc_injection(code: str, file: str) -> list[Finding]:
             line=lines[0],
             evidence=evidence[:120],
             message=(
-                f"项目文档中检测到面向 AI Agent 的指令注入模式（{evidence[:60]}，"
-                f"共 {len(lines)} 行出现）。文档是 Agent 的常规输入，投毒不会被"
-                "人类评审与传统工具注意。"
+                f"AI-agent-directed instruction injection detected in project documentation ({evidence[:60]}, "
+                f"on {len(lines)} line(s)). Docs are routine agent input — poisoning them goes "
+                "unnoticed by human reviewers and traditional tools."
             ),
             extra={"occurrence_lines": lines[:20]},
         ))
@@ -321,8 +322,8 @@ def detect_comment_injection(code: str, file: str) -> list[Finding]:
             line=lines[0],
             evidence=evidence[:120],
             message=(
-                f"代码注释中检测到提示注入指令模式（{evidence[:60]}）。"
-                "当 LLM 阅读该代码/注释时可能被劫持，执行非预期指令。"
+                f"Prompt-injection pattern detected in a code comment ({evidence[:60]}). "
+                "An LLM reading this code/comment could be hijacked into executing unintended instructions."
             ),
             extra={"occurrence_lines": lines[:20]},
         ))
@@ -423,8 +424,8 @@ def detect_encoded_payloads(code: str, file: str) -> list[Finding]:
                 line=lineno,
                 evidence=raw[:80] + ("..." if len(raw) > 80 else ""),
                 message=(
-                    f"检测到{len(layers)}层编码（{'→'.join(layers)}）的提示注入载荷，"
-                    "用于规避基于关键词的过滤。"
+                    f"Prompt-injection payload wrapped in {len(layers)} encoding layer(s) "
+                    f"({' -> '.join(layers)}) to evade keyword-based filtering."
                 ),
                 decoded_payload=final[:160],
                 extra={"layers": layers},
