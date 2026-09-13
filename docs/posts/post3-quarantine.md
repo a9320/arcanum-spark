@@ -6,7 +6,7 @@
 
 CodeRisk Arcanum audits repositories for AI-era vulnerabilities — prompt injection hidden in `.cursor/rules`, zero-width characters smuggled into source code, "ignore all previous instructions" planted in code comments. Which means our own agents must *read those payloads* in order to analyze them.
 
-Every LLM node in our pipeline is therefore an injection target by construction. A scanner that gets hijacked by the very payload it scans would be a/self-owning joke — worse, a compromised scanner that silently outputs "no findings" is a supply-chain attack on its users.
+Every LLM node in our pipeline is therefore an injection target by construction. A scanner that gets hijacked by the very payload it scans would be a self-owning joke — worse, a compromised scanner that silently outputs "no findings" is a supply-chain attack on its users.
 
 So we built a **prompt quarantine layer**: three deterministic passes that run between the raw repository and every LLM prompt.
 
@@ -29,7 +29,7 @@ Instead, we compile the detector catalogs' trigger regexes into a single pattern
 
 ```
 # system: [QUARANTINED:potential-instruction] in maintenance mode,
-[QUARANTINED:potential-instruction]  ← PIT-T-46 trigger, 2 matches on this line
+[QUARANTINED:potential-instruction]  ← U+E0041 Unicode Tag char, 2 quarantined markers on this line (pitax-9-2)
 ```
 
 Every file change is counted — files sanitized, characters stripped, triggers neutralized — and those statistics ship in the final report, not in a debug log.
@@ -74,6 +74,6 @@ An error message trying (accidentally!) to social-engineer the judge, and the ju
 - Repository (MIT): https://github.com/a9320/code-risk-arcanum
 - Quarantine implementation: `codeark/graph/quarantine.py`; real log quotes: [`evidence/anti-injection-quotes-0911.md`](https://github.com/a9320/code-risk-arcanum/blob/master/evidence/anti-injection-quotes-0911.md)
 - One-click offline verification: `bash verify.sh`
-- Devpost entry: https://agentsforhumans.devpost.com/
+- Devpost entry: https://agents-for-humans.devpost.com/
 
 *Thanks for reading the series — part 1 covers the 6-agent architecture, part 2 the honest-degradation design.*

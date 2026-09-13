@@ -23,8 +23,8 @@ The naive failure mode for a multi-agent pipeline is silent: a node returns `Non
 Our Deepen agent (built on a Strands `Agent` with a strict JSON structured-output contract) derives one attack chain per confirmed vulnerability, one call per item. When a call fails — parse failure, provider error, whatever — the item is **not dropped**. It becomes a deterministic placeholder chain that ships in the report:
 
 ```
-### 攻击链 3 (Attack chain 3)
-- Final impact: 【Deepen parse failed · manual review required】 Original hypothesis:
+### Attack chain 3 — placeholder (disclosed)
+- Final impact: [Deepen parse failed — manual review required] Original hypothesis:
   [PIT-N-06 / high] docs/AGENT_GUIDE.md document poisoning…
 - Remediation: (automatic chain derivation failed; verification-layer evidence
   remains valid — please derive the attack chain manually)
@@ -70,6 +70,6 @@ Each of these became a regression test. The suite is 54 deterministic tests, zer
 
 - Repository (MIT): https://github.com/a9320/code-risk-arcanum — `bash verify.sh` runs the whole proof offline
 - Evidence pack with real run logs: [`evidence/`](https://github.com/a9320/code-risk-arcanum/tree/master/evidence)
-- Devpost entry: https://agentsforhumans.devpost.com/
+- Devpost entry: https://agents-for-humans.devpost.com/
 
 *Part 3 covers the prompt quarantine layer — how we strip invisible characters, neutralize injection triggers, and turn injection attempts into reportable evidence.*
