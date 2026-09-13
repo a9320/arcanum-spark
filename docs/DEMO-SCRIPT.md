@@ -1,4 +1,4 @@
-# CodeRisk Arcana — 演示视频脚本 & 答辩叙事（v2.2 诚实实装版）
+# CodeRisk Arcanum — 演示视频脚本 & 答辩叙事（v2.2 诚实实装版）
 
 > 版本：2026-09-12（按实装现状全面重写；**删除了一切未实装承诺**——OTEL 面板 / AWS Bedrock / VPC / GitHub Issue / Slack / DynamoDB 接入均未实现，不得出现在演示中）
 > 演示仓库：`demo/vuln-demo-repo`（9 文件，PITAX 确定性命中 **12 条**；合议定稿 7 条；含干净对照仓 `demo/clean-repo`）
@@ -11,7 +11,7 @@
 
 ## 一、叙事主线（30 秒电梯词）
 
-**"CodeRisk Arcana：用 AI 找 AI 时代的漏洞——规则层确定打底，多家国产模型异构合议，每条结论都有工具证据，每次降级都如实披露。"**
+**"CodeRisk Arcanum：用 AI 找 AI 时代的漏洞——规则层确定打底，多家国产模型异构合议，每条结论都有工具证据，每次降级都如实披露。"**
 
 三句话支撑：
 1. **新漏洞类**：PITAX（Prompt Injection &Trojan eXtension）——AI 助手时代的提示注入/Trojan Source/文档投毒，传统扫描器抓不到；
@@ -54,14 +54,14 @@
 
 ### 镜头 7 · 成本与收尾（2:25-2:45）
 - **画面**：架构图（`docs/architecture-6node.png`）+ 模型矩阵表（GLM-5.3 免费 / DeepSeek-V4-Flash AMD 免费档 / Kimi 备选）
-- **口播**：*"规则层与全部工具本地确定性执行，大模型全部来自国产免费档矩阵——单次全链路扫描近乎零现金成本。CodeRisk Arcana——让 AI 守护 AI。"*
+- **口播**：*"规则层与全部工具本地确定性执行，大模型全部来自国产免费档矩阵——单次全链路扫描近乎零现金成本。CodeRisk Arcanum——让 AI 守护 AI。"*
 
 ---
 
 ## 二.5 · 英文口播（视频硬性要求：英文或配英文字幕；≤5 分钟）
 
 **Elevator pitch (30s):**
-> "CodeRisk Arcana: using AI to find the vulnerabilities of the AI era. A deterministic rule layer sets the floor, multiple domestic models cross-examine each other, every conclusion carries tool evidence, and every degradation is honestly disclosed."
+> "CodeRisk Arcanum: using AI to find the vulnerabilities of the AI era. A deterministic rule layer sets the floor, multiple domestic models cross-examine each other, every conclusion carries tool evidence, and every degradation is honestly disclosed."
 
 **Per-shot one-liners (EN):**
 
@@ -73,7 +73,7 @@
 | 4 Attack chain | "The report is not a list, it's a threat playbook: how the attacker gets in, where they move laterally, the impact, and how to fix it — all anchored to verification evidence." |
 | 5 Anti-injection | "We fed a poisoned repository to our own agents. The quarantine layer neutralizes invisible characters and trigger phrases first; the models treated every injection bait as data — and reported it as evidence. This is not a slogan; it's quotable behavior in our logs." |
 | 6 Trust engineering | "A private regression set and a clean control repo: full expected coverage, zero false positives. Even a mid-run provider outage was disclosed item by item. A security tool must be honest first." |
-| 7 Cost & close | "The rule layer and all tools run locally; every model comes from a free-tier domestic matrix — a full multi-agent audit costs near zero. CodeRisk Arcana — let AI guard AI." |
+| 7 Cost & close | "The rule layer and all tools run locally; every model comes from a free-tier domestic matrix — a full multi-agent audit costs near zero. CodeRisk Arcanum — let AI guard AI." |
 
 **三问覆盖核对（Devpost 硬性要求）**：问题=镜头 1（PITAX 攻击面）；给谁=镜头 3/6（开发者与安全团队，CI 门禁场景）；为何重要=镜头 4/5（AI 助手自动加载即触发，供应链级后果）。
 

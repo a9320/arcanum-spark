@@ -5,7 +5,7 @@
     {
       "tool": {
         "driver": {
-          "name": "CodeRisk Arcana",
+          "name": "CodeRisk Arcanum",
           "informationUri": "https://www.modelscope.cn/studios/Weike22/coderisk-arcanum",
           "rules": []
         }
