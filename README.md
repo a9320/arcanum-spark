@@ -7,6 +7,8 @@ deployspec:
 
 **A code security platform for AI-era vulnerabilities** — built on the [Arcanum Prompt Injection Taxonomy](https://arcanum-sec.com/pitax) (Jason Haddix, Arcanum Information Security).
 
+> 🏆 **Contest build (2026 Chuanzhibei, track 10041):** contest-period development happens in [a9320/code-risk-arcanum-contest](https://github.com/a9320/code-risk-arcanum-contest) — work title *CodeRisk·ZhiJian* (智鉴). This repository remains the MIT open-source baseline of record.
+
 CodeRisk Arcanum is among the first tools designed to detect **AI prompt injection, invisible-character smuggling, Trojan Source, AI configuration backdoors, document poisoning, and layered-encoding payloads** — attack surfaces that traditional SAST/DAST tools (Semgrep, CodeQL, Snyk) do not parse.
 
 It ships in two layers:
