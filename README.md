@@ -27,7 +27,7 @@ bash verify.sh
 # → deterministic test suite (54 tests)
 # → dry scan of the demo repo (12 expected PITAX hits)
 # → eval regression check (full expected-coverage + severity floor)
-# → clean control repo FP=0 check
+# → clean control repo currently produces zero findings on the checked control fixture (not a population-wide FP rate)
 ```
 
 ## 6-agent pipeline quick start (`codeark/`)
@@ -156,7 +156,7 @@ curl -H "Authorization: Bearer dev-key-change-in-production" \
 ## License & attribution
 
 - Code: original work for this project, MIT licensed (see [LICENSE](LICENSE))
-- PITAX taxonomy: **CC BY 4.0** (Arcanum Information Security / Jason Haddix)
+- PITAX taxonomy: Arcanum Prompt Injection Taxonomy v1.6.1, by Jason Haddix / Arcanum Information Security; this project is a derived implementation under CC BY 4.0
 - References: OWASP LLM Top 10 / MITRE ATLAS / the Arcanum seven-pillar methodology
 
 ---
