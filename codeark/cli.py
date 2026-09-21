@@ -22,6 +22,15 @@ from pathlib import Path
 # 让 codeark 可被直接运行（python codeark/cli.py）
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+# Windows 兼容：stdout/stderr 重定向到文件或经 WSL→Windows interop 启动时，编码会退回
+# 系统 ANSI 码页（GBK 等），emoji print 直接 UnicodeEncodeError → 退出码 1。
+# 入口统一钉死 UTF-8；个别历史无法编码字符降级 replace，保证验证链路跨 shell 行为一致。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 from graph.pipeline import run_pipeline
 
 # 要读的代码文件扩展名
