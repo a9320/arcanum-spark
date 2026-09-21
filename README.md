@@ -3,11 +3,14 @@ deployspec:
   entry_file: app.py
 ---
 
-# CodeRisk Arcanum
+# Arcanum · Spark（Arcanum · 星火）
 
-**A code security platform for AI-era vulnerabilities** — built on the [Arcanum Prompt Injection Taxonomy](https://arcanum-sec.com/pitax) (Jason Haddix, Arcanum Information Security).
+> 🎇 **3rd NVIDIA DGX Spark Hackathon — Agent Skills Development Challenge entry.** Unofficial work, built on and targeting DGX Spark-class NVIDIA hardware.
+> **Upstream baseline:** [a9320/code-risk-arcanum](https://github.com/a9320/code-risk-arcanum) (MIT, `upstream` remote; import anchored at `fcfc6f7`). Every commit made in this repository on top of the baseline is the contest-period increment.
 
-> 🏆 **Contest build (2026 Chuanzhibei, track 10041):** contest-period development happens in [a9320/code-risk-arcanum-contest](https://github.com/a9320/code-risk-arcanum-contest) — work title *CodeRisk·ZhiJian* (智鉴). This repository remains the MIT open-source baseline of record.
+**Catch the first spark before it becomes a wildfire.** Code security audit for AI-era vulnerabilities — built on the [Arcanum Prompt Injection Taxonomy](https://arcanum-sec.com/pitax) (Jason Haddix, Arcanum Information Security), re-packaged as Agent Skills and running on fully local compute (DGX Spark / RTX 5090-class).
+
+> 🏆 **Contest history:** 2026 Chuanzhibei track 10041 — work title *CodeRisk·ZhiJian* (智鉴), developed in [a9320/code-risk-arcanum-contest](https://github.com/a9320/code-risk-arcanum-contest).
 
 CodeRisk Arcanum is among the first tools designed to detect **AI prompt injection, invisible-character smuggling, Trojan Source, AI configuration backdoors, document poisoning, and layered-encoding payloads** — attack surfaces that traditional SAST/DAST tools (Semgrep, CodeQL, Snyk) do not parse.
 
