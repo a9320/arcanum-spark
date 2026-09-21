@@ -19,6 +19,7 @@ httpx>=0.28       # Nutrient DWS PDF + LLM client（llama.cpp OpenAI 兼容接�
 
 # ── 测试 ──
 pytest>=8.3
+pytest-asyncio>=0.24   # codeark degrade 测试为 async def；缺失时 pytest 直接 fail（clean env 实测）
 
 # ── 魔搭创空间部署入口（gradio 类型 app.py + streamlit 备用入口）──
 gradio>=5.0
