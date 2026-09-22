@@ -1,4 +1,4 @@
-"""统一模型工厂 — 支持 GLM / Kimi / DeepSeek / Qwen（AMD Radeon Cloud 路由）。
+"""统一模型工厂 — 支持云端 GLM / Kimi / DeepSeek / Qwen 与本地 Step / Nemotron 路由。
 
 Agent 分层分配（2026-09-12 调整：异构合议 + Kimi 配额耗尽后降级 + AMD 目录实测修正）：
 - Scout (1):   GLM-5.3（TokenRouter 免费档；docstring 曾写 5.2，实际 model_id 早已是 5.3）
@@ -19,6 +19,8 @@ from typing import Optional
 from openai import AsyncOpenAI
 from strands.models import OpenAIModel
 
+from .local_step import LocalStepModel
+
 __all__ = [
     "ModelProvider",
     "ModelTier",
@@ -36,6 +38,8 @@ class ModelProvider(str, Enum):
     DEEPSEEK = "deepseek" # AMD Radeon Cloud (DeepSeek-V4-Flash)
     QWEN = "qwen"         # AMD Radeon Cloud (Qwen-3.8-Flash-Next)
     AMD = "amd"           # AMD Radeon Cloud 通用入口（兼容旧名）
+    LOCAL_STEP = "local_step"  # Step-3.7 Flash llama-server（默认 :8080）
+    LOCAL_NEMO = "local_nemo"  # Nemotron vLLM/SGLang（默认 :8000）
 
 
 class ModelTier(str, Enum):
@@ -103,6 +107,8 @@ _ENV_KEY = {
     ModelProvider.DEEPSEEK: "AMD_API_KEY",
     ModelProvider.QWEN: "AMD_API_KEY",
     ModelProvider.AMD: "AMD_API_KEY",
+    ModelProvider.LOCAL_STEP: "LOCAL_API_KEY",
+    ModelProvider.LOCAL_NEMO: "LOCAL_API_KEY",
 }
 
 
@@ -113,6 +119,8 @@ def get_key(provider: ModelProvider) -> str:
         env_value = os.environ.get(env_name, "").strip()
         if env_value:
             return env_value
+    if provider in (ModelProvider.LOCAL_STEP, ModelProvider.LOCAL_NEMO):
+        return "local"
     mapping = {
         ModelProvider.GLM: "my-tokenrouter.txt",
         ModelProvider.KIMI: "my-kimi-key.txt",
@@ -176,6 +184,28 @@ _MODEL_MAP: dict[tuple[ModelProvider, ModelTier], dict[str, str]] = {
         "base_url": "https://developer.amd.com.cn/radeon/api/v1",
         "timeout": 180.0,
     },
+    # 本地 Step-3.7 Flash：llama-server 默认 8080；实际 model id 可由环境变量覆盖
+    (ModelProvider.LOCAL_STEP, ModelTier.FLASH): {
+        "model_id": "Step-3.7-Flash",
+        "base_url": "http://127.0.0.1:8080/v1",
+        "timeout": 600.0,
+    },
+    (ModelProvider.LOCAL_STEP, ModelTier.PRO): {
+        "model_id": "Step-3.7-Flash",
+        "base_url": "http://127.0.0.1:8080/v1",
+        "timeout": 900.0,
+    },
+    # 本地 Nemotron：vLLM/SGLang 默认 8000；OpenAI 兼容标准 tool_calls
+    (ModelProvider.LOCAL_NEMO, ModelTier.FLASH): {
+        "model_id": "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4",
+        "base_url": "http://127.0.0.1:8000/v1",
+        "timeout": 600.0,
+    },
+    (ModelProvider.LOCAL_NEMO, ModelTier.PRO): {
+        "model_id": "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4",
+        "base_url": "http://127.0.0.1:8000/v1",
+        "timeout": 900.0,
+    },
 }
 
 
@@ -206,15 +236,29 @@ def make_model(
             f"支持: {list(_MODEL_MAP.keys())}"
         )
 
+    runtime = dict(config)
+    env_overrides = {
+        ModelProvider.LOCAL_STEP: ("LOCAL_STEP_MODEL", "LOCAL_STEP_BASE_URL"),
+        ModelProvider.LOCAL_NEMO: ("LOCAL_NEMO_MODEL", "LOCAL_NEMO_BASE_URL"),
+    }
+    model_env, url_env = env_overrides.get(provider, (None, None))
+    if model_env:
+        runtime["model_id"] = os.environ.get(model_env, "").strip() or runtime["model_id"]
+    if url_env:
+        runtime["base_url"] = os.environ.get(url_env, "").strip() or runtime["base_url"]
+
     api_key = get_key(provider)
-    return OpenAIModel(
-        model_id=config["model_id"],
-        client_args={
-            "base_url": config["base_url"],
+    kwargs = {
+        "model_id": runtime["model_id"],
+        "client_args": {
+            "base_url": runtime["base_url"],
             "api_key": api_key,
-            "timeout": config["timeout"],
+            "timeout": runtime["timeout"],
         },
-    )
+    }
+    if provider is ModelProvider.LOCAL_STEP:
+        return LocalStepModel(**kwargs)
+    return OpenAIModel(**kwargs)
 
 
 # ── 便捷别名 ──
