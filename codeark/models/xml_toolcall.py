@@ -43,8 +43,40 @@ _PARAMETER_RE = re.compile(
 )
 _ANY_TAG_RE = re.compile(rf"{_ESC_LT}/?[A-Za-z_][^>]*{_ESC_GT}", re.DOTALL)
 _ATTR_RE = re.compile(
-    r"\b(?P<key>name|type)\s*=\s*(?P<quote>[\"']?)(?P<value>[^\"'\s>]+)(?P=quote)",
+    r"\b(?P<key>[A-Za-z_][A-Za-z0-9_-]*)\s*=\s*"
+    r"(?P<quote>[\"']?)(?P<value>[^\"'\s>]+)(?P=quote)",
     re.IGNORECASE,
+)
+_INLINE_FUNCTION_RE = re.compile(
+    rf"{_ESC_LT}function\s*=\s*(?P<quote>[\"']?)(?P<name>[^\"'\s>]+)(?P=quote)\s*{_ESC_GT}",
+    re.IGNORECASE,
+)
+_INLINE_PARAMETER_RE = re.compile(
+    rf"{_ESC_LT}parameter\s*=\s*(?P<quote>[\"']?)(?P<name>[^\"'\s>]+)(?P=quote)\s*{_ESC_GT}",
+    re.IGNORECASE,
+)
+_INLINE_PARAMETER_BLOCK_RE = re.compile(
+    rf"{_ESC_LT}parameter\s*=\s*(?P<quote>[\"']?)(?P<name>[^\"'\s>]+)(?P=quote)"
+    rf"(?P<attrs>[^>]*){_ESC_GT}(?P<value>.*?){_ESC_LT}/parameter{_ESC_GT}",
+    re.IGNORECASE | re.DOTALL,
+)
+_DSML_INVOKE_RE = re.compile(
+    rf"{_ESC_LT}(?P<open>[^>]*DSML[^>]*invoke)(?P<attrs>[^>]*){_ESC_GT}"
+    rf"(?P<body>.*?)"
+    rf"{_ESC_LT}/?(?P<close>[^>]*DSML[^>]*invoke)\s*{_ESC_GT}",
+    re.IGNORECASE | re.DOTALL,
+)
+_DSML_PARAMETER_BLOCK_RE = re.compile(
+    rf"{_ESC_LT}(?P<open>[^>]*DSML[^>]*parameter)(?P<attrs>[^>]*){_ESC_GT}"
+    rf"(?P<value>.*?)"
+    rf"{_ESC_LT}/?(?P<close>[^>]*DSML[^>]*parameter)\s*{_ESC_GT}",
+    re.IGNORECASE | re.DOTALL,
+)
+_DSML_INLINE_PARAMETER_BLOCK_RE = re.compile(
+    rf"{_ESC_LT}(?P<open>[^>]*DSML[^>]*parameter)\s*=\s*"
+    rf"(?P<quote>[\"']?)(?P<name>[^\"'\s>]+)(?P=quote)\s*{_ESC_GT}"
+    rf"(?P<value>.*?){_ESC_LT}/\s*(?P<close>[^>]*DSML[^>]*parameter)\s*{_ESC_GT}",
+    re.IGNORECASE | re.DOTALL,
 )
 
 
@@ -99,10 +131,27 @@ def _json_object(raw: str) -> dict | None:
     return value if isinstance(value, dict) else None
 
 
+def _normalize_inline_markup(text: str) -> tuple[str, str | None]:
+    """Normalize Qwen-style ``<function=name>`` markup to the common shape."""
+    inline_function = _INLINE_FUNCTION_RE.search(text)
+    inline_name = html.unescape(inline_function.group("name").strip()) if inline_function else None
+    text = _INLINE_FUNCTION_RE.sub("", text)
+
+    def replace_parameter(match: re.Match[str]) -> str:
+        name = html.escape(match.group("name"), quote=True)
+        type_name = _attr(match.group("attrs"), "type")
+        type_attr = f' type="{html.escape(type_name, quote=True)}"' if type_name else ""
+        return f'<parameter name="{name}"{type_attr}>{match.group("value")}</parameter>'
+
+    text = _INLINE_PARAMETER_BLOCK_RE.sub(replace_parameter, text)
+    return text, inline_name
+
+
 def _parse_item(body: str, attrs: str) -> dict | None:
+    body, inline_name = _normalize_inline_markup(body)
     function = _FUNCTION_OPEN_RE.search(body)
     name = _attr(function.group("attrs"), "name") if function else None
-    name = name or _attr(attrs, "name")
+    name = name or inline_name or _attr(attrs, "name")
 
     inner = _FUNCTION_OPEN_RE.sub("", body)
     inner = _FUNCTION_CLOSE_RE.sub("", inner).strip()
@@ -162,11 +211,79 @@ def _make_call(parsed: dict, index: int) -> dict:
     }
 
 
-def extract_xml_tool_calls(text: str) -> XMLToolCallResult:
-    """Extract wrapped or standalone tool-call blocks; malformed input is unchanged."""
-    if not isinstance(text, str):
+def _dsml_parameter_name(match: re.Match[str]) -> str | None:
+    groups = match.groupdict()
+    inline_name = groups.get("name")
+    if inline_name:
+        return html.unescape(inline_name.strip())
+    attrs = groups.get("attrs") or ""
+    name = _attr(attrs, "name") or _attr(attrs, "function")
+    return html.unescape(name) if name else None
+
+
+def _parse_dsml_invoke(match: re.Match[str]) -> dict | None:
+    attrs = f"{match.group('open')} {match.group('attrs')}"
+    name = _attr(attrs, "name") or _attr(attrs, "function")
+    if not name:
+        return None
+    body = match.group("body")
+    parameter_matches = [
+        m for m in _DSML_PARAMETER_BLOCK_RE.finditer(body) if _dsml_parameter_name(m)
+    ]
+    if not parameter_matches:
+        parameter_matches = [
+            m for m in _DSML_INLINE_PARAMETER_BLOCK_RE.finditer(body) if _dsml_parameter_name(m)
+        ]
+    if not parameter_matches:
+        return None
+
+    residue = body
+    arguments: dict[str, object] = {}
+    for parameter in parameter_matches:
+        parameter_name = _dsml_parameter_name(parameter)
+        if not parameter_name or parameter_name in arguments:
+            return None
+        parameter_attrs = parameter.groupdict().get("attrs") or ""
+        value = parameter.groupdict().get("value") or ""
+        # DeepSeek DSML commonly carries scalar values in string="...".
+        if not value.strip():
+            value = _attr(parameter_attrs, "string") or _attr(parameter_attrs, "value") or ""
+        ok, coerced = _coerce(value, _attr(parameter_attrs, "type"))
+        if not ok:
+            return None
+        arguments[parameter_name] = coerced
+        residue = residue.replace(parameter.group(0), "", 1)
+    if residue.strip():
+        return None
+    return {"name": html.unescape(name), "arguments": json.dumps(arguments, ensure_ascii=False)}
+
+
+def _extract_dsml_tool_calls(text: str) -> XMLToolCallResult:
+    invokes = list(_DSML_INVOKE_RE.finditer(text))
+    marker = re.search(r"DSML[^>]*function_calls|function_calls[^>]*DSML", text, re.IGNORECASE)
+    if marker and not invokes:
+        return XMLToolCallResult(content=text)
+    if not invokes:
         return XMLToolCallResult(content=text)
 
+    calls: list[dict] = []
+    for invoke in invokes:
+        parsed = _parse_dsml_invoke(invoke)
+        if parsed is None:
+            return XMLToolCallResult(content=text)
+        calls.append(_make_call(parsed, len(calls) + 1))
+
+    content = _DSML_INVOKE_RE.sub("", text)
+    content = re.sub(
+        rf"{_ESC_LT}/?[^>]*DSML[^>]*function_calls[^>]*{_ESC_GT}",
+        "",
+        content,
+        flags=re.IGNORECASE,
+    ).strip()
+    return XMLToolCallResult(content=content, tool_calls=calls, repaired=True)
+
+
+def _extract_standard_tool_calls(text: str) -> XMLToolCallResult:
     outer_blocks = list(_BLOCK_RE.finditer(text))
     has_outer_marker = re.search(rf"{_ESC_LT}tool_calls\b", text, re.IGNORECASE)
     if has_outer_marker and not outer_blocks:
@@ -198,11 +315,26 @@ def extract_xml_tool_calls(text: str) -> XMLToolCallResult:
     return XMLToolCallResult(content=content, tool_calls=calls, repaired=True)
 
 
-def repair_message(message: object) -> bool:
+def extract_xml_tool_calls(text: str, tool_format: str = "standard_xml") -> XMLToolCallResult:
+    """Extract standard, Qwen-XML, or DeepSeek DSML tool calls.
+
+    Malformed or incomplete input is returned unchanged so a caller can still
+    expose the original model evidence instead of inventing a partial call.
+    """
+    if not isinstance(text, str):
+        return XMLToolCallResult(content=text)
+    if tool_format.lower() == "dsml_xml":
+        result = _extract_dsml_tool_calls(text)
+        if result.repaired:
+            return result
+    return _extract_standard_tool_calls(text)
+
+
+def repair_message(message: object, *, tool_format: str = "standard_xml") -> bool:
     """Move XML calls from an OpenAI-like message into message.tool_calls in place."""
     if message is None or getattr(message, "tool_calls", None):
         return False
-    result = extract_xml_tool_calls(getattr(message, "content", None) or "")
+    result = extract_xml_tool_calls(getattr(message, "content", None) or "", tool_format=tool_format)
     if not result.repaired:
         return False
     calls = [

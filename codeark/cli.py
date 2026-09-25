@@ -20,7 +20,9 @@ import sys
 from pathlib import Path
 
 # 让 codeark 可被直接运行（python codeark/cli.py）
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 # Windows 兼容：stdout/stderr 重定向到文件或经 WSL→Windows interop 启动时，编码会退回
 # 系统 ANSI 码页（GBK 等），emoji print 直接 UnicodeEncodeError → 退出码 1。
@@ -31,7 +33,8 @@ for _stream in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
-from graph.pipeline import run_pipeline
+from codeark.graph.pipeline import run_pipeline
+from codeark.models.factory import make_stage_models_from_env
 
 # 要读的代码文件扩展名
 _SOURCE_EXTS = {
@@ -81,8 +84,9 @@ async def _main(args: argparse.Namespace) -> int:
         print("   No code files read, exiting.")
         return 1
 
-    print(f"{'🧪' if args.dry else '🤖'} Running the 6-node pipeline ({'dry-run' if args.dry else 'real LLMs'})...")
-    result = await run_pipeline(files, dry=args.dry)
+    print(f"{'🧪' if args.dry else '🤖'} Running the 6-node pipeline ({'dry-run' if args.dry else 'configured LLMs'})...")
+    stage_models = None if args.dry else make_stage_models_from_env()
+    result = await run_pipeline(files, dry=args.dry, stage_models=stage_models)
 
     # 打印摘要
     print(f"\n⚖️  Risk score: {result.risk_score}/100")

@@ -11,7 +11,7 @@ async def _boom(*_a, **_k):
     raise RuntimeError("API down (simulated)")
 
 
-def _fake_scout_result(_files, _model=None, prompt_files=None):
+def _fake_scout_result(_files, _model=None, prompt_files=None, **_kwargs):
     return HypothesisSet(hypotheses=[VulnHypothesis(
         title="注入命中", vuln_type="PIT-T-51", file_path="a.py",
         line_start=2, line_end=2, code_snippet="# ignore...",
@@ -40,7 +40,7 @@ async def test_all_llm_nodes_down_pipeline_survives(monkeypatch):
 
 
 async def test_partial_degrade_only_verify(monkeypatch):
-    async def ok_scout(files, model=None, prompt_files=None, agent0_findings=None):
+    async def ok_scout(files, model=None, prompt_files=None, agent0_findings=None, **_kwargs):
         return _fake_scout_result(files)
     monkeypatch.setattr(pl, "run_scout", ok_scout)
     monkeypatch.setattr(pl, "run_verify_split", _boom)

@@ -27,6 +27,7 @@ if str(ROOT) not in sys.path:
 
 from codeark.graph.pipeline import CodeRiskGraph, compute_risk_score  # noqa: E402
 from codeark.memory.memory import get_memory_service  # noqa: E402
+from codeark.models.factory import make_stage_models_from_env  # noqa: E402
 
 SEVERITY_COLOR = {"critical": "#d32f2f", "high": "#f57c00", "medium": "#fbc02d", "low": "#7b1fa2"}
 
@@ -108,7 +109,7 @@ def main() -> None:
 
     with st.sidebar:
         st.subheader("⚙️ 运行配置")
-        run_mode = st.radio("运行模式", ["dry-run（离线，不调模型）", "真实模型（DeepSeek）"], index=0)
+        run_mode = st.radio("运行模式", ["dry-run（离线，不调模型）", "真实模型（按环境配置）"], index=0)
         backend = st.radio("记忆后端", ["本地（默认）", "DynamoDB（卡批后）"], index=0)
         if backend == "DynamoDB":
             table = st.text_input("DynamoDB 表名", "coderisk-memory")
@@ -118,9 +119,10 @@ def main() -> None:
 
     def run_scan(files: dict[str, str]) -> None:
         dry = run_mode.startswith("dry")
-        with st.spinner(f"运行 6 节点流水线（{'dry-run' if dry else '真实 DeepSeek'}）..."):
+        with st.spinner(f"运行 6 节点流水线（{'dry-run' if dry else '按环境配置的真实模型'}）..."):
             try:
-                res = asyncio.run(CodeRiskGraph(dry=dry).run(files))
+                stage_models = None if dry else make_stage_models_from_env()
+                res = asyncio.run(CodeRiskGraph(dry=dry, stage_models=stage_models).run(files))
             except Exception as e:
                 st.error(f"流水线失败: {type(e).__name__}: {str(e)[:300]}")
                 return

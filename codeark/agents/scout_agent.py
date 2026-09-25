@@ -15,6 +15,7 @@ from strands import Agent
 from strands.models import OpenAIModel
 
 from codeark.models.factory import make_model, ModelProvider, ModelTier
+from codeark.models.routing import redact_error
 from codeark.models.schemas import HypothesisSet
 from codeark.tools.pitax_scan import pitax_scan, make_bound_tool
 from codeark.graph.quarantine import quarantine_files, quarantine_text, render_data_block
@@ -80,6 +81,7 @@ async def run_scout(
     model: OpenAIModel | None = None,
     prompt_files: dict[str, str] | None = None,
     agent0_findings: list[dict] | None = None,
+    fallback_model: OpenAIModel | None = None,
 ) -> HypothesisSet:
     """对给定仓库跑**语义增量**侦察，返回结构化 HypothesisSet。
 
@@ -105,13 +107,42 @@ async def run_scout(
             "请调用 pitax_scan 工具获取当前仓库的 PITAX 检测结果，并输出 HypothesisSet。\n"
             + render_data_block(safe)
         )
-    result = await agent.invoke_async(prompt)
+    used_fallback = False
+    try:
+        result = await agent.invoke_async(prompt)
+    except Exception as primary_exc:
+        if fallback_model is None:
+            raise
+        print(
+            f"[Scout] primary failed ({type(primary_exc).__name__}: "
+            f"{redact_error(primary_exc)}), trying fallback"
+        )
+        used_fallback = True
+        result = await build_scout_agent(fallback_model, files).invoke_async(prompt)
+
     hyp = getattr(result, "structured_output", None)
     if isinstance(hyp, HypothesisSet):
         return hyp
     if isinstance(hyp, dict):
-        return HypothesisSet.model_validate(hyp)
+        try:
+            return HypothesisSet.model_validate(hyp)
+        except Exception as validation_exc:
+            if fallback_model is None or used_fallback:
+                raise RuntimeError(
+                    f"[Scout] structured output validation failed: {redact_error(validation_exc)}"
+                ) from validation_exc
+            print(
+                f"[Scout] primary output invalid ({type(validation_exc).__name__}: "
+                f"{redact_error(validation_exc)}), trying fallback"
+            )
+            fallback_result = await build_scout_agent(fallback_model, files).invoke_async(prompt)
+            fallback_output = getattr(fallback_result, "structured_output", None)
+            if isinstance(fallback_output, HypothesisSet):
+                return fallback_output
+            if isinstance(fallback_output, dict):
+                return HypothesisSet.model_validate(fallback_output)
+
     raise RuntimeError(
-        f"[Scout] 模型未产出结构化 HypothesisSet（structured_output={hyp!r}，"
-        f"raw={str(result)[:300]!r}）"
+        f"[Scout] model did not produce structured HypothesisSet "
+        f"(raw={redact_error(str(result)[:300])!r})"
     )

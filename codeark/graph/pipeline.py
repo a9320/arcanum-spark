@@ -24,11 +24,13 @@ from codeark.agents.deepen_agent import run_deepen
 from codeark.agents.arbiter_agent import run_arbiter
 from codeark.agents.report_agent import render_report, apply_severity_floor
 from codeark.graph.quarantine import quarantine_files
+from codeark.models.routing import StageModels, redact_error
 
 __all__ = [
     "GraphResult",
     "compute_risk_score",
     "CodeRiskGraph",
+    "run_pipeline",
 ]
 
 
@@ -111,9 +113,21 @@ class CodeRiskGraph:
         result = await g.run(files, dry=True)  # 离线 dry-run，不烧模型
     """
 
-    def __init__(self, model=None, dry: bool = False) -> None:
+    def __init__(
+        self,
+        model=None,
+        dry: bool = False,
+        *,
+        stage_models: StageModels | None = None,
+    ) -> None:
         self.model = model  # None → 各节点用默认免费模型
+        self.stage_models = stage_models
         self.dry = dry
+
+    def _model_for(self, stage: str):
+        if self.stage_models is None:
+            return self.model
+        return self.stage_models.resolve(stage, self.model)
 
     # ── dry-run：离线确定性路径（用 agent0 + 简单结构化占位，不调 LLM）──
     def _dry_scout(self, files: dict[str, str], baseline: list[dict]) -> Any:
@@ -177,12 +191,15 @@ class CodeRiskGraph:
         else:
             try:
                 res.hypothesis_set = await run_scout(
-                    files, self.model, prompt_files=safe_files,
+                    files, self._model_for("scout"), prompt_files=safe_files,
                     agent0_findings=res.agent0_findings,
+                    fallback_model=(
+                        self.stage_models.fallback("scout") if self.stage_models else None
+                    ),
                 )
             except Exception as exc:
-                res.node_errors["scout"] = f"{type(exc).__name__}: {exc}"
-                print(f"[Pipeline] ⚠ Scout 失败，降级为规则基线假设: {exc}")
+                res.node_errors["scout"] = f"{type(exc).__name__}: {redact_error(exc)}"
+                print(f"[Pipeline] ⚠ Scout 失败，降级为规则基线假设: {redact_error(exc)}")
                 res.hypothesis_set = self._dry_scout(files, res.agent0_findings)
         # 假设编号 H1..Hn（确定性，验证/报告按 id 结构化对齐，替代 title 字符串匹配）
         from codeark.models.schemas import assign_hypothesis_ids
@@ -195,11 +212,11 @@ class CodeRiskGraph:
         else:
             try:
                 res.verifications = await run_verify_split(
-                    res.hypothesis_set, files, self.model, prompt_files=safe_files
+                    res.hypothesis_set, files, self._model_for("verify"), prompt_files=safe_files
                 )
             except Exception as exc:
-                res.node_errors["verify"] = f"{type(exc).__name__}: {exc}"
-                print(f"[Pipeline] ⚠ Verify 失败，降级为规则证实口径: {exc}")
+                res.node_errors["verify"] = f"{type(exc).__name__}: {redact_error(exc)}"
+                print(f"[Pipeline] ⚠ Verify 失败，降级为规则证实口径: {redact_error(exc)}")
                 res.verifications = self._dry_verify(res.hypothesis_set)
 
         # 4. 深挖：对 CONFIRMED 推演攻击链（失败 → 占位链 + 降级计数披露）
@@ -209,11 +226,11 @@ class CodeRiskGraph:
         else:
             try:
                 res.attack_chains = await run_deepen(
-                    confirmed, files, self.model, prompt_files=safe_files
+                    confirmed, files, self._model_for("deepen"), prompt_files=safe_files
                 )
             except Exception as exc:
-                res.node_errors["deepen"] = f"{type(exc).__name__}: {exc}"
-                print(f"[Pipeline] ⚠ Deepen 失败，输出占位链并记降级: {exc}")
+                res.node_errors["deepen"] = f"{type(exc).__name__}: {redact_error(exc)}"
+                print(f"[Pipeline] ⚠ Deepen 失败，输出占位链并记降级: {redact_error(exc)}")
                 res.attack_chains = self._dry_chains(confirmed)
                 res.deepen_failures = len(confirmed)
             else:
@@ -228,15 +245,16 @@ class CodeRiskGraph:
         else:
             try:
                 res.final_report = await run_arbiter(
-                    res.hypothesis_set, res.verifications, res.attack_chains, self.model
+                    res.hypothesis_set, res.verifications, res.attack_chains,
+                    self._model_for("arbiter"),
                 )
             except Exception as exc:
-                res.node_errors["arbiter"] = f"{type(exc).__name__}: {exc}"
-                print(f"[Pipeline] ⚠ Arbiter 异常，切换确定性兜底定稿: {exc}")
+                res.node_errors["arbiter"] = f"{type(exc).__name__}: {redact_error(exc)}"
+                print(f"[Pipeline] ⚠ Arbiter 异常，切换确定性兜底定稿: {redact_error(exc)}")
                 from codeark.agents.arbiter_agent import _deterministic_fallback_report
                 res.final_report = _deterministic_fallback_report(
                     res.verifications, res.attack_chains, res.hypothesis_set,
-                    reason=f"arbiter 异常 {type(exc).__name__}: {exc}",
+                    reason=f"arbiter 异常 {type(exc).__name__}: {redact_error(exc)}",
                 )
 
         # 5.5 severity 确定性打底（§11-H）：规则级别是底线，LLM 只能带证据升级
@@ -282,7 +300,9 @@ async def run_pipeline(
     files: dict[str, str],
     model=None,
     dry: bool = False,
+    *,
+    stage_models: StageModels | None = None,
 ) -> GraphResult:
     """一次性跑完整 6 节点流水线。"""
-    graph = CodeRiskGraph(model=model, dry=dry)
+    graph = CodeRiskGraph(model=model, dry=dry, stage_models=stage_models)
     return await graph.run(files)

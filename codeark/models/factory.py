@@ -14,18 +14,21 @@ from __future__ import annotations
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Optional
-
-from openai import AsyncOpenAI
-from strands.models import OpenAIModel
+from strands.models import OpenAIModel, OpenAIResponsesModel
 
 from .local_step import LocalStepModel
+from .routing import EndpointConfig, StageModels
+from .xml_model import XMLToolCallModel
 
 __all__ = [
+    "EndpointConfig",
     "ModelProvider",
     "ModelTier",
-    "make_model",
+    "StageModels",
     "get_key",
+    "make_model",
+    "make_openai_compatible_model",
+    "make_stage_models_from_env",
 ]
 
 
@@ -259,6 +262,336 @@ def make_model(
     if provider is ModelProvider.LOCAL_STEP:
         return LocalStepModel(**kwargs)
     return OpenAIModel(**kwargs)
+
+
+# ── 通用 OpenAI-compatible API ──
+
+def _reasoning_params(endpoint: EndpointConfig) -> dict[str, object]:
+    effort = endpoint.reasoning_effort
+    if effort in {"", "default"}:
+        return {}
+    if endpoint.api_style == "responses":
+        return {"reasoning": {"effort": effort}}
+    return {"reasoning_effort": effort}
+
+
+def make_openai_compatible_model(
+    model_id: str | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+    timeout: float | None = None,
+    *,
+    endpoint: EndpointConfig | None = None,
+    api_style: str = "chat_completions",
+    tool_format: str = "standard_json",
+    structured_output_support: str = "json_schema",
+    reasoning_effort: str = "default",
+) -> OpenAIModel:
+    """Construct a configured Chat Completions or Responses model.
+
+    Construction performs no network request. XML-like tool formats use a
+    non-streaming wrapper so the complete payload can be normalized before
+    Strands formats tool events.
+    """
+    if endpoint is not None:
+        if any(
+            value is not None
+            for value in (model_id, base_url, api_key, timeout)
+        ) or any(
+            value != default
+            for value, default in (
+                (api_style, "chat_completions"),
+                (tool_format, "standard_json"),
+                (structured_output_support, "json_schema"),
+                (reasoning_effort, "default"),
+            )
+        ):
+            raise ValueError("pass either endpoint or individual model settings, not both")
+    else:
+        missing = [
+            name
+            for name, value in (
+                ("model_id", model_id),
+                ("base_url", base_url),
+                ("api_key", api_key),
+            )
+            if value is None
+        ]
+        if missing:
+            raise ValueError(f"missing model settings: {', '.join(missing)}")
+        endpoint = EndpointConfig(
+            model_id=model_id or "",
+            base_url=base_url or "",
+            api_key=api_key or "",
+            timeout=180.0 if timeout is None else timeout,
+            api_style=api_style,
+            tool_format=tool_format,
+            structured_output_support=structured_output_support,
+            reasoning_effort=reasoning_effort,
+        )
+
+    params = _reasoning_params(endpoint)
+    client_args = {
+        "base_url": endpoint.base_url,
+        "api_key": endpoint.api_key,
+        "timeout": endpoint.timeout,
+    }
+    if endpoint.api_style == "responses":
+        return OpenAIResponsesModel(
+            model_id=endpoint.model_id,
+            params=params,
+            client_args=client_args,
+        )
+    if endpoint.tool_format not in {"", "standard_json", "json"}:
+        return XMLToolCallModel(
+            model_id=endpoint.model_id,
+            params=params,
+            client_args=client_args,
+            tool_format=endpoint.tool_format,
+        )
+    return OpenAIModel(
+        model_id=endpoint.model_id,
+        params=params,
+        client_args=client_args,
+    )
+
+
+_ARCA_STAGES = ("scout", "verify", "deepen", "arbiter")
+_ARCA_REQUIRED_FIELDS = ("MODEL", "BASE_URL", "API_KEY")
+_ARCA_ALL_FIELDS = (*_ARCA_REQUIRED_FIELDS, "TIMEOUT")
+_ARCA_DEFAULT_TIMEOUT = 180.0
+
+# Non-sensitive defaults supplied for the current API test topology. Keys are
+# never embedded here; only their environment variable names are recorded.
+_REMOTE_ROUTE_DEFAULTS: dict[str, dict[str, object]] = {
+    "scout": {
+        "model_id": "step-5-preview",
+        "base_url": "https://api.stepfun.com",
+        "api_style": "chat_completions",
+        # 2026-09-25 实测：StepFun 服务端已在 API 层把 step3p5 XML 归一化为标准
+        # tool_calls，远程路径走 standard_json；step3p5_xml 仅本地 llama.cpp 需要。
+        "tool_format": "standard_json",
+        "structured_output_support": "json_schema",
+        "reasoning_effort": "medium",
+        "timeout": 120.0,
+        "key_env": "ARCA_SCOUT_PRIMARY_API_KEY",
+    },
+    "scout_fallback": {
+        "model_id": "gpt-5.6-luna",
+        "base_url": "https://api.lmuai.ai",
+        "api_style": "responses",
+        "tool_format": "json",
+        "structured_output_support": "json_schema",
+        "reasoning_effort": "none",
+        "timeout": 60.0,
+        "key_env": "ARCA_SCOUT_FALLBACK_API_KEY",
+    },
+    "verify": {
+        "model_id": "Qwen3.8-Flash-Next",
+        "base_url": "https://developer.amd.com.cn/radeon/api/v1",
+        "api_style": "chat_completions",
+        # 2026-09-25 实测：AMD 服务端已配 qwen3_xml 解析器，API 返回标准 tool_calls。
+        "tool_format": "standard_json",
+
+        "structured_output_support": "json_schema",
+        "reasoning_effort": "default",
+        "timeout": 120.0,
+        "key_env": "ARCA_VERIFY_API_KEY",
+    },
+    "deepen": {
+        "model_id": "DeepSeek-V4-Flash",
+        "base_url": "https://developer.amd.com.cn/radeon/api/v1",
+        "api_style": "chat_completions",
+        # 2026-09-25 实测：DSML 在服务端已归一化，API 返回标准 tool_calls。
+        "tool_format": "standard_json",
+
+        "structured_output_support": "json_object",
+        "reasoning_effort": "high",
+        "timeout": 180.0,
+        "key_env": "ARCA_DEEPEN_API_KEY",
+    },
+    "arbiter": {
+        "model_id": "gpt-6-sol",
+        "base_url": "https://api.lmuai.ai",
+        "api_style": "responses",
+        "tool_format": "json",
+        "structured_output_support": "json_schema",
+        "reasoning_effort": "high",
+        "timeout": 180.0,
+        "key_env": "ARCA_ARBITER_API_KEY",
+    },
+}
+
+
+def _env_text(name: str) -> str | None:
+    value = os.environ.get(name)
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
+
+
+def _parse_env_timeout(name: str, value: str | None, default: float) -> float:
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be a finite number greater than 0") from exc
+
+
+def _route_override(prefix: str, field: str, default: object) -> object:
+    env_name = f"{prefix}_{field}"
+    value = _env_text(env_name)
+    if value is None:
+        return default
+    if field == "TIMEOUT":
+        return _parse_env_timeout(env_name, value, float(default))
+    return value
+
+
+def _endpoint_from_named_route(name: str) -> EndpointConfig | None:
+    spec = _REMOTE_ROUTE_DEFAULTS[name]
+    key_env = str(spec["key_env"])
+    api_key = _env_text(key_env)
+    if not api_key:
+        return None
+    prefix = f"ARCA_{name.upper()}"
+    return EndpointConfig(
+        model_id=str(_route_override(prefix, "MODEL", spec["model_id"])),
+        base_url=str(_route_override(prefix, "BASE_URL", spec["base_url"])),
+        api_key=api_key,
+        timeout=float(_route_override(prefix, "TIMEOUT", spec["timeout"])),
+        api_style=str(_route_override(prefix, "API_STYLE", spec["api_style"])),
+        tool_format=str(_route_override(prefix, "TOOL_FORMAT", spec["tool_format"])),
+        structured_output_support=str(
+            _route_override(prefix, "STRUCTURED_OUTPUT_SUPPORT", spec["structured_output_support"])
+        ),
+        reasoning_effort=str(_route_override(prefix, "REASONING_EFFORT", spec["reasoning_effort"])),
+    )
+
+
+def _env_endpoint_config(
+    stage: str,
+    shared: dict[str, str | float],
+    *,
+    shared_present: bool,
+) -> EndpointConfig | None:
+    stage_prefix = f"ARCA_{stage.upper()}_"
+    stage_names = {field: f"{stage_prefix}{field}" for field in _ARCA_ALL_FIELDS}
+    stage_present = any(name in os.environ for name in stage_names.values())
+    if not shared_present and not stage_present:
+        return None
+
+    values: dict[str, str | float] = {}
+    missing: list[str] = []
+    for field in _ARCA_REQUIRED_FIELDS:
+        value = _env_text(stage_names[field]) or shared.get(field)
+        if not value:
+            fallback = f"ARCA_{field}"
+            missing.append(f"{stage_names[field]} (or {fallback})")
+        else:
+            values[field] = value
+
+    if missing:
+        raise ValueError(
+            f"incomplete model configuration for {stage}: missing {', '.join(missing)}"
+        )
+
+    stage_timeout = _env_text(stage_names["TIMEOUT"])
+    values["TIMEOUT"] = _parse_env_timeout(
+        stage_names["TIMEOUT"],
+        stage_timeout,
+        float(shared.get("TIMEOUT", _ARCA_DEFAULT_TIMEOUT)),
+    )
+    try:
+        return EndpointConfig(
+            model_id=str(values["MODEL"]),
+            base_url=str(values["BASE_URL"]),
+            api_key=str(values["API_KEY"]),
+            timeout=float(values["TIMEOUT"]),
+        )
+    except ValueError as exc:
+        raise ValueError(f"invalid model configuration for {stage}: {exc}") from exc
+
+
+def _make_model_from_endpoint(endpoint: EndpointConfig) -> OpenAIModel:
+    return make_openai_compatible_model(endpoint=endpoint)
+
+
+def make_stage_models_from_env() -> StageModels | None:
+    """Build stage models from dedicated API keys or legacy ``ARCA_*`` vars.
+
+    The dedicated topology is gated on its unique key names
+    (``ARCA_SCOUT_PRIMARY_API_KEY`` / ``ARCA_SCOUT_FALLBACK_API_KEY``) so it
+    can never misfire on the colliding generic ``ARCA_<STAGE>_API_KEY`` names.
+    It uses only ``os.environ`` and the non-sensitive route defaults above and
+    never consults key files. Legacy generic ARCA variables remain supported
+    for existing callers and tests.
+    """
+    dedicated_present = bool(
+        _env_text("ARCA_SCOUT_PRIMARY_API_KEY")
+        or _env_text("ARCA_SCOUT_FALLBACK_API_KEY")
+    )
+    if dedicated_present:
+        named_endpoints = {
+            name: _endpoint_from_named_route(name)
+            for name in (*_ARCA_STAGES, "scout_fallback")
+        }
+        models = {
+            name: _make_model_from_endpoint(endpoint)
+            for name, endpoint in named_endpoints.items()
+            if endpoint is not None
+        }
+        if models:
+            return StageModels(**models)
+
+    shared_names = {field: f"ARCA_{field}" for field in _ARCA_ALL_FIELDS}
+    shared_present = any(name in os.environ for name in shared_names.values())
+    shared: dict[str, str | float] = {}
+
+    if shared_present:
+        missing = [
+            name
+            for field in _ARCA_REQUIRED_FIELDS
+            for name in (shared_names[field],)
+            if not _env_text(name)
+        ]
+        if missing:
+            raise ValueError(
+                "incomplete shared model configuration: missing "
+                + ", ".join(missing)
+            )
+        shared.update(
+            {
+                field: _env_text(shared_names[field]) or ""
+                for field in _ARCA_REQUIRED_FIELDS
+            }
+        )
+        shared["TIMEOUT"] = _parse_env_timeout(
+            shared_names["TIMEOUT"],
+            _env_text(shared_names["TIMEOUT"]),
+            _ARCA_DEFAULT_TIMEOUT,
+        )
+
+    configs: dict[str, EndpointConfig] = {}
+    for stage in _ARCA_STAGES:
+        config = _env_endpoint_config(stage, shared, shared_present=shared_present)
+        if config is not None:
+            configs[stage] = config
+
+    if not configs:
+        return None
+
+    models_by_config: dict[EndpointConfig, OpenAIModel] = {}
+    models: dict[str, OpenAIModel] = {}
+    for stage, config in configs.items():
+        model = models_by_config.get(config)
+        if model is None:
+            model = _make_model_from_endpoint(config)
+            models_by_config[config] = model
+        models[stage] = model
+    return StageModels(**models)
 
 
 # ── 便捷别名 ──
