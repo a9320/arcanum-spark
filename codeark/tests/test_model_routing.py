@@ -191,9 +191,10 @@ def test_local_deepen_carries_max_tokens_budget(monkeypatch: pytest.MonkeyPatch)
 
     assert routes is not None
     assert routes.deepen.get_config()["params"]["max_tokens"] == 2000
-    # scout 绑定低温采样稳定侦察行为（2026-09-25 e2e 采样波动教训）
+    # scout 绑定低温采样 + max_tokens 硬帽（防病态复读耗满超时）
     assert routes.scout.get_config()["params"]["temperature"] == 0.2
-    for stage in ("scout", "verify", "arbiter"):
+    assert routes.scout.get_config()["params"]["max_tokens"] == 6000
+    for stage in ("verify", "arbiter"):
         params = getattr(routes, stage).get_config().get("params") or {}
         assert "max_tokens" not in params
     for stage in ("verify", "deepen", "arbiter"):
