@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parent  # 可移植：仓库根 = 本文件所�
 sys.path.insert(0, str(ROOT))
 
 from codeark.graph.pipeline import CodeRiskGraph
+from codeark.models.factory import make_stage_models_from_env
 
 REPO = ROOT / "demo" / "vuln-demo-repo"
 
@@ -30,7 +31,7 @@ async def main() -> None:
     files = read_repo()
     print(f"读取到 {len(files)} 个文件")
 
-    graph = CodeRiskGraph()
+    graph = CodeRiskGraph(stage_models=make_stage_models_from_env())
     result = await graph.run(files)
 
     print("\n========== 端到端结果 ==========")
