@@ -31,6 +31,9 @@ class EndpointConfig:
     # Optional per-request output cap merged into chat-completions params
     # (llama.cpp n_predict / OpenAI max_tokens). None = server default.
     max_tokens: float | None = None
+    # Optional sampling temperature merged into chat-completions params
+    # (0.0-2.0). None = server default; low values stabilize recon/judging.
+    temperature: float | None = None
 
     def __post_init__(self) -> None:
         model_id = self.model_id.strip() if isinstance(self.model_id, str) else ""
@@ -45,6 +48,7 @@ class EndpointConfig:
         )
         reasoning = self.reasoning_effort.strip().lower() if isinstance(self.reasoning_effort, str) else ""
         max_tokens = self.max_tokens
+        temperature = self.temperature
         if not model_id:
             raise ValueError("model_id must not be empty")
         if not api_key:
@@ -73,6 +77,13 @@ class EndpointConfig:
                 raise ValueError("max_tokens must be a finite number greater than 0") from exc
             if not math.isfinite(max_tokens) or max_tokens <= 0:  # type: ignore[operator]
                 raise ValueError("max_tokens must be a finite number greater than 0")
+        if temperature is not None:
+            try:
+                temperature = float(temperature)  # type: ignore[assignment]
+            except (TypeError, ValueError) as exc:
+                raise ValueError("temperature must be a finite number within [0, 2]") from exc
+            if not math.isfinite(temperature) or not 0 <= temperature <= 2:  # type: ignore[operator]
+                raise ValueError("temperature must be a finite number within [0, 2]")
 
         path = parsed.path.rstrip("/")
         if not path:
@@ -87,6 +98,7 @@ class EndpointConfig:
         object.__setattr__(self, "structured_output_support", structured)
         object.__setattr__(self, "reasoning_effort", reasoning)
         object.__setattr__(self, "max_tokens", max_tokens)
+        object.__setattr__(self, "temperature", temperature)
 
 
 @dataclass(frozen=True, slots=True)

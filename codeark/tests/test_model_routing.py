@@ -57,6 +57,10 @@ _ARCA_VARS = (
     "ARCA_VERIFY_MAX_TOKENS",
     "ARCA_DEEPEN_MAX_TOKENS",
     "ARCA_ARBITER_MAX_TOKENS",
+    "ARCA_SCOUT_TEMPERATURE",
+    "ARCA_VERIFY_TEMPERATURE",
+    "ARCA_DEEPEN_TEMPERATURE",
+    "ARCA_ARBITER_TEMPERATURE",
 )
 
 
@@ -187,9 +191,14 @@ def test_local_deepen_carries_max_tokens_budget(monkeypatch: pytest.MonkeyPatch)
 
     assert routes is not None
     assert routes.deepen.get_config()["params"]["max_tokens"] == 2000
+    # scout 绑定低温采样稳定侦察行为（2026-09-25 e2e 采样波动教训）
+    assert routes.scout.get_config()["params"]["temperature"] == 0.2
     for stage in ("scout", "verify", "arbiter"):
         params = getattr(routes, stage).get_config().get("params") or {}
         assert "max_tokens" not in params
+    for stage in ("verify", "deepen", "arbiter"):
+        params = getattr(routes, stage).get_config().get("params") or {}
+        assert "temperature" not in params
 
 
 def test_local_deployment_env_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -197,12 +206,14 @@ def test_local_deployment_env_overrides(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("ARCA_DEPLOYMENT", "local")
     monkeypatch.setenv("ARCA_DEEPEN_MAX_TOKENS", "3000")
     monkeypatch.setenv("ARCA_SCOUT_BASE_URL", "http://127.0.0.1:9081/v1")
+    monkeypatch.setenv("ARCA_SCOUT_TEMPERATURE", "0.5")
 
     routes = make_stage_models_from_env()
 
     assert routes is not None
     assert routes.deepen.get_config()["params"]["max_tokens"] == 3000
     assert routes.scout.client_args["base_url"] == "http://127.0.0.1:9081/v1"
+    assert routes.scout.get_config()["params"]["temperature"] == 0.5
     # 未覆盖的阶段保持默认端口表
     assert routes.verify.client_args["base_url"] == "http://127.0.0.1:8182/v1"
 
@@ -232,6 +243,19 @@ def test_endpoint_config_max_tokens_validation() -> None:
         )
 
 
+def test_endpoint_config_temperature_validation() -> None:
+    # 0 是合法温度（判定类任务用），越界拒绝
+    endpoint = EndpointConfig(
+        model_id="m", base_url="https://example.test/v1", api_key="k", temperature=0
+    )
+    assert endpoint.temperature == 0.0
+    for bad in (-0.1, 2.5):
+        with pytest.raises(ValueError, match="temperature"):
+            EndpointConfig(
+                model_id="m", base_url="https://example.test/v1", api_key="k", temperature=bad
+            )
+
+
 def test_max_tokens_not_injected_for_responses_style() -> None:
     endpoint = EndpointConfig(
         model_id="m",
@@ -243,7 +267,9 @@ def test_max_tokens_not_injected_for_responses_style() -> None:
 
     model = make_openai_compatible_model(endpoint=endpoint)
 
-    assert "max_tokens" not in (model.get_config().get("params") or {})
+    params = model.get_config().get("params") or {}
+    assert "max_tokens" not in params
+    assert "temperature" not in params
 
 
 def test_stage_tuning_from_env_defaults_and_overrides(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -338,6 +338,8 @@ def make_openai_compatible_model(
     params = _reasoning_params(endpoint)
     if endpoint.api_style == "chat_completions" and endpoint.max_tokens is not None:
         params["max_tokens"] = int(endpoint.max_tokens)
+    if endpoint.api_style == "chat_completions" and endpoint.temperature is not None:
+        params["temperature"] = float(endpoint.temperature)
     client_args = {
         "base_url": endpoint.base_url,
         "api_key": endpoint.api_key,
@@ -456,6 +458,15 @@ def _parse_env_int(name: str, value: str | None, default: int | None) -> int | N
         raise ValueError(f"{name} must be an integer") from exc
 
 
+def _parse_env_float(name: str, value: str | None, default: float | None) -> float | None:
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be a number") from exc
+
+
 def _route_override(prefix: str, field: str, default: object) -> object:
     env_name = f"{prefix}_{field}"
     value = _env_text(env_name)
@@ -465,6 +476,8 @@ def _route_override(prefix: str, field: str, default: object) -> object:
         return _parse_env_timeout(env_name, value, float(default))  # type: ignore[arg-type]
     if field == "MAX_TOKENS":
         return _parse_env_int(env_name, value, default)  # type: ignore[arg-type]
+    if field == "TEMPERATURE":
+        return _parse_env_float(env_name, value, default)  # type: ignore[arg-type]
     return value
 
 
@@ -503,6 +516,10 @@ _LOCAL_ROUTE_DEFAULTS: dict[str, dict[str, object]] = {
         "reasoning_effort": "default",
         "timeout": 300.0,
         "max_tokens": None,
+        # 2026-09-25 e2e 复跑实测：temp=1.0 下 Muse 采样波动会导致假设回显
+        # （12 条规则回显 vs 3 条语义增量，e2e 40m35s vs 10m07s）——Scout 绑低
+        # 温度稳定侦察行为；覆盖用 ARCA_SCOUT_TEMPERATURE。
+        "temperature": 0.2,
     },
     "verify": {
         "model_id": "qwen-verify",
@@ -513,6 +530,7 @@ _LOCAL_ROUTE_DEFAULTS: dict[str, dict[str, object]] = {
         "reasoning_effort": "default",
         "timeout": 300.0,
         "max_tokens": None,
+        "temperature": None,
     },
     "deepen": {
         "model_id": "r1-deepen",
@@ -525,6 +543,7 @@ _LOCAL_ROUTE_DEFAULTS: dict[str, dict[str, object]] = {
         # 挤占 content 预算导致截断。覆盖用 ARCA_DEEPEN_MAX_TOKENS。
         "timeout": 600.0,
         "max_tokens": 2000,
+        "temperature": None,
     },
     "arbiter": {
         "model_id": "gemma-arbiter",
@@ -535,6 +554,7 @@ _LOCAL_ROUTE_DEFAULTS: dict[str, dict[str, object]] = {
         "reasoning_effort": "default",
         "timeout": 300.0,
         "max_tokens": None,
+        "temperature": None,
     },
 }
 
@@ -555,6 +575,7 @@ def _endpoint_from_local_route(name: str) -> EndpointConfig:
             ),
             reasoning_effort=str(_route_override(prefix, "REASONING_EFFORT", spec["reasoning_effort"])),
             max_tokens=_route_override(prefix, "MAX_TOKENS", spec["max_tokens"]),  # type: ignore[arg-type]
+            temperature=_route_override(prefix, "TEMPERATURE", spec["temperature"]),  # type: ignore[arg-type]
         )
     except ValueError as exc:
         raise ValueError(f"invalid local model configuration for {name}: {exc}") from exc
