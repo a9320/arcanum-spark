@@ -184,6 +184,37 @@ def test_render_report_includes_chains_conclusion_meta():
     assert payload["meta"]["quarantine_stats"]["files_changed"] == 2
 
 
+def test_render_report_merges_agent0_rule_rows():
+    # eval/check_report.py 契约：定稿层 = 确定性规则行（PIT-*）+ LLM 语义增量
+    final = {
+        "conclusion": "合议定稿",
+        "findings": [
+            {"title": "语义增量", "file_path": "src/admin_panel.py",
+             "vuln_type": "DENIAL_OF_SERVICE", "severity": "high"},
+        ],
+    }
+    meta = {
+        "agent0_findings": [
+            {"file": "src/admin_panel.py", "rule": "PIT-E-54", "severity": "high", "line": 3},
+            {"file": "src/rewards.py", "rule": "PIT-E-23", "severity": "medium", "line": 7},
+            {"file": ".cursor/rules", "rule": "PIT-T-46", "severity": "critical", "line": 2},
+            {"file": ".cursor/rules", "rule": "PIT-T-46", "severity": "critical", "line": 2},
+        ],
+    }
+
+    reports = render_report(final, ["json"], meta=meta)
+
+    import json as _json
+    payload = _json.loads(reports["json"])
+    pairs = {(f["file_path"], f["vuln_type"]) for f in payload["findings"]}
+    assert ("src/admin_panel.py", "PIT-E-54") in pairs
+    assert ("src/rewards.py", "PIT-E-23") in pairs
+    assert (".cursor/rules", "PIT-T-46") in pairs
+    assert ("src/admin_panel.py", "DENIAL_OF_SERVICE") in pairs
+    # 同 (file, rule) 多次命中去重为一条
+    assert len([f for f in payload["findings"] if f["vuln_type"] == "PIT-T-46"]) == 1
+
+
 # ── 凭证脱敏（占位链 raw 节选进报告前必须掩码）──
 def test_redact_creds_masks_provider_tokens():
     from codeark.agents.deepen_agent import _redact_creds

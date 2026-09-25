@@ -256,6 +256,19 @@ def render_report(
     findings = dedup_findings(
         [f.model_dump() if hasattr(f, "model_dump") else f for f in findings]
     )
+    # Day-2 eval 契约（eval/check_report.py）：定稿层 = 确定性规则行 + LLM 语义增量。
+    # agent0 命中按原键（file/rule/severity）并入，补 file_path/vuln_type 别名键贯通
+    # SARIF/Markdown 渲染；同 (file, rule) 多次命中由 dedup 保留最高 severity。
+    rule_rows: list[dict] = []
+    for a in (meta or {}).get("agent0_findings") or []:
+        if not isinstance(a, dict):
+            continue
+        row = dict(a)
+        row.setdefault("file_path", row.get("file") or "")
+        row.setdefault("vuln_type", row.get("rule") or row.get("type") or "")
+        rule_rows.append(row)
+    if rule_rows:
+        findings = dedup_findings([*rule_rows, *findings])
     chains = [
         c.model_dump() if hasattr(c, "model_dump") else c
         for c in (attack_chains or [])
