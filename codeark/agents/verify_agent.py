@@ -335,12 +335,14 @@ async def run_verify_split(
            "taint": _taint_raw(files), "dep": _dep_raw(files)}
 
     sem = asyncio.Semaphore(max(1, int(max_concurrency)))
-    agent = build_verify_one_agent(model, files)
 
     async def _run(i: int, hyp) -> VerificationResult:
         if i and inter_call_delay > 0:
             await asyncio.sleep(inter_call_delay * i)  # 起步错峰
         async with sem:
+            # 每次调用独立 Agent：Agent 实例持有会话消息历史，跨并发调用共享
+            # 会互相串话；model 对象（HTTP 客户端）无状态，可安全共享。
+            agent = build_verify_one_agent(model, files)
             fp = getattr(hyp, "file_path", "")
             data = {k: v for k, v in safe.items() if _norm_path(k) == _norm_path(fp)}
             if not data:  # 假设文件不在仓库集（模型幻觉路径）→ 给全量让工具裁决

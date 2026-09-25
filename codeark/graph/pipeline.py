@@ -24,7 +24,8 @@ from codeark.agents.deepen_agent import run_deepen
 from codeark.agents.arbiter_agent import run_arbiter
 from codeark.agents.report_agent import render_report, apply_severity_floor
 from codeark.graph.quarantine import quarantine_files
-from codeark.models.routing import StageModels, redact_error
+from codeark.models.factory import make_stage_tuning_from_env
+from codeark.models.routing import StageModels, StageTuning, redact_error
 
 __all__ = [
     "GraphResult",
@@ -119,9 +120,12 @@ class CodeRiskGraph:
         dry: bool = False,
         *,
         stage_models: StageModels | None = None,
+        tuning: StageTuning | None = None,
     ) -> None:
         self.model = model  # None → 各节点用默认免费模型
         self.stage_models = stage_models
+        # verify/deepen 循环调用调优：缺省从 ARCA_*_MAX_CONCURRENCY 等环境变量读取
+        self.tuning = tuning if tuning is not None else make_stage_tuning_from_env()
         self.dry = dry
 
     def _model_for(self, stage: str):
@@ -212,7 +216,10 @@ class CodeRiskGraph:
         else:
             try:
                 res.verifications = await run_verify_split(
-                    res.hypothesis_set, files, self._model_for("verify"), prompt_files=safe_files
+                    res.hypothesis_set, files, self._model_for("verify"), prompt_files=safe_files,
+                    inter_call_delay=self.tuning.verify_delay,
+                    max_concurrency=self.tuning.verify_concurrency,
+                    per_invoke_timeout=self.tuning.verify_timeout,
                 )
             except Exception as exc:
                 res.node_errors["verify"] = f"{type(exc).__name__}: {redact_error(exc)}"
@@ -226,7 +233,10 @@ class CodeRiskGraph:
         else:
             try:
                 res.attack_chains = await run_deepen(
-                    confirmed, files, self._model_for("deepen"), prompt_files=safe_files
+                    confirmed, files, self._model_for("deepen"), prompt_files=safe_files,
+                    inter_call_delay=self.tuning.deepen_delay,
+                    max_concurrency=self.tuning.deepen_concurrency,
+                    per_invoke_timeout=self.tuning.deepen_timeout,
                 )
             except Exception as exc:
                 res.node_errors["deepen"] = f"{type(exc).__name__}: {redact_error(exc)}"

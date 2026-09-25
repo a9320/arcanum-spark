@@ -17,7 +17,7 @@ from pathlib import Path
 from strands.models import OpenAIModel, OpenAIResponsesModel
 
 from .local_step import LocalStepModel
-from .routing import EndpointConfig, StageModels
+from .routing import EndpointConfig, StageModels, StageTuning
 from .xml_model import XMLToolCallModel
 
 __all__ = [
@@ -25,10 +25,12 @@ __all__ = [
     "ModelProvider",
     "ModelTier",
     "StageModels",
+    "StageTuning",
     "get_key",
     "make_model",
     "make_openai_compatible_model",
     "make_stage_models_from_env",
+    "make_stage_tuning_from_env",
 ]
 
 
@@ -592,6 +594,41 @@ def make_stage_models_from_env() -> StageModels | None:
             models_by_config[config] = model
         models[stage] = model
     return StageModels(**models)
+
+
+# Loop-stage tuning (verify/deepen). INVOKE_TIMEOUT is suffixed to avoid the
+# existing generic ARCA_<STAGE>_TIMEOUT endpoint-timeout override.
+_STAGE_TUNING_ENV: dict[str, str] = {
+    "verify_concurrency": "ARCA_VERIFY_MAX_CONCURRENCY",
+    "verify_delay": "ARCA_VERIFY_INTER_CALL_DELAY",
+    "verify_timeout": "ARCA_VERIFY_INVOKE_TIMEOUT",
+    "deepen_concurrency": "ARCA_DEEPEN_MAX_CONCURRENCY",
+    "deepen_delay": "ARCA_DEEPEN_INTER_CALL_DELAY",
+    "deepen_timeout": "ARCA_DEEPEN_INVOKE_TIMEOUT",
+}
+_TUNING_INT_FIELDS = {"verify_concurrency", "deepen_concurrency"}
+
+
+def make_stage_tuning_from_env() -> StageTuning:
+    """Read verify/deepen loop tuning from ``ARCA_*`` variables.
+
+    Unset variables keep the serial StageTuning defaults; invalid values raise
+    with the variable name (never the value).
+    """
+    values: dict[str, int | float] = {}
+    for field_name, env_name in _STAGE_TUNING_ENV.items():
+        raw = _env_text(env_name)
+        if raw is None:
+            continue
+        try:
+            parsed = int(raw) if field_name in _TUNING_INT_FIELDS else float(raw)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{env_name} must be a number") from exc
+        values[field_name] = parsed
+    try:
+        return StageTuning(**values)
+    except ValueError as exc:
+        raise ValueError(f"invalid stage tuning: {exc}") from exc
 
 
 # ── 便捷别名 ──

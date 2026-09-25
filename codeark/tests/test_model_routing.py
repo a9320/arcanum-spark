@@ -8,8 +8,9 @@ from codeark.models.factory import (
     EndpointConfig,
     make_openai_compatible_model,
     make_stage_models_from_env,
+    make_stage_tuning_from_env,
 )
-from codeark.models.routing import StageModels
+from codeark.models.routing import StageModels, StageTuning
 from codeark.models.schemas import (
     AttackChain,
     FinalReport,
@@ -45,6 +46,12 @@ _ARCA_VARS = (
     "ARCA_VERIFY_API_KEY",
     "ARCA_DEEPEN_API_KEY",
     "ARCA_ARBITER_API_KEY",
+    "ARCA_VERIFY_MAX_CONCURRENCY",
+    "ARCA_VERIFY_INTER_CALL_DELAY",
+    "ARCA_VERIFY_INVOKE_TIMEOUT",
+    "ARCA_DEEPEN_MAX_CONCURRENCY",
+    "ARCA_DEEPEN_INTER_CALL_DELAY",
+    "ARCA_DEEPEN_INVOKE_TIMEOUT",
 )
 
 
@@ -135,6 +142,51 @@ def test_incomplete_env_config_reports_names_without_key(
 def test_no_arca_env_preserves_existing_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     _clear_arca_env(monkeypatch)
     assert make_stage_models_from_env() is None
+
+
+def test_stage_tuning_from_env_defaults_and_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
+    _clear_arca_env(monkeypatch)
+    assert make_stage_tuning_from_env() == StageTuning()
+
+    monkeypatch.setenv("ARCA_VERIFY_MAX_CONCURRENCY", "4")
+    monkeypatch.setenv("ARCA_VERIFY_INTER_CALL_DELAY", "0")
+    monkeypatch.setenv("ARCA_VERIFY_INVOKE_TIMEOUT", "120")
+    monkeypatch.setenv("ARCA_DEEPEN_MAX_CONCURRENCY", "2")
+    monkeypatch.setenv("ARCA_DEEPEN_INVOKE_TIMEOUT", "77.5")
+
+    tuning = make_stage_tuning_from_env()
+
+    assert tuning.verify_concurrency == 4
+    assert tuning.verify_delay == 0.0
+    assert tuning.verify_timeout == 120.0
+    assert tuning.deepen_concurrency == 2
+    assert tuning.deepen_delay == 1.0
+    assert tuning.deepen_timeout == 77.5
+
+
+def test_stage_tuning_env_invalid_value_raises_without_value_leak(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_arca_env(monkeypatch)
+    monkeypatch.setenv("ARCA_VERIFY_MAX_CONCURRENCY", "lots")
+    monkeypatch.setenv("ARCA_DEEPEN_INVOKE_TIMEOUT", "-5")
+
+    with pytest.raises(ValueError) as concurrence_error:
+        make_stage_tuning_from_env()
+    assert "ARCA_VERIFY_MAX_CONCURRENCY" in str(concurrence_error.value)
+
+    monkeypatch.delenv("ARCA_VERIFY_MAX_CONCURRENCY")
+    with pytest.raises(ValueError):
+        make_stage_tuning_from_env()
+
+
+def test_stage_tuning_rejects_zero_concurrency_and_negative_delay() -> None:
+    with pytest.raises(ValueError):
+        StageTuning(verify_concurrency=0)
+    with pytest.raises(ValueError):
+        StageTuning(deepen_delay=-1.0)
+    with pytest.raises(ValueError):
+        StageTuning(verify_timeout=0)
 
 
 def test_dedicated_key_env_builds_chat_and_responses_routes(
@@ -243,6 +295,88 @@ async def test_graph_routes_each_stage_model(monkeypatch: pytest.MonkeyPatch) ->
         "deepen": deepen,
         "arbiter": arbiter,
     }
+
+
+@pytest.mark.asyncio
+async def test_graph_passes_tuning_to_loop_stages(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, dict] = {}
+    hypothesis = HypothesisSet(
+        hypotheses=[VulnHypothesis(
+            title="t", vuln_type="PIT-T-51", file_path="a.py", line_start=1, line_end=1,
+            code_snippet="x", attack_path="a", confidence="high", suggested_verification="s",
+        )],
+        coverage_notes="test",
+    )
+    verification = VerificationResult(
+        hypothesis_id="", hypothesis_title="t", verdict="CONFIRMED",
+        confidence=0.9, evidence="e", verification_method="m",
+    )
+
+    async def fake_verify(_h, _files, model=None, prompt_files=None, **kwargs):
+        captured["verify"] = kwargs
+        return [verification]
+
+    async def fake_deepen(_confirmed, _files, model=None, prompt_files=None, **kwargs):
+        captured["deepen"] = kwargs
+        return [AttackChain(impact="i", remediation="r")]
+
+    async def fake_scout(_files, model=None, prompt_files=None, agent0_findings=None, **_kwargs):
+        return hypothesis
+
+    async def fake_arbiter(_h, _v, _c, model=None, **_kwargs):
+        return FinalReport(findings=[], conclusion="test")
+
+    monkeypatch.setattr(pl, "run_agent0", lambda _files: [])
+    monkeypatch.setattr(pl, "run_scout", fake_scout)
+    monkeypatch.setattr(pl, "run_verify_split", fake_verify)
+    monkeypatch.setattr(pl, "run_deepen", fake_deepen)
+    monkeypatch.setattr(pl, "run_arbiter", fake_arbiter)
+    monkeypatch.setattr(
+        pl,
+        "render_report",
+        lambda *_args, **_kwargs: {"json": "{}", "sarif": {}, "markdown": ""},
+    )
+
+    tuning = StageTuning(
+        verify_concurrency=3, verify_delay=0.0, verify_timeout=42.0,
+        deepen_concurrency=2, deepen_delay=0.5, deepen_timeout=7.0,
+    )
+    result = await pl.CodeRiskGraph(model=object(), tuning=tuning).run({"a.py": "x"})
+
+    assert result.node_errors == {}
+    assert captured["verify"] == {
+        "inter_call_delay": 0.0, "max_concurrency": 3, "per_invoke_timeout": 42.0,
+    }
+    assert captured["deepen"] == {
+        "inter_call_delay": 0.5, "max_concurrency": 2, "per_invoke_timeout": 7.0,
+    }
+
+
+@pytest.mark.asyncio
+async def test_graph_loads_tuning_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, dict] = {}
+    hypothesis = HypothesisSet(hypotheses=[], coverage_notes="test")
+
+    async def fake_verify(_h, _files, model=None, prompt_files=None, **kwargs):
+        captured["verify"] = kwargs
+        return []
+
+    async def fake_deepen(_confirmed, _files, model=None, prompt_files=None, **kwargs):
+        captured["deepen"] = kwargs
+        return []
+
+    monkeypatch.setattr(pl, "run_agent0", lambda _files: [])
+    monkeypatch.setattr(pl, "run_verify_split", fake_verify)
+    monkeypatch.setattr(pl, "run_deepen", fake_deepen)
+
+    _clear_arca_env(monkeypatch)
+    monkeypatch.setenv("ARCA_VERIFY_MAX_CONCURRENCY", "2")
+    monkeypatch.setenv("ARCA_DEEPEN_INVOKE_TIMEOUT", "77")
+
+    await pl.CodeRiskGraph(model=object()).run({"a.py": "x"})
+
+    assert captured["verify"]["max_concurrency"] == 2
+    assert captured["deepen"]["per_invoke_timeout"] == 77.0
 
 
 @pytest.mark.asyncio

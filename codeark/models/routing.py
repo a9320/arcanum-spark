@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlparse
 
-__all__ = ["EndpointConfig", "StageModels", "redact_error"]
+__all__ = ["EndpointConfig", "StageModels", "StageTuning", "redact_error"]
 
 _STAGE_NAMES = {"scout", "verify", "deepen", "arbiter"}
 _API_STYLES = {"chat_completions", "responses"}
@@ -101,6 +101,52 @@ class StageModels:
         if stage not in _STAGE_NAMES:
             raise ValueError(f"unknown model stage: {stage}")
         return self.scout_fallback if stage == "scout" else None
+
+
+@dataclass(frozen=True, slots=True)
+class StageTuning:
+    """Loop-stage invocation tuning (verify/deepen run one call per item).
+
+    ``*_concurrency`` caps simultaneous model calls per stage (1 = serial);
+    ``*_delay`` spaces request start times (rate-limit politeness);
+    ``*_timeout`` is the per-invoke watchdog for providers that hang past the
+    client timeout. Defaults stay serial — enable concurrency only after a
+    probe confirms the endpoint tolerates it (e.g. 2026-09-12 AMD free tier
+    returned 503 no_available_workers at concurrency 2).
+    """
+
+    verify_concurrency: int = 1
+    verify_delay: float = 1.0
+    verify_timeout: float = 360.0
+    deepen_concurrency: int = 1
+    deepen_delay: float = 1.0
+    deepen_timeout: float = 360.0
+
+    def __post_init__(self) -> None:
+        for name in ("verify_concurrency", "deepen_concurrency"):
+            try:
+                value = int(getattr(self, name))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"{name} must be an integer >= 1") from exc
+            if value < 1:
+                raise ValueError(f"{name} must be an integer >= 1")
+            object.__setattr__(self, name, value)
+        for name in ("verify_delay", "deepen_delay"):
+            try:
+                value = float(getattr(self, name))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"{name} must be a finite number >= 0") from exc
+            if not math.isfinite(value) or value < 0:
+                raise ValueError(f"{name} must be a finite number >= 0")
+            object.__setattr__(self, name, value)
+        for name in ("verify_timeout", "deepen_timeout"):
+            try:
+                value = float(getattr(self, name))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"{name} must be a finite number > 0") from exc
+            if not math.isfinite(value) or value <= 0:
+                raise ValueError(f"{name} must be a finite number > 0")
+            object.__setattr__(self, name, value)
 
 
 def redact_error(error: BaseException | str, *secrets: str) -> str:

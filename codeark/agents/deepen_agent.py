@@ -355,27 +355,40 @@ async def run_deepen(
     model: OpenAIModel | None = None,
     prompt_files: dict[str, str] | None = None,
     inter_call_delay: float = 1.0,
+    max_concurrency: int = 1,
+    per_invoke_timeout: float = 360.0,
 ) -> ChainList:
     """逐条 CONFIRMED 各调一次模型推演攻击链（治本：短输出稳、坏一条不拖垮全部）。
 
-    prompt_files：已消毒文件，省略则就地消毒。inter_call_delay：调用间隔秒数
-    （免费额度限速礼貌值）。解析失败的链以确定性占位链呈现并在 ChainList.failures
-    计数——绝不静默为 0（§11 教训：attack_chains=0 静默失败无人察觉）。
+    prompt_files：已消毒文件，省略则就地消毒。inter_call_delay：请求启动错峰间隔
+    秒数（限速礼貌值；请求 i 在 i*delay 秒后才发出，并发下自然错开）。
+    max_concurrency：同时进行的调用数（默认 1 串行——免费档端点可能不支持并发，
+    见 run_verify_split 同名参数说明；本地多卡部署可调高）。
+    解析失败的链以确定性占位链呈现并在 ChainList.failures 计数——绝不静默为 0
+    （§11 教训：attack_chains=0 静默失败无人察觉）。
     """
     out = ChainList()
     if not confirmed:
         return out
-    agent = build_deepen_agent(model)
     safe = prompt_files if prompt_files is not None else quarantine_files(files)[0]
     failures = 0
-    for i, v in enumerate(confirmed):
+    sem = asyncio.Semaphore(max(1, int(max_concurrency)))
+
+    async def _run(i: int, v: VerificationResult) -> AttackChain:
+        nonlocal failures
         if i and inter_call_delay > 0:
-            await asyncio.sleep(inter_call_delay)
-        data = dict(safe)
-        data[f"<confirmed-vulnerability-{i + 1}.json>"] = quarantine_text(
-            v.model_dump_json(indent=2)
-        )[0]
-        chain, raw = await _deepen_one(agent, render_data_block(data))
+            await asyncio.sleep(inter_call_delay * i)  # 起步错峰
+        async with sem:
+            # 每次调用独立 Agent：Agent 实例持有会话消息历史，跨并发调用共享
+            # 会互相串话；model 对象（HTTP 客户端）无状态，可安全共享。
+            agent = build_deepen_agent(model)
+            data = dict(safe)
+            data[f"<confirmed-vulnerability-{i + 1}.json>"] = quarantine_text(
+                v.model_dump_json(indent=2)
+            )[0]
+            chain, raw = await _deepen_one(
+                agent, render_data_block(data), per_invoke_timeout=per_invoke_timeout
+            )
         if chain is None:
             failures += 1
             print(f"[Deepen] 第 {i + 1}/{len(confirmed)} 条链解析失败（降级占位）")
@@ -388,6 +401,9 @@ async def run_deepen(
                 ),
                 remediation="（自动链推演失败；验证层证据仍然有效，请人工推演攻击链）",
             )
-        out.append(chain)
+        return chain
+
+    # asyncio.gather 保序返回：链顺序与 confirmed 一一对应
+    out.extend(await asyncio.gather(*[_run(i, v) for i, v in enumerate(confirmed)]))
     out.failures = failures
     return out
