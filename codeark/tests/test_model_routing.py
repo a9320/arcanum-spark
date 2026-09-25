@@ -52,6 +52,11 @@ _ARCA_VARS = (
     "ARCA_DEEPEN_MAX_CONCURRENCY",
     "ARCA_DEEPEN_INTER_CALL_DELAY",
     "ARCA_DEEPEN_INVOKE_TIMEOUT",
+    "ARCA_DEPLOYMENT",
+    "ARCA_SCOUT_MAX_TOKENS",
+    "ARCA_VERIFY_MAX_TOKENS",
+    "ARCA_DEEPEN_MAX_TOKENS",
+    "ARCA_ARBITER_MAX_TOKENS",
 )
 
 
@@ -142,6 +147,103 @@ def test_incomplete_env_config_reports_names_without_key(
 def test_no_arca_env_preserves_existing_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     _clear_arca_env(monkeypatch)
     assert make_stage_models_from_env() is None
+
+
+_LOCAL_TOPOLOGY = {
+    "scout": ("muse-scout", "http://127.0.0.1:8081/v1", 300.0),
+    "verify": ("qwen-verify", "http://127.0.0.1:8182/v1", 300.0),
+    "deepen": ("r1-deepen", "http://127.0.0.1:8083/v1", 600.0),
+    "arbiter": ("gemma-arbiter", "http://127.0.0.1:8084/v1", 300.0),
+}
+
+
+def test_local_deployment_routes_four_loopback_stages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_arca_env(monkeypatch)
+    monkeypatch.setenv("ARCA_DEPLOYMENT", "local")
+    # legacy / dedicated 变量同时在场时必须被 local 分支完全压制
+    monkeypatch.setenv("ARCA_MODEL", "legacy-shared")
+    monkeypatch.setenv("ARCA_BASE_URL", "https://legacy.example/v1")
+    monkeypatch.setenv("ARCA_API_KEY", "legacy-secret")
+    monkeypatch.setenv("ARCA_SCOUT_PRIMARY_API_KEY", "dedicated-secret")
+
+    routes = make_stage_models_from_env()
+
+    assert routes is not None
+    assert routes.scout_fallback is None
+    for stage, (model_id, base_url, timeout) in _LOCAL_TOPOLOGY.items():
+        model = getattr(routes, stage)
+        assert model.get_config()["model_id"] == model_id
+        assert model.client_args["base_url"] == base_url
+        assert model.client_args["timeout"] == timeout
+
+
+def test_local_deepen_carries_max_tokens_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    _clear_arca_env(monkeypatch)
+    monkeypatch.setenv("ARCA_DEPLOYMENT", "local")
+
+    routes = make_stage_models_from_env()
+
+    assert routes is not None
+    assert routes.deepen.get_config()["params"]["max_tokens"] == 2000
+    for stage in ("scout", "verify", "arbiter"):
+        params = getattr(routes, stage).get_config().get("params") or {}
+        assert "max_tokens" not in params
+
+
+def test_local_deployment_env_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
+    _clear_arca_env(monkeypatch)
+    monkeypatch.setenv("ARCA_DEPLOYMENT", "local")
+    monkeypatch.setenv("ARCA_DEEPEN_MAX_TOKENS", "3000")
+    monkeypatch.setenv("ARCA_SCOUT_BASE_URL", "http://127.0.0.1:9081/v1")
+
+    routes = make_stage_models_from_env()
+
+    assert routes is not None
+    assert routes.deepen.get_config()["params"]["max_tokens"] == 3000
+    assert routes.scout.client_args["base_url"] == "http://127.0.0.1:9081/v1"
+    # 未覆盖的阶段保持默认端口表
+    assert routes.verify.client_args["base_url"] == "http://127.0.0.1:8182/v1"
+
+
+def test_local_deployment_rejects_unknown_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    _clear_arca_env(monkeypatch)
+    monkeypatch.setenv("ARCA_DEPLOYMENT", "locaal")
+
+    with pytest.raises(ValueError, match="ARCA_DEPLOYMENT"):
+        make_stage_models_from_env()
+
+
+def test_endpoint_config_max_tokens_validation() -> None:
+    endpoint = EndpointConfig(
+        model_id="m",
+        base_url="https://example.test/v1",
+        api_key="k",
+        max_tokens=2000,
+    )
+    assert endpoint.max_tokens == 2000.0
+    with pytest.raises(ValueError, match="max_tokens"):
+        EndpointConfig(
+            model_id="m",
+            base_url="https://example.test/v1",
+            api_key="k",
+            max_tokens=0,
+        )
+
+
+def test_max_tokens_not_injected_for_responses_style() -> None:
+    endpoint = EndpointConfig(
+        model_id="m",
+        base_url="https://example.test/v1",
+        api_key="k",
+        api_style="responses",
+        max_tokens=2000,
+    )
+
+    model = make_openai_compatible_model(endpoint=endpoint)
+
+    assert "max_tokens" not in (model.get_config().get("params") or {})
 
 
 def test_stage_tuning_from_env_defaults_and_overrides(monkeypatch: pytest.MonkeyPatch) -> None:

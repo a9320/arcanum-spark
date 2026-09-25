@@ -8,6 +8,9 @@ Agent 分层分配（2026-09-12 调整：异构合议 + Kimi 配额耗尽后降�
 - Fallback:    Kimi-K3（余额耗尽，充值后恢复备选）/ GLM / Qwen-3.8-Flash-Next
 
 架构：保留 OpenAIModel（Strands SDK），通过 base_url/model_id 路由到不同 provider。
+
+本地部署：ARCA_DEPLOYMENT=local 时四阶段直连本机 llama-server（MI300X 四模型拓扑，
+端口表见 _LOCAL_ROUTE_DEFAULTS）；构造零网络，连通性由运行时管线降级兜底。
 """
 from __future__ import annotations
 
@@ -333,6 +336,8 @@ def make_openai_compatible_model(
         )
 
     params = _reasoning_params(endpoint)
+    if endpoint.api_style == "chat_completions" and endpoint.max_tokens is not None:
+        params["max_tokens"] = int(endpoint.max_tokens)
     client_args = {
         "base_url": endpoint.base_url,
         "api_key": endpoint.api_key,
@@ -442,13 +447,24 @@ def _parse_env_timeout(name: str, value: str | None, default: float) -> float:
         raise ValueError(f"{name} must be a finite number greater than 0") from exc
 
 
+def _parse_env_int(name: str, value: str | None, default: int | None) -> int | None:
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be an integer") from exc
+
+
 def _route_override(prefix: str, field: str, default: object) -> object:
     env_name = f"{prefix}_{field}"
     value = _env_text(env_name)
     if value is None:
         return default
     if field == "TIMEOUT":
-        return _parse_env_timeout(env_name, value, float(default))
+        return _parse_env_timeout(env_name, value, float(default))  # type: ignore[arg-type]
+    if field == "MAX_TOKENS":
+        return _parse_env_int(env_name, value, default)  # type: ignore[arg-type]
     return value
 
 
@@ -471,6 +487,77 @@ def _endpoint_from_named_route(name: str) -> EndpointConfig | None:
         ),
         reasoning_effort=str(_route_override(prefix, "REASONING_EFFORT", spec["reasoning_effort"])),
     )
+
+
+# Local MI300X topology (2026-09-25 四服务上线): one llama-server per stage on
+# loopback, all started with --jinja so tool calls arrive as standard tool_calls.
+# Ports follow /root/start-arcanum.sh (8082 is taken by a platform process, so
+# verify sits on 8182). api_key is a placeholder — llama-server ignores auth.
+_LOCAL_ROUTE_DEFAULTS: dict[str, dict[str, object]] = {
+    "scout": {
+        "model_id": "muse-scout",
+        "base_url": "http://127.0.0.1:8081/v1",
+        "api_style": "chat_completions",
+        "tool_format": "standard_json",
+        "structured_output_support": "json_schema",
+        "reasoning_effort": "default",
+        "timeout": 300.0,
+        "max_tokens": None,
+    },
+    "verify": {
+        "model_id": "qwen-verify",
+        "base_url": "http://127.0.0.1:8182/v1",
+        "api_style": "chat_completions",
+        "tool_format": "standard_json",
+        "structured_output_support": "json_schema",
+        "reasoning_effort": "default",
+        "timeout": 300.0,
+        "max_tokens": None,
+    },
+    "deepen": {
+        "model_id": "r1-deepen",
+        "base_url": "http://127.0.0.1:8083/v1",
+        "api_style": "chat_completions",
+        "tool_format": "standard_json",
+        "structured_output_support": "json_schema",
+        "reasoning_effort": "default",
+        # 2026-09-25 冒烟③：R1@2000 预算出合法攻击链 JSON；低于此值 reasoning
+        # 挤占 content 预算导致截断。覆盖用 ARCA_DEEPEN_MAX_TOKENS。
+        "timeout": 600.0,
+        "max_tokens": 2000,
+    },
+    "arbiter": {
+        "model_id": "gemma-arbiter",
+        "base_url": "http://127.0.0.1:8084/v1",
+        "api_style": "chat_completions",
+        "tool_format": "standard_json",
+        "structured_output_support": "json_schema",
+        "reasoning_effort": "default",
+        "timeout": 300.0,
+        "max_tokens": None,
+    },
+}
+
+
+def _endpoint_from_local_route(name: str) -> EndpointConfig:
+    spec = _LOCAL_ROUTE_DEFAULTS[name]
+    prefix = f"ARCA_{name.upper()}"
+    try:
+        return EndpointConfig(
+            model_id=str(_route_override(prefix, "MODEL", spec["model_id"])),
+            base_url=str(_route_override(prefix, "BASE_URL", spec["base_url"])),
+            api_key=_env_text(f"{prefix}_API_KEY") or "local",
+            timeout=float(_route_override(prefix, "TIMEOUT", spec["timeout"])),
+            api_style=str(_route_override(prefix, "API_STYLE", spec["api_style"])),
+            tool_format=str(_route_override(prefix, "TOOL_FORMAT", spec["tool_format"])),
+            structured_output_support=str(
+                _route_override(prefix, "STRUCTURED_OUTPUT_SUPPORT", spec["structured_output_support"])
+            ),
+            reasoning_effort=str(_route_override(prefix, "REASONING_EFFORT", spec["reasoning_effort"])),
+            max_tokens=_route_override(prefix, "MAX_TOKENS", spec["max_tokens"]),  # type: ignore[arg-type]
+        )
+    except ValueError as exc:
+        raise ValueError(f"invalid local model configuration for {name}: {exc}") from exc
 
 
 def _env_endpoint_config(
@@ -530,7 +617,24 @@ def make_stage_models_from_env() -> StageModels | None:
     It uses only ``os.environ`` and the non-sensitive route defaults above and
     never consults key files. Legacy generic ARCA variables remain supported
     for existing callers and tests.
+
+    ``ARCA_DEPLOYMENT=local`` takes precedence over both: the four stages bind
+    to the loopback llama-server topology in ``_LOCAL_ROUTE_DEFAULTS`` (no API
+    keys involved). Any other non-empty value raises.
     """
+    deployment = (_env_text("ARCA_DEPLOYMENT") or "").strip().lower()
+    if deployment == "local":
+        return StageModels(
+            **{
+                name: _make_model_from_endpoint(_endpoint_from_local_route(name))
+                for name in _ARCA_STAGES
+            }
+        )
+    if deployment not in {"", "remote", "cloud"}:
+        raise ValueError(
+            f"unsupported ARCA_DEPLOYMENT value: expected 'local' or unset, got {deployment!r}"
+        )
+
     dedicated_present = bool(
         _env_text("ARCA_SCOUT_PRIMARY_API_KEY")
         or _env_text("ARCA_SCOUT_FALLBACK_API_KEY")
