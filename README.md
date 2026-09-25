@@ -5,19 +5,17 @@ deployspec:
 
 # Arcanum · Spark（Arcanum · 星火）
 
-> 🎇 **3rd NVIDIA DGX Spark Hackathon — Agent Skills Development Challenge entry.** Unofficial work, built on and targeting DGX Spark-class NVIDIA hardware.
-> **Upstream baseline:** [a9320/code-risk-arcanum](https://github.com/a9320/code-risk-arcanum) (MIT, `upstream` remote; import anchored at `fcfc6f7`). Every commit made in this repository on top of the baseline is the contest-period increment.
+**Catch the first spark before it becomes a wildfire.** Code security audit for AI-era vulnerabilities — built on the [Arcanum Prompt Injection Taxonomy](https://arcanum-sec.com/pitax) (Jason Haddix, Arcanum Information Security), packaged as an Agent Skill plus a 6-agent LLM pipeline. It runs fully local and deterministic (zero LLM), or on either of **two model setups**: a heterogeneous cloud API council, or four self-hosted llama-servers on AMD MI300X.
 
-**Catch the first spark before it becomes a wildfire.** Code security audit for AI-era vulnerabilities — built on the [Arcanum Prompt Injection Taxonomy](https://arcanum-sec.com/pitax) (Jason Haddix, Arcanum Information Security), re-packaged as Agent Skills and running on fully local compute (DGX Spark / RTX 5090-class).
-
-> 🏆 **Contest history:** 2026 Chuanzhibei track 10041 — work title *CodeRisk·ZhiJian* (智鉴), developed in [a9320/code-risk-arcanum-contest](https://github.com/a9320/code-risk-arcanum-contest).
+> **Provenance:** independent repository reworked on top of upstream [a9320/code-risk-arcanum](https://github.com/a9320/code-risk-arcanum) (MIT, `upstream` remote, import anchored at `fcfc6f7`).
 
 CodeRisk Arcanum is among the first tools designed to detect **AI prompt injection, invisible-character smuggling, Trojan Source, AI configuration backdoors, document poisoning, and layered-encoding payloads** — attack surfaces that traditional SAST/DAST tools (Semgrep, CodeQL, Snyk) do not parse.
 
-It ships in two layers:
+It ships in three layers:
 
-1. **`codeark/` — a 6-agent audit pipeline** (Strands Agents SDK + heterogeneous domestic-model council): a deterministic rule layer, semantic reconnaissance, per-hypothesis verification with bound tools, attack-chain derivation, multi-source arbiter, and deterministic report rendering.
-2. **`app/` — the legacy deterministic platform**: the pure-stdlib PITAX engine, FastAPI service, and Celery pipeline (powers the [live demo](https://www.modelscope.cn/studios/Weike22/code-risk-arcanum)).
+1. **`codeark/` — a 6-agent audit pipeline** (Strands Agents SDK): a deterministic rule layer, semantic reconnaissance, per-hypothesis verification with bound tools, attack-chain derivation, multi-source arbiter, and deterministic report rendering. Models bind through per-stage endpoint routing — the cloud API council or the self-hosted MI300X council.
+2. **`skills/ai-repo-audit/` — the deterministic PITAX layer packaged as an Agent Skill**: pure-stdlib scanner (Python ≥3.10), zero network / zero GPU, emitting JSON / SARIF 2.1.0 / Markdown reports; installable into any Agent-Skills-compatible client.
+3. **`app/` — the legacy deterministic platform**: the pure-stdlib PITAX engine, FastAPI service, and Celery pipeline (powers the [live demo](https://www.modelscope.cn/studios/Weike22/code-risk-arcanum)).
 
 ![6-agent pipeline architecture — rule layer, Scout, Verify, Deepen, Arbiter, Report with heterogeneous model routing](docs/architecture-6node.png)
 
@@ -27,7 +25,7 @@ It ships in two layers:
 
 ```bash
 bash verify.sh
-# → deterministic test suite (54 tests)
+# → deterministic test suite (84 tests, zero LLM calls)
 # → dry scan of the demo repo (12 expected PITAX hits)
 # → eval regression check (full expected-coverage + severity floor)
 # → clean control repo currently produces zero findings on the checked control fixture (not a population-wide FP rate)
@@ -40,24 +38,46 @@ bash verify.sh
 python -m codeark.cli demo/vuln-demo-repo --dry
 
 # 2. Full pipeline:
-#    Agent0 (PITAX rules) → Scout (GLM-5.3, semantic-increment recon)
-#    → Verify (DeepSeek-V4-Flash, per-hypothesis verdicts, can REFUTE)
+#    Agent0 (PITAX rules) → Scout (semantic-increment recon)
+#    → Verify (per-hypothesis verdicts, can REFUTE)
 #    → Deepen (per-item attack chains)
-#    → Arbiter (GLM-5.3, heterogeneous multi-source verdict)
+#    → Arbiter (heterogeneous multi-source verdict)
 #    → Report (JSON / SARIF 2.1.0 / Markdown)
-python test_e2e.py            # real LLMs, 10-30 min, reports land in reports/
+python test_e2e.py            # real LLMs, ~15 min with concurrency tuning, reports land in reports/
 
 # 3. Regression-check a report against the private eval set
 python eval/check_report.py --report reports/dry_eval/report.json
 ```
 
+Model binding is environment-driven (`codeark/models/routing.py` + `factory.py`), no code changes needed:
+
+- **API cloud council (default)** — four stages on four distinct provider families, each with its own endpoint / key / timeout: Scout `step-5-preview` (StepFun, with an independent fallback endpoint `gpt-5.6-luna`), Verify `Qwen3.8-Flash-Next`, Deepen `DeepSeek-V4-Flash`, Arbiter `gpt-6-sol`. Enable with the per-stage keys (`ARCA_SCOUT_PRIMARY_API_KEY`, `ARCA_VERIFY_API_KEY`, …); every field is overridable via `ARCA_<STAGE>_MODEL | BASE_URL | TIMEOUT | TOOL_FORMAT | …`.
+- **MI300X local council** — `ARCA_DEPLOYMENT=local` binds all four stages to loopback llama-servers: `:8081 muse-scout` (Muse-Glimmer-30B) / `:8182 qwen-verify` (Qwen3.8-27B) / `:8083 r1-deepen` (R1-Distill-32B) / `:8084 gemma-arbiter` (Gemma4-26B-A4B). One-click provisioning below.
+
+> Legacy single-model adapters (Step-3.7-Flash `local_step.py`, Nemotron, and the XML tool-call formats in `xml_model.py`) remain in `codeark/models/` for one-model local runs; they are not part of either current setup.
+
+- **Loop-stage tuning** — `ARCA_VERIFY_MAX_CONCURRENCY` / `ARCA_DEEPEN_MAX_CONCURRENCY` (+ inter-call delay / invoke watchdog) cut the full e2e run from 35m42s to 15m07s.
+
 Key engineering mechanisms:
 
 - **Prompt quarantine layer** — every LLM prompt sees only a sanitized view: invisible/bidirectional characters stripped, injection trigger phrases neutralized into `[QUARANTINED]` markers, repository content wrapped in UNTRUSTED DATA boundaries. Raw files always reach the deterministic tools, so the evidence chain never loses bytes.
-- **Heterogeneous model council** — Scout/Arbiter run on GLM-5.3 while Verify/Deepen run on DeepSeek: proposing and judging are decorrelated across model families to prevent self-endorsement.
+- **Heterogeneous model council** — the four stages run on four distinct model families, and the Arbiter never shares a family with the proposers: judging is decorrelated from proposing to prevent self-endorsement.
 - **Severity deterministic floor** — rule-level severity is the baseline; LLMs may escalate with evidence, never downgrade.
 - **Node-level degradation disclosure** — any model outage falls back to a deterministic path and is disclosed in the report (empty findings ≠ safe repository).
 - **Evidence pack** — see [`evidence/`](evidence/) for real run artifacts, including model logs where agents face live injection bait and report it as data instead of obeying. Demo narrative: [`docs/DEMO-SCRIPT.md`](docs/DEMO-SCRIPT.md).
+
+## Self-hosted local council (one-click, AMD MI300X / ROCm)
+
+[`deploy/mi300x-oneclick.sh`](deploy/mi300x-oneclick.sh) provisions the full four-llama-server council on a fresh instance: idempotent (existing files are skipped), resumable downloads (`curl -C -`), quota-proof (writes only to `/root`, never the NFS workspace), self-healing (rebuilds llama.cpp for `gfx942` if the binary is missing), health-checks all four endpoints and reports VRAM.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/a9320/arcanum-spark/master/deploy/mi300x-oneclick.sh | bash
+# → downloads 4 GGUF models (~71 GB): Muse-Glimmer-30B / Qwen3.8-27B / R1-Distill-32B / Gemma4-26B-A4B
+# → builds llama.cpp (HIP, gfx942), starts scout :8081 / verify :8182 / deepen :8083 / arbiter :8084
+# → run the pipeline with ARCA_DEPLOYMENT=local
+```
+
+Any CUDA/OpenAI-compatible box works the same way: start four llama-servers on those ports (or point `ARCA_<STAGE>_BASE_URL` elsewhere) and export `ARCA_DEPLOYMENT=local`.
 
 ## Detection rules (PITAX, aligned with taxonomy v1.6.1)
 
@@ -78,12 +98,16 @@ Key engineering mechanisms:
 ## Project structure
 
 ```
+skills/                 # ai-repo-audit — PITAX deterministic layer packaged as an Agent Skill
+deploy/                 # mi300x-oneclick.sh — one-click local-council deployment (idempotent, ROCm)
 codeark/                # 6-agent pipeline (Strands Agents SDK)
 ├── agents/             # agent0_pitax / scout / verify / deepen / arbiter / report
 ├── graph/              # pipeline orchestration + prompt quarantine layer
-├── models/             # model factory (GLM / Kimi / DeepSeek / Qwen routing) + Pydantic schemas
+├── models/             # per-stage endpoint routing + provider factory + local adapters + Pydantic schemas
+├── pitax/              # PITAX detection engine (imported by Agent0 and the ai-repo-audit skill)
+├── memory/             # pluggable memory layer (local + DynamoDB): past false-positive patterns re-injected into Scout prompts
 ├── tools/              # pitax_scan / static_scan / taint_flow / dep_scan (bound no-arg tools)
-└── tests/              # deterministic test suite (54 tests, zero LLM calls)
+└── tests/              # deterministic test suite (84 tests, zero LLM calls)
 app/                    # legacy platform
 ├── pitax/              # PITAX detection engine (rules/detectors/scanner/CLI/SARIF, pure stdlib)
 ├── agents/             # Agent 0: input sanitizer / PITAX pre-scan
@@ -94,8 +118,9 @@ engine/                 # built-in classic vulnerability engines (static / taint
 demo/                   # demo repo generator + vuln-demo-repo (12 PITAX hits) + clean-repo (FP control)
 eval/                   # private regression set (expected.json) + deterministic checker
 evidence/               # real run artifacts: reports, anti-injection log quotes, verify output
+reports/                # generated audit reports & run artifacts (JSON / SARIF / Markdown)
 docs/                   # architecture, demo script, sprint plan, submission checklist
-tests/                  # legacy test suite
+tests/                  # legacy test suite (57 tests)
 ```
 
 ## Legacy platform pipeline (Agent 0–4)
