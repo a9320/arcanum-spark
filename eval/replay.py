@@ -38,6 +38,7 @@ import json
 import math
 import re
 import sys
+import zlib
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -80,17 +81,20 @@ def jaccard(a: Counter, b: Counter) -> float:
     return inter / union if union else 0.0
 
 
-def degenerate_score(text: str, n: int = 20) -> float:
-    """复读吸引子强度：最高频 n 字符滑窗占比（窗口数充足才有效）。
+def degenerate_score(text: str) -> float:
+    """复读吸引子强度 = zlib 压缩比（**越低越重复**；阈值 DEGENERATE_THRESHOLD=0.15）。
 
-    LEGACY_MIGRATION_TOKEN 这类本体即数百遍同模式重复的载荷，该值趋近 1；
-    健康文本 <0.1。
+    LEGACY_MIGRATION_TOKEN 这类本体即数百遍同模式重复的载荷压缩比 <0.05；
+    健康文本 0.25–0.6；短于 64 字符一律 1.0（不判复读）。
+
+    用 zlib 而非字符滑窗 top-1 的原因：后者对「长周期循环重复」失明——
+    124 字符周期 ×200 时任何 20 字符窗口占比仅 ~1%（2026-09-26 真实载荷实测翻车）；
+    压缩比对周期长度不敏感。
     """
     text = re.sub(r"\s+", "", str(text or ""))
-    if len(text) < n * 4:
-        return 0.0
-    grams = Counter(text[i : i + n] for i in range(len(text) - n + 1))
-    return grams.most_common(1)[0][1] / (len(text) - n + 1)
+    if len(text) < 64:
+        return 1.0
+    return len(zlib.compress(text.encode("utf-8", "ignore"), 6)) / len(text)
 
 
 # ────────────────────────── 抽取 ──────────────────────────
@@ -175,7 +179,7 @@ def label_items(hyps: list[dict], vers: list[dict], baseline: list[dict]) -> lis
                     dup_of = str(hyps[j].get("id") or f"#{j+1}")
                     break
 
-        degenerate = degenerate_score(str(h.get("attack_path") or "") + str(h.get("code_snippet") or "")) >= DEGENERATE_THRESHOLD
+        degenerate = degenerate_score(str(h.get("attack_path") or "") + str(h.get("code_snippet") or "")) <= DEGENERATE_THRESHOLD
         # 证据豁免是文件级：同文件基线行带 decoded_payload 实锤 → 该文件上的假设
         # 继承实锤可信度（H9 场景：假设是外泄链，实锤在基线的 PIT-E-57 行上）
         evidence = any(
