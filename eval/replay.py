@@ -27,7 +27,8 @@
 用法：
     python eval/replay.py build --report reports/e2e_report.json [-o gate_dataset.json] [--log run.log ...]
     python eval/replay.py score --dataset gate_dataset.json --backend tfidf [--topk 3]
-    python eval/replay.py score --dataset gate_dataset.json --backend laya --model /path/to/laya   # 未实现，留接口
+    python eval/replay.py score --dataset gate_dataset.json --backend laya --model /path/to/laya
+    python eval/replay.py synth --report reports/e2e_report.json [--into gate_dataset.json]
 
 退出码：build 0=抽取成功，1=无假设数据；score 0=完成。
 """
@@ -57,6 +58,24 @@ def norm_path(p: str) -> str:
 
 def norm_type(t: str) -> str:
     return str(t or "").strip().upper()
+
+
+def split_merged_paths(p: str, known_files: set[str] | None = None) -> list[str]:
+    """Arbiter 跨文件合串归一化："a.py, b.py" → ["a.py", "b.py"]（Gemma 2026-09-26 实测形态）。
+
+    仅当拆出的每个片段都命中 known_files（仓库文件代理集）才拆——防误拆含
+    逗号的合法路径；known_files=None 时自由拆（单测/宽松口径）。
+    """
+    s = str(p or "").strip()
+    if not s:
+        return []
+    parts = [x.strip() for x in re.split(r"[;,]", s) if x.strip()]
+    if len(parts) <= 1:
+        return [s]
+    if known_files is None:
+        return parts
+    normed = {norm_path(k) for k in known_files}
+    return parts if all(norm_path(x) in normed for x in parts) else [s]
 
 
 def shingles(text: str, n: int = 3) -> Counter:
@@ -141,8 +160,59 @@ def _has_decoded_payload(b: dict) -> bool:
     return p is not None and str(p).strip() != ""
 
 
-def label_items(hyps: list[dict], vers: list[dict], baseline: list[dict]) -> list[dict]:
-    """给每条假设附 heuristics + label（v1 规则见模块 docstring）。"""
+def join_verdicts(
+    hyps: list[dict], vers: list[dict]
+) -> tuple[dict[str, dict], dict[str, dict], list[dict]]:
+    """裁决↔假设对齐（gate 指标的生命线；join-miss 会把 CONFIRMED 静默标成 n/a）。
+
+    第一优先 hypothesis_id 精确 join；miss 时按 hypothesis_title 兜底——仅当
+    同名假设唯一且该假设尚未被 id-join 占用才收（宁 n/a 不错配）。
+    返回 (id_join, title_join, orphans)：orphans = 双 miss 裁决，管线侧根因
+    （verify_agent._verify_one 对模型自报 id 未校验）已在管线收口，此处是
+    离线兜底 + 可见性告警（cmd_build 打印）。
+    """
+    hyp_ids = {str(h.get("id") or "") for h in hyps}
+    hyp_ids.discard("")
+    by_title: dict[str, list[str]] = {}
+    for h in hyps:
+        t = str(h.get("title") or "").strip()
+        hid = str(h.get("id") or "")
+        if t and hid:
+            by_title.setdefault(t, []).append(hid)
+
+    id_join: dict[str, dict] = {}
+    used: set[int] = set()
+    for vi, v in enumerate(vers):
+        vid = str(v.get("hypothesis_id") or "")
+        if vid in hyp_ids and vid not in id_join:
+            id_join[vid] = v
+            used.add(vi)
+    title_join: dict[str, dict] = {}
+    orphans: list[dict] = []
+    for vi, v in enumerate(vers):
+        if vi in used:
+            continue
+        t = str(v.get("hypothesis_title") or "").strip()
+        cands = by_title.get(t, []) if t else []
+        if len(cands) == 1:
+            hid = cands[0]
+            if hid not in id_join and hid not in title_join:
+                title_join[hid] = v
+                used.add(vi)
+                continue
+        orphans.append(v)
+    return id_join, title_join, orphans
+
+
+def label_items(
+    hyps: list[dict], vers: list[dict], baseline: list[dict],
+    join_result: tuple[dict[str, dict], dict[str, dict], list[dict]] | None = None,
+) -> list[dict]:
+    """给每条假设附 heuristics + label（v1 规则见模块 docstring）。
+
+    join_result：可选预计算的 join_verdicts 结果（cmd_build 复用同一份打印
+    orphan 告警）；省略时内部现算（单测直调兼容）。
+    """
     base_by_key: dict[tuple[str, str], dict] = {}
     base_grams: list[tuple[dict, Counter]] = []
     base_files: set[str] = set()
@@ -151,7 +221,7 @@ def label_items(hyps: list[dict], vers: list[dict], baseline: list[dict]) -> lis
         base_grams.append((b, shingles(f"{b.get('title', '')} {b.get('description', '')} {b.get('code_snippet', '')}")))
         base_files.add(norm_path(b.get("file") or b.get("file_path")))
 
-    verdict_by_id = {str(v.get("hypothesis_id") or ""): v for v in vers}
+    id_join, title_join, _orphans = join_result if join_result is not None else join_verdicts(hyps, vers)
     grams: list[Counter] = [shingles(f"{h.get('title', '')} {h.get('attack_path', '')}") for h in hyps]
 
     items: list[dict] = []
@@ -188,7 +258,10 @@ def label_items(hyps: list[dict], vers: list[dict], baseline: list[dict]) -> lis
         ) or bool(re.search(r"decoded[_ ]?payload", f"{h.get('attack_path', '')} {h.get('code_snippet', '')}", re.I))
         new_file = hkey[0] not in base_files and bool(hkey[0])
 
-        verdict = str(verdict_by_id.get(str(h.get("id") or ""), {}).get("verdict") or "")
+        hid = str(h.get("id") or "")
+        joined = id_join.get(hid) or title_join.get(hid) or {}
+        join_method = "id" if hid in id_join else "title" if hid in title_join else "none"
+        verdict = str(joined.get("verdict") or "")
         if echo is not None or dup_of or degenerate:
             gate = "PRUNE"
             why = "echo" if echo is not None else "duplicate" if dup_of else "degenerate"
@@ -201,13 +274,13 @@ def label_items(hyps: list[dict], vers: list[dict], baseline: list[dict]) -> lis
         else:
             gate, why = "REVIEW", "unverified_no_evidence"
 
-        v = verdict_by_id.get(str(h.get("id") or "")) or {}
         items.append({
             "id": str(h.get("id") or f"H{i+1}"),
             "origin": "report",
             "title": h.get("title", ""),
             "vuln_type": h.get("vuln_type", ""),
             "file_path": h.get("file_path", ""),
+            "attack_path": str(h.get("attack_path") or ""),
             "confidence": h.get("confidence", ""),
             "heuristics": {
                 "echo_of_baseline": echo,
@@ -217,9 +290,10 @@ def label_items(hyps: list[dict], vers: list[dict], baseline: list[dict]) -> lis
                 "new_file_vs_baseline": new_file,
             },
             "pipeline": {
-                "verdict": v.get("verdict", ""),
-                "verification_method": v.get("verification_method", ""),
-                "confidence": v.get("confidence", ""),
+                "verdict": joined.get("verdict", ""),
+                "verification_method": joined.get("verification_method", ""),
+                "confidence": joined.get("confidence", ""),
+                "join_method": join_method,
             },
             "label": {"gate": gate, "source": "heuristic", "note": why},
         })
@@ -247,8 +321,8 @@ def triage(items: list[dict]) -> list[str]:
         lines.append("⚠ 检出复读病灶（degenerate）——Scout 复读未根治")
     if n >= 8 or echoes >= 3 or (n >= 5 and echoes / n >= 0.3):
         lines.append(f"⚠ 假设数 {n} / 回显 {echoes} ——回显嫌疑，对照 Scout prompt 约束项")
-    if 0 < n <= 4 and echoes == 0 and degen == 0:
-        lines.append("✅ 假设数 3±1 且零回显零复读——Scout 健康口径达标")
+    if 0 < n <= 6 and echoes == 0 and degen == 0:
+        lines.append("✅ 假设数≤6 且零回显零复读——Scout 健康口径达标")
     return lines
 
 
@@ -290,17 +364,90 @@ def score_tfidf(items: list[dict], baseline: list[dict]) -> list[float]:
     return out
 
 
-def score_laya(items: list[dict], baseline: list[dict], model_path: str) -> list[float]:
-    """Laya 后端占位：DSW 上 transformers 加载 convaiinnovations/laya 后实现。
+def _load_laya_agent(model_path: str):
+    """vendor 加载：模型目录自带 rl_agent_api.py（RLAgent），零额外依赖。
 
-    约定：对每条假设构造 state（假设文本 + 引用文件 + 基线行上下文），问题 =
-    "该假设是否值得消耗 Verify 预算"，choice KEEP/PRUNE/REVIEW，取 P(KEEP) 返回。
-    实现前先跑通 tfidf 基线。 """
-    raise NotImplementedError(
-        "laya 后端未实现。步骤：DSW 上 pip install transformers → "
-        f"AutoModel.from_pretrained({model_path!r}) → 按上述约定出 P(KEEP) → "
-        "把概率填进 dataset 后用 metrics 评测（Brier/ECE 在此才有意义）。"
-    )
+    非 transformers pipeline（2026-09-26 官方源码级研读纠偏）；sibling 导入
+    （rl_common 等）依赖 sys.path，插入模型目录后不回收（CLI 一次性进程无害）。
+    """
+    if not model_path:
+        raise ValueError("laya 后端需要 --model <模型目录>（DSW: /mnt/workspace/models/laya）")
+    import importlib.util
+    import sys
+
+    root = Path(model_path)
+    api = root / "rl_agent_api.py"
+    if not api.exists():
+        raise FileNotFoundError(
+            f"未找到 {api}——rl_agent_api.py/rl_common.py 应随模型目录自带"
+            "（多 checkpoint 布局：单检查点子目录才含 API 脚本）")
+    sys.path.insert(0, str(root))
+    spec = importlib.util.spec_from_file_location("laya_rl_agent_api", api)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.RLAgent(str(root))
+
+
+def _laya_state(item: dict, baseline_rows: list[dict]) -> str:
+    """单假设压缩 state——**Scout 阶段信息 ONLY**。
+
+    裁决/验证方法是 Verify 后信息，入 state = 标签泄漏（zero-shot 分数即作弊，
+    违反防泄漏口径）；基线上下文只给同文件行——回显判定是文件域的，token 预算
+    也只装得下这个（英文根 ~320 / typed-decisions ~768）。
+    """
+    fp = str(item.get("file_path") or "")
+    lines = [
+        f"vuln_type: {item.get('vuln_type', '')}",
+        f"file: {fp}",
+        f"title: {str(item.get('title') or '')[:160]}",
+        f"attack_path: {str(item.get('attack_path') or '')[:400]}",
+    ]
+    same = [b for b in baseline_rows if norm_path(str(b.get("file") or "")) == norm_path(fp)]
+    lines.append("baseline rows on this file:")
+    if same:
+        for b in same[:6]:
+            lines.append(f"- [{b.get('rule', '')}] {str(b.get('title') or '')[:80]}")
+    else:
+        lines.append("- none")
+    return "\n".join(lines)
+
+
+_SCORE_LAYA_INSTRUCTIONS = (
+    "Decide whether this vulnerability hypothesis deserves a Verify-stage budget. "
+    "A = keep, B = prune."
+)
+_SCORE_LAYA_CRITERIA = {
+    "A": "KEEP: semantic increment beyond the rule baseline, or backed by tool evidence",
+    "B": "PRUNE: echoes a baseline row (same file+type), duplicates another hypothesis, "
+         "degenerate repetition, or no semantic increment",
+}
+
+
+def score_laya(
+    items: list[dict], baseline: list[dict], model_path: str
+) -> tuple[list[float], list[float]]:
+    """Laya（System One 决策模型）后端：逐假设 P(KEEP) + confidence。
+
+    考题契约（2026-09-26 定稿）：2-option choice（A=KEEP/B=PRUNE）——noul 有
+    标签偏置坑（issue #156）、score 原语最弱（SST-5 0.372）均不用；
+    act_probability 官方已废弃（AUROC 0.30）禁用。每假设一次 system_one 调用
+    （state 是文件域压缩格式，全量拼接塞不下 token 预算）。
+    返回 (P(KEEP) 列表, confidence 列表)；Brier/ECE 在 cmd_score 接线。
+    """
+    agent = _load_laya_agent(model_path)
+    probs: list[float] = []
+    confs: list[float] = []
+    for i, it in enumerate(items):
+        answers = agent.system_one(
+            _laya_state(it, baseline),
+            {f"q{i}": {"type": "choice", "instructions": _SCORE_LAYA_INSTRUCTIONS,
+                       "criteria": dict(_SCORE_LAYA_CRITERIA)}},
+        )
+        a = (answers or {}).get(f"q{i}") or {}
+        p = float((a.get("probabilities") or {}).get("A") or 0.0)
+        probs.append(min(max(p, 0.0), 1.0))
+        confs.append(float(a.get("confidence") or 0.0))
+    return probs, confs
 
 
 def average_precision(ranked_labels: list[str]) -> float:
@@ -362,13 +509,18 @@ def cmd_build(args: argparse.Namespace) -> int:
               "  2) Scout 走非流式 parse()，日志里本就没有完整 JSON → 依赖归档补丁。")
         return 1
 
-    items = label_items(hyps, vers, baseline)
-    # pipeline 裁决补注（log 来源时 vers 为空 → 全 n/a）
-    final_keys = {
-        (norm_path(f.get("file_path") or f.get("file")),
-         norm_type(f.get("vuln_type") or f.get("type") or f.get("rule")))
-        for f in finals
-    }
+    id_join, title_join, orphans = join_verdicts(hyps, vers)
+    items = label_items(hyps, vers, baseline, join_result=(id_join, title_join, orphans))
+    # pipeline 裁决补注（log 来源时 vers 为空 → 全 n/a）；
+    # final 侧 file_path 合串（Arbiter 跨文件形态）先归一化再比对，否则 in_final 恒 False
+    known = {norm_path(b.get("file") or b.get("file_path")) for b in baseline}
+    known |= {norm_path(h.get("file_path")) for h in hyps}
+    known.discard("")
+    final_keys: set[tuple[str, str]] = set()
+    for f in finals:
+        ftype = norm_type(f.get("vuln_type") or f.get("type") or f.get("rule"))
+        for fp in split_merged_paths(f.get("file_path") or f.get("file"), known_files=known):
+            final_keys.add((norm_path(fp), ftype))
     for it in items:
         it["pipeline"]["in_final"] = (norm_path(it["file_path"]), norm_type(it["vuln_type"])) in final_keys
         if origin != "report":
@@ -395,6 +547,12 @@ def cmd_build(args: argparse.Namespace) -> int:
     print(f"[replay] {len(items)} 条假设 ← {origin}（基线 {len(baseline)} 行）→ {out}")
     for line in triage(items):
         print(f"  {line}")
+    if orphans:
+        print(f"  ⚠ {len(orphans)} 条裁决未 join 上假设（id+title 双 miss）→ 裁决分布含 n/a；"
+              "管线侧已修（verify id 对齐收口），归档补丁前的历史跑属预期")
+        for v in orphans[:5]:
+            print(f"    hypothesis_id={str(v.get('hypothesis_id') or '')!r} "
+                  f"title={str(v.get('hypothesis_title') or '')[:40]!r} verdict={v.get('verdict')}")
     return 0
 
 
@@ -406,12 +564,12 @@ def cmd_score(args: argparse.Namespace) -> int:
         print("[replay] 数据集无条目")
         return 1
 
+    ylabels = [it["label"]["gate"] for it in items]
+    confs: list[float] | None = None
     if args.backend == "tfidf":
         scores = score_tfidf(items, baseline)
-        ylabels = [it["label"]["gate"] for it in items]
     elif args.backend == "laya":
-        scores = score_laya(items, baseline, args.model or "")
-        ylabels = [it["label"]["gate"] for it in items]
+        scores, confs = score_laya(items, baseline, args.model or "")
     else:
         print(f"[replay] 未知后端 {args.backend}")
         return 1
@@ -419,7 +577,6 @@ def cmd_score(args: argparse.Namespace) -> int:
     ranked = sorted(zip(scores, ylabels, items), key=lambda t: -t[0])
     ranked_labels = [l for _, l, _ in ranked]
     ap = average_precision(ranked_labels)
-    keep_ids = {it["id"] for _, l, it in ranked if l == "KEEP"}
     evid_keep = [it["id"] for it in items if it["heuristics"]["evidence_backed"] and it["label"]["gate"] == "KEEP"]
 
     print(f"[replay] backend={args.backend}  N={len(items)}  KEEP={sum(1 for l in ylabels if l == 'KEEP')}"
@@ -433,7 +590,89 @@ def cmd_score(args: argparse.Namespace) -> int:
         print(f"  H9 保序（{hid}, evidence-backed KEEP）: 排名 {pos}/{len(ranked)}" + ("" if pos and pos <= k else "  ⚠ 落于 top-k 外"))
     for s, l, it in ranked:
         print(f"    {s:.3f}  {l:7s} {it['id']}  {it['file_path']}  {it['title'][:40]}")
-    print("  注：probabilistic 后端（laya）就绪后另报 Brier/ECE（brier_score/expected_calibration_error 已就绪可测）。")
+    if confs is not None:
+        pairs = [(p, 1.0 if l == "KEEP" else 0.0) for p, l in zip(scores, ylabels) if l != "REVIEW"]
+        if pairs:
+            ps = [p for p, _ in pairs]
+            ys = [y for _, y in pairs]
+            print(f"  Brier={brier_score(ps, ys):.3f}  ECE={expected_calibration_error(ps, ys):.3f}"
+                  f"  confidence 均值={sum(confs) / len(confs):.3f}"
+                  f"  （概率口径剔除 REVIEW {len(ylabels) - len(pairs)} 条）")
+    return 0
+
+
+def cmd_synth(args: argparse.Namespace) -> int:
+    """回显负样本合成器：agent0 基线行 → 伪假设条目（PRUNE 教材，确定性）。
+
+    背景（2026-09-26）：degraded 跑的 12 条真实回显负样本被归档覆盖丢失；
+    回显形态本身是确定性的（file+type 与基线行同 key），可无损合成。规则：
+    - 带 decoded_payload 实锤的行跳过——对应假设享 evidence 永久豁免，不构成
+      PRUNE 教材（与 label_items 豁免口径一致）；
+    - 文本口径与真假设一致（title+vuln_type+file_path），tfidf/laya 评分分布
+      不偏移；attack_path 填基线 description 截断（真实回显=Scout 复述基线）。
+    --into：并入既有数据集（正负同卷，zero-shot 考试用）；否则独立落盘。
+    """
+    report_path = Path(args.report)
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    baseline = list((report.get("meta") or {}).get("agent0_findings") or [])
+    if not baseline:
+        print("[replay] 报告无 meta.agent0_findings，无法合成（归档补丁前的报告请重跑 e2e）")
+        return 1
+    items: list[dict] = []
+    skipped = 0
+    for i, b in enumerate(baseline, start=1):
+        if _has_decoded_payload(b):
+            skipped += 1
+            continue
+        btype = norm_type(str(b.get("type") or b.get("rule") or b.get("vuln_type") or ""))
+        items.append({
+            "id": f"ECHO-{i}",
+            "origin": "synthetic",
+            "title": str(b.get("title") or ""),
+            "vuln_type": btype,
+            "file_path": str(b.get("file") or b.get("file_path") or ""),
+            "attack_path": str(b.get("description") or b.get("code_snippet") or "")[:200],
+            "confidence": str(b.get("confidence") or ""),
+            "heuristics": {
+                "echo_of_baseline": {"rule": btype, "match": "synthetic"},
+                "duplicate_of": None,
+                "degenerate": False,
+                "evidence_backed": False,
+                "new_file_vs_baseline": False,
+            },
+            "pipeline": {"verdict": "", "verification_method": "", "confidence": "",
+                         "in_final": True, "join_method": "none"},
+            "label": {"gate": "PRUNE", "source": "synthetic", "note": "echo_exact(synthetic)"},
+        })
+
+    dataset = {
+        "schema": SCHEMA,
+        "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "source": {"report": str(report_path), "logs": [], "synthesizer": "echo-negative/1"},
+        "n_baseline": len(baseline),
+        "baseline_rows": [
+            {"file": norm_path(b.get("file") or b.get("file_path")),
+             "rule": norm_type(b.get("type") or b.get("rule")),
+             "title": b.get("title", ""),
+             "severity": b.get("severity", ""),
+             "has_decoded_payload": _has_decoded_payload(b)}
+            for b in baseline
+        ],
+        "items": items,
+    }
+    if args.into:
+        base_ds = json.loads(Path(args.into).read_text(encoding="utf-8"))
+        base_ds.setdefault("items", []).extend(items)
+        base_ds.setdefault("source", {})["synth_merged"] = {"from": str(report_path), "n": len(items)}
+        payload = base_ds
+        default_name = f"{Path(args.into).stem}_full.json"
+        out = Path(args.out) if args.out else Path(args.into).parent / default_name
+    else:
+        payload = dataset
+        out = Path(args.out) if args.out else report_path.parent / "gate_dataset_echo_neg.json"
+    out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"[replay] synth: 基线 {len(baseline)} 行 → 回显负样本 {len(items)} 条"
+          f"（跳过实锤 {skipped} 行）→ {out}")
     return 0
 
 
@@ -453,6 +692,12 @@ def main() -> int:
     s.add_argument("--model", help="laya 后端的模型路径")
     s.add_argument("--topk", type=int, default=3, help="模拟只放行 top-k 进 Verify")
     s.set_defaults(func=cmd_score)
+
+    y = sub.add_parser("synth", help="agent0 基线行 → 回显负样本（PRUNE 教材，确定性合成）")
+    y.add_argument("--report", required=True, help="含 meta.agent0_findings 的 e2e 报告")
+    y.add_argument("--into", help="并入既有数据集（正负同卷，zero-shot 考试用）")
+    y.add_argument("-o", "--out", help="输出路径（默认：独立 gate_dataset_echo_neg.json / 并入 *_full.json）")
+    y.set_defaults(func=cmd_synth)
 
     args = ap.parse_args()
     return args.func(args)

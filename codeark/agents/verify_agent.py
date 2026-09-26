@@ -58,6 +58,23 @@ def _normalize_verifications(out: object) -> list[VerificationResult]:
         return []
 
 
+def _align_hypothesis_id(v: VerificationResult, hyp) -> VerificationResult:
+    """id 对齐收口：模型自报 hypothesis_id 与本假设不符时纠正回 hyp.id。
+
+    structured_output / dict / 文本截取三条产出路径都可能出现模型自报的越界 id
+    （空串/错号/别的假设的号）；replay 按 id join 裁决，错 id = 指标静默污染
+    （2026-09-26 两连跑各 1 条 join-miss 的管线侧根因）。纠正打印告警留痕；
+    上游未分配 id（dry/旧路径）时无对齐基准，保留模型自报值。
+    """
+    expected = str(getattr(hyp, "id", "") or "")
+    got = str(getattr(v, "hypothesis_id", "") or "")
+    if expected and got != expected:
+        print(f"[Verify] ⚠ hypothesis_id 纠偏: {got!r} → {expected!r}"
+              f"（{str(v.hypothesis_title or '')[:40]}）")
+        v.hypothesis_id = expected
+    return v
+
+
 # ── 系统提示词（验证官）──
 VERIFY_SYSTEM_PROMPT = """\
 你是漏洞验证官。任务：对侦察 Agent 提出的每条假设，调用工具逐条证实或证伪。
@@ -247,9 +264,9 @@ async def _verify_one(
         )
     out = getattr(result, "structured_output", None)
     if isinstance(out, VerificationResult):
-        return out
+        return _align_hypothesis_id(out, hyp)
     if isinstance(out, dict):
-        return _coerce_verification(out, hyp)
+        return _align_hypothesis_id(_coerce_verification(out, hyp), hyp)
     # structured_output 缺失：尝试从文本截取 JSON
     import re as _re
 
@@ -258,7 +275,7 @@ async def _verify_one(
         import json as _json
 
         try:
-            return _coerce_verification(_json.loads(m.group(0)), hyp)
+            return _align_hypothesis_id(_coerce_verification(_json.loads(m.group(0)), hyp), hyp)
         except Exception:
             pass
     return VerificationResult(
