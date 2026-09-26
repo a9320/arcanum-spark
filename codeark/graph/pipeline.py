@@ -48,6 +48,15 @@ def _field(f: Any, key: str, default: str = "") -> str:
     return str(getattr(f, key, None) or default)
 
 
+def _jsonable(x: Any) -> Any:
+    """pydantic 模型→dict / list 递归——供 meta 落盘 JSON。"""
+    if hasattr(x, "model_dump"):
+        return x.model_dump()
+    if isinstance(x, list):
+        return [_jsonable(i) for i in x]
+    return x
+
+
 def compute_risk_score(findings: list[Any]) -> int:
     """由确定性代码计算风险总分，绝不让 LLM 算分（蓝图 §5.2）。
 
@@ -276,7 +285,9 @@ class CodeRiskGraph:
 
         # 6. 报告：确定性渲染（JSON/SARIF/Markdown），生成≠发布
         # 攻击链与隔离层统计一并进报告（§11：链曾只存不渲）
-        # meta 同时携带 agent0 基线摘要（eval/check_report.py 的确定性校验输入）
+        # meta 携带 agent0 基线摘要（eval/check_report.py 的确定性校验输入）
+        # meta 同时归档 hypothesis_set/verifications（gate 数据底座：此前假设层
+        # 在渲染边界被丢弃，只活在内存与流式日志里，重跑即销毁——eval/replay.py 依赖）
         res.reports = render_report(
             res.final_report,
             ["json", "sarif", "markdown"],
@@ -287,6 +298,8 @@ class CodeRiskGraph:
                 "node_errors": res.node_errors,
                 "severity_floor_upgraded": res.severity_floor_upgraded,
                 "agent0_findings": res.agent0_findings,
+                "hypothesis_set": _jsonable(res.hypothesis_set),
+                "verifications": _jsonable(res.verifications),
             },
         )
 

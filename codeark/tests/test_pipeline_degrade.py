@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 
 from codeark.agents import deepen_agent as da
 from codeark.agents import verify_agent as va
@@ -56,6 +57,14 @@ async def test_partial_degrade_only_verify(monkeypatch):
     assert set(res.node_errors) == {"verify", "deepen", "arbiter"}
     assert res.verifications[0].verdict == "CONFIRMED"
     assert "markdown" in res.reports
+
+
+async def test_report_meta_archives_hypothesis_set_and_verifications():
+    """归档补丁：假设层随报告落盘（此前渲染边界丢弃，重跑即销毁）。"""
+    res = await pl.CodeRiskGraph(dry=True).run(FILES)
+    meta = json.loads(res.reports["json"])["meta"]
+    assert meta["hypothesis_set"]["hypotheses"]
+    assert len(meta["verifications"]) == len(meta["hypothesis_set"]["hypotheses"])
 
 
 # ────────────── 并发机制测试（verify/deepen 循环调用调优，零真实 API）──────────────
