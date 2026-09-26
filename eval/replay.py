@@ -438,12 +438,14 @@ def score_laya(
     probs: list[float] = []
     confs: list[float] = []
     for i, it in enumerate(items):
-        answers = agent.system_one(
+        out = agent.system_one(
             _laya_state(it, baseline),
             {f"q{i}": {"type": "choice", "instructions": _SCORE_LAYA_INSTRUCTIONS,
                        "criteria": dict(_SCORE_LAYA_CRITERIA)}},
         )
-        a = (answers or {}).get(f"q{i}") or {}
+        # 官方契约（rl_agent_api.py system_one 尾行）：{"model", "answers": {qid: {...}}, "usage"}，
+        # answers[qid] = {"choice", "probabilities": {选项: 概率}, "confidence", "rl_agent"}
+        a = ((out or {}).get("answers") or {}).get(f"q{i}") or {}
         p = float((a.get("probabilities") or {}).get("A") or 0.0)
         probs.append(min(max(p, 0.0), 1.0))
         confs.append(float(a.get("confidence") or 0.0))

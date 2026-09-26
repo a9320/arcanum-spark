@@ -260,7 +260,11 @@ def test_score_laya_with_stub(monkeypatch):
         def system_one(self, state, questions):
             (qid, q), = questions.items()
             assert q["type"] == "choice" and set(q["criteria"]) == {"A", "B"}
-            return {qid: {"probabilities": {"A": 0.9, "B": 0.1}, "confidence": 0.8}}
+            # 官方契约：system_one 返回 {"model", "answers": {qid: {...}}, "usage"} 包装层
+            return {"model": "rl-agent",
+                    "answers": {qid: {"type": "choice", "choice": "A",
+                                      "probabilities": {"A": 0.9, "B": 0.1}, "confidence": 0.8}},
+                    "usage": {"input_tokens": 128, "output_tokens": 0}}
 
     monkeypatch.setattr(replay, "_load_laya_agent", lambda p: _StubAgent())
     items = [
