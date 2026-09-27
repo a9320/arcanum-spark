@@ -78,3 +78,12 @@ def test_pseudo_report_feeds_synth_end_to_end(tmp_path):
     assert len(echo) == ds["n_baseline"]                # 基线行 → 回显负（无实锤跳过时 1:1）
     assert all(it["label"]["gate"] == "PRUNE" for it in echo)
     assert all(it["file_path"] for it in echo)          # state 构造必需字段非空
+
+
+def test_surprise_files_zero_pitax():
+    """L2 惊喜文件必须规则库外（agent0 零命中）——否则会进基线污染 KEEP 标签。"""
+    sys.path.insert(0, str(REPO_ROOT / "demo"))
+    from generate_demo_repo import SURPRISES
+    from codeark.agents.agent0_pitax import run_agent0
+    hits = run_agent0(dict(SURPRISES))
+    assert hits == [], f"惊喜文件被 PITAX 命中: {[(h['type'], h['file']) for h in hits]}"

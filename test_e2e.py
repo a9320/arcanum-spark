@@ -13,6 +13,8 @@ from codeark.graph.pipeline import CodeRiskGraph
 from codeark.models.factory import make_stage_models_from_env
 
 REPO = ROOT / "demo" / "vuln-demo-repo"
+if len(sys.argv) > 1:  # L2：e2e 可指向任意仓（变体考卷等），缺省=QB-S1 本体
+    REPO = Path(sys.argv[1])
 
 
 def read_repo() -> dict[str, str]:
@@ -48,10 +50,10 @@ async def main() -> None:
     print(f"6. reports: {list(result.reports.keys())}")
     print(f"7. risk_score: {result.risk_score}")
 
-    # 打印报告文件
+    # 打印报告文件（按仓名分目录，多仓互不覆盖）
     for fmt, content in result.reports.items():
-        out = ROOT / f"reports/e2e_report.{fmt}"
-        out.parent.mkdir(exist_ok=True)
+        out = ROOT / "reports" / REPO.name / f"e2e_report.{fmt}"
+        out.parent.mkdir(parents=True, exist_ok=True)
         # sarif 等可能是 dict，需序列化为 JSON 字符串
         text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False, indent=2)
         out.write_text(text, encoding="utf-8")

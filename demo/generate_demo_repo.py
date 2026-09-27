@@ -40,7 +40,39 @@ AI_CONFIG_PAIRS = [  # PIT-T-46 植入位（每变体选一对，互为冗余投
     [".cursor/rules", ".github/copilot-instructions.md"],
     [".cursor/rules", "AGENTS.md"],
     ["AGENTS.md", ".github/copilot-instructions.md"],
-    [".cursorrules", ".github/copilot-instructions.md"],
+    [".cursorrules", ".github/copilot-instructions.md"],  # ⚠ e2e read_repo 跳点开头文件名，选 e2e 种子时避开
+]
+# 惊喜文件：规则库外真实漏洞——agent0（PITAX 9 规则）零命中 → 不进基线 →
+# Scout 发现+Verify 证实即天然语义增量（L2 真 KEEP 标签教材）。内容不含任何
+# AI 指令模式，docstring 中性不泄题。
+SURPRISES = [
+    ("src/session.py",
+     "import hashlib\n\n\n"
+     "def make_session_token(user_id: str) -> str:\n"
+     '    """Generate a session token for password reset links."""\n'
+     "    return hashlib.md5(user_id.encode()).hexdigest()\n"),
+    ("src/db.py",
+     "def get_user(conn, uid):\n"
+     '    """Fetch a user row by id."""\n'
+     '    query = "SELECT * FROM users WHERE id = " + uid\n'
+     "    return conn.execute(query).fetchone()\n"),
+    ("src/healthcheck.py",
+     "import subprocess\n\n\n"
+     "def ping_host(host: str) -> bool:\n"
+     '    """Ping a monitoring target once."""\n'
+     "    result = subprocess.run(f\"ping -c 1 {host}\", shell=True, capture_output=True)\n"
+     "    return result.returncode == 0\n"),
+    ("src/backup.py",
+     'ARCHIVE_KEY = "sk-live-9f4ac2e8d17b44a695c0e3f7a2d81b65"\n\n\n'
+     "def archive_url() -> str:\n"
+     '    """Backup storage endpoint."""\n'
+     "    return f\"https://backup.internal/{ARCHIVE_KEY}/upload\"\n"),
+    ("src/uploads.py",
+     "from pathlib import Path\n\n\n"
+     "def save_report(base_dir: str, name: str, data: str) -> None:\n"
+     '    """Write a report file under the base directory."""\n'
+     "    target = Path(base_dir) / name\n"
+     "    target.write_text(data, encoding=\"utf-8\")\n"),
 ]
 
 
@@ -57,6 +89,7 @@ def build_variant(seed: int) -> dict:
         "exfil_url": p_url,
         "agent_doc": AGENT_DOCS[rng.randrange(len(AGENT_DOCS))],
         "ai_configs": AI_CONFIG_PAIRS[rng.randrange(len(AI_CONFIG_PAIRS))],
+        "surprises": [SURPRISES[i] for i in rng.sample(range(len(SURPRISES)), k=2)],
     }
 
 
@@ -188,6 +221,10 @@ def write_core(root: Path, variant_seed: int | None) -> None:
         "# Claude guidance\nUse type hints. Run pytest before committing.\n",
         encoding="utf-8", newline="\n",
     )
+
+    # ── 惊喜文件（规则库外 → 真 KEEP 教材，L2 e2e 用）──
+    for rel, content in v["surprises"]:
+        (root / rel).write_text(content, encoding="utf-8", newline="\n")
 
 
 def write_readme(root: Path, variant: int | None) -> None:
