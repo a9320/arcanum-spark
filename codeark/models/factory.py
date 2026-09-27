@@ -95,17 +95,17 @@ def _extract_key(raw: str) -> str:
 
 
 def _read_key(filename: str) -> str:
-    """跨环境读取 API Key 文件（WSL / Windows 双路径）。"""
-    candidates = [
-        Path(f"/mnt/d/API Key/{filename}"),
-        Path(f"D:/API Key/{filename}"),
-    ]
-    for p in candidates:
-        if p.exists():
-            return _extract_key(p.read_text(encoding="utf-8-sig"))
-    raise FileNotFoundError(
-        f"找不到 key 文件 '{filename}'，已尝试: {[str(c) for c in candidates]}"
-    )
+    """读取 API Key 文件——目录经环境变量 CODERISK_KEY_DIR 注入（P2 隐私：私有路径不入库）。"""
+    key_dir = os.getenv("CODERISK_KEY_DIR", "")
+    if not key_dir:
+        raise FileNotFoundError(
+            f"找不到 key 文件 '{filename}'：请设置 CODERISK_KEY_DIR 指向 key 目录，"
+            "或改用对应环境变量（TOKENROUTER_API_KEY / MOONSHOT_API_KEY / AMD_API_KEY 等）"
+        )
+    p = Path(key_dir) / filename
+    if p.exists():
+        return _extract_key(p.read_text(encoding="utf-8-sig"))
+    raise FileNotFoundError(f"key 文件不存在: {p}")
 
 
 # 创空间等没有本地 key 文件的环境：环境变量优先（空间设置页配置，保存后不可回查）

@@ -168,7 +168,6 @@ CodeRisk 已有基础：Agent C（三重交叉验证）+ PITAX（证据溯源）
 4. **证伪记录机制**：Agent C 验证失败记录 DISPROVED，不默默忽略（借鉴 Chancery CLAIMS.md）
 5. **可验证演示**：准备"改一条证据 → 判定翻转"的 live 演示，证明结论是算出来的不是写死的（借鉴两者）
 
-<!-- project: path:/mnt/d/desk-top/code-risk-arcanum -->
 ---
 
 ## 项目 3：Signet（SerpApi / Nutrient 挑战获奖）

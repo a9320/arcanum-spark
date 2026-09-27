@@ -82,7 +82,7 @@ def test_direct_upload_writes_files():
             {"path": "src/main.py", "content": "import os\nos.system('ls')\n"},
             {"path": "README.md", "content": "# demo"},
         ],
-    })
+    })[0]
     assert work is not None
     assert (Path(work) / "src" / "main.py").is_file()
     assert (Path(work) / "README.md").read_text(encoding="utf-8") == "# demo"
@@ -93,22 +93,22 @@ def test_direct_upload_rejects_path_traversal():
     assert _prepare_code("test-dup-2", {
         "source": "direct_upload",
         "files": [{"path": "../evil.py", "content": "x=1"}],
-    }) is None
+    })[0] is None
     assert _prepare_code("test-dup-3", {
         "source": "direct_upload",
         "files": [{"path": "/abs/evil.py", "content": "x=1"}],
-    }) is None
+    })[0] is None
 
 
 def test_direct_upload_rejects_empty_and_oversize():
     from app.tasks import _prepare_code
-    assert _prepare_code("test-dup-4", {"source": "direct_upload", "files": []}) is None
-    assert _prepare_code("test-dup-5", {"source": "direct_upload"}) is None
+    assert _prepare_code("test-dup-4", {"source": "direct_upload", "files": []})[0] is None
+    assert _prepare_code("test-dup-5", {"source": "direct_upload"})[0] is None
     big = "x" * (1024 * 1024 + 1)
     assert _prepare_code("test-dup-6", {
         "source": "direct_upload",
         "files": [{"path": "big.txt", "content": big}],
-    }) is None
+    })[0] is None
 
 
 # ── Agent 1-4 全链路（无 LLM 降级路径）──
@@ -120,7 +120,7 @@ def test_full_pipeline_without_llm(tmp_path, monkeypatch):
         "source": "direct_upload",
         "files": [{"path": "app.py", "content":
                    "import os\ncmd = input('Enter: ')\nos.system(cmd)\n"}],
-    })
+    })[0]
     assert code_path
 
     static = T._run_static_analysis("test-pipe-1", code_path)
@@ -141,3 +141,26 @@ def test_full_pipeline_without_llm(tmp_path, monkeypatch):
     assert report["total_findings"] >= 1
     assert "output_guardrail" in report  # 主线 A 护栏已接入
     assert report["summary"]["high"] + report["summary"]["critical"] >= 1
+
+
+# ── P0-3 回归：DB-API 参数化 %s 占位符不得误报；真实 % 格式化必须命中 ──
+def test_sql_parameterized_placeholder_not_flagged():
+    from agents.static_analyzer import StaticAnalyzer
+    from core.models import CodeFile
+    sa = StaticAnalyzer()
+    cf = CodeFile(path="src/db.py", language="python", content="""def get(uid):
+    cur.execute("SELECT * FROM users WHERE id=%s", (uid,))
+""")
+    risks = sa.analyze_batch([cf])
+    assert not [r for r in risks if r.cwe_id == "CWE-89"], "DB-API 参数化写法被误报为 SQL 注入（P0-3 回归）"
+
+
+def test_sql_percent_formatting_still_flagged():
+    from agents.static_analyzer import StaticAnalyzer
+    from core.models import CodeFile
+    sa = StaticAnalyzer()
+    cf = CodeFile(path="src/db.py", language="python", content="""def get(uid):
+    cur.execute("SELECT * FROM users WHERE id=%s" % uid)
+""")
+    risks = sa.analyze_batch([cf])
+    assert any(r.cwe_id == "CWE-89" for r in risks)

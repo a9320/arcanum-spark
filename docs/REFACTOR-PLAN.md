@@ -413,5 +413,3 @@ def invoke_sagemaker_verifier(code_snippet: str) -> dict:
 
 > 附：照片文字（建议.txt）核心观点摘录
 > 相比把所有职责塞进提示词，利用框架提供的结构化模式是更高效、更可靠的做法。任务有明确主导者→Agents-as-Tools；需自主协作→Handoffs/Swarms；流程固定→Graph/Workflow；想开箱即用→Bedrock 托管协作；需底层隔离→IAM/AgentCore。
-
-<!-- project: path:/mnt/d/desk-top/code-risk-arcanum -->

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
 import logging
 import uuid
 from datetime import datetime
@@ -14,7 +15,6 @@ import redis
 from fastapi import FastAPI, Header, HTTPException, Request, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
 from typing import Annotated, Optional
 
 from app.config import settings
@@ -39,8 +39,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=[o.strip() for o in os.getenv("CODERISK_CORS_ORIGINS", "").split(",") if o.strip()],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -170,7 +170,10 @@ async def github_webhook(request: Request, x_hub_signature: str | None = Header(
         if not hmac.compare_digest(expected, x_hub_signature):
             raise HTTPException(status_code=401, detail="Invalid webhook signature")
     else:
-        logger.warning("GitHub Webhook received without signature verification (GITHUB_WEBHOOK_SECRET not set)")
+        raise HTTPException(
+            status_code=503,
+            detail="GitHub webhook signature verification is not configured (GITHUB_WEBHOOK_SECRET unset)",
+        )
 
     try:
         data = json.loads(payload)
@@ -281,8 +284,7 @@ async def download_report_pdf(task_id: str, authorization: str | None = Header(N
     )
 
 
-# ── 静态文件挂载：/reports 目录直接可访问 ──
-app.mount("/reports", StaticFiles(directory=str(settings.REPORTS_DIR)), name="reports")
+# /reports 静态挂载已移除（P0-1）：报告与上传源码只能经带 api_key_hash 租户隔离的接口下载
 
 
 @app.post(f"{settings.API_PREFIX}/analyze/upload", response_model=AnalyzeResponse)

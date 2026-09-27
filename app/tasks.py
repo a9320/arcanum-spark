@@ -262,6 +262,7 @@ def analyze_codebase_task(self, task_id: str, source_config: dict[str, Any]) -> 
     """
     logger.info(f"[{task_id}] Starting analysis, source={source_config.get('source')}")
     work_dir = None
+    work_dir_owned = False
     nutrient = NutrientDWSClient()
 
     try:
@@ -272,7 +273,7 @@ def analyze_codebase_task(self, task_id: str, source_config: dict[str, Any]) -> 
             "agent_3_verifier": "pending",
             "agent_4_report": "pending",
         })
-        work_dir = _prepare_code(task_id, source_config)
+        work_dir, work_dir_owned = _prepare_code(task_id, source_config)
         if not work_dir:
             raise ValueError("Failed to prepare source code")
         logger.info(f"[{task_id}] Code prepared at {work_dir}")
@@ -387,8 +388,8 @@ def analyze_codebase_task(self, task_id: str, source_config: dict[str, Any]) -> 
         return {"task_id": task_id, "status": "failed", "error": str(e)}
 
     finally:
-        # 清理临时文件
-        if work_dir and Path(work_dir).exists():
+        # 只清理本任务自建的临时目录；local 源指向用户真实目录，永不 rmtree（P0-2）
+        if work_dir_owned and work_dir and Path(work_dir).exists():
             shutil.rmtree(work_dir, ignore_errors=True)
             logger.info(f"[{task_id}] Cleaned up work dir: {work_dir}")
 
@@ -406,9 +407,24 @@ def analyze_codebase_task(self, task_id: str, source_config: dict[str, Any]) -> 
 
 # ── 内部实现 ──
 
-def _prepare_code(task_id: str, config: dict) -> str | None:
-    """准备代码：clone / 解压 / 读取"""
+def _prepare_code(task_id: str, config: dict) -> tuple[str | None, bool]:
+    """准备代码：clone / 解压 / 读取。返回 (work_dir, owned)。
+    owned=True 仅当 work_dir 是本任务自建临时目录（调用方 finally 才允许 rmtree）；
+    local 源指向 /repos/ 下用户真实目录，owned=False，永不删除。"""
     work_dir = Path(tempfile.mkdtemp(prefix=f"cr-{task_id}-"))
+    try:
+        result = _prepare_into(task_id, config, work_dir)
+    except Exception:
+        shutil.rmtree(work_dir, ignore_errors=True)  # 自建临时目录，异常时回收
+        raise
+    if not result[1]:
+        # 失败路径或外部目录：自建临时目录用不上，立即回收
+        shutil.rmtree(work_dir, ignore_errors=True)
+    return result
+
+
+def _prepare_into(task_id: str, config: dict, work_dir: Path) -> tuple[str | None, bool]:
+    """（内部）将源码准备进 work_dir。返回 (path, owned)。"""
     source = config.get("source", "direct_upload")
 
     if source == "github":
@@ -416,7 +432,7 @@ def _prepare_code(task_id: str, config: dict) -> str | None:
         branch = config.get("branch", "main")
 
         if not repo_url:
-            return None
+            return None, False
 
         # 白名单校验 + 防注入
         allowed_hosts = ("https://github.com/", "https://gitlab.com/", "https://gitee.com/")
@@ -431,7 +447,7 @@ def _prepare_code(task_id: str, config: dict) -> str | None:
                 timeout=120,
                 check=True,
             )
-            return str(work_dir)
+            return str(work_dir), True
         except subprocess.CalledProcessError as e:
             logger.error(f"Git clone failed: {e.stderr.decode()[:200]}")
             return None
@@ -440,33 +456,33 @@ def _prepare_code(task_id: str, config: dict) -> str | None:
         local_path = config.get("local_path", "").strip()
         if not local_path:
             logger.error(f"[{task_id}] Local source but local_path is empty")
-            return None
+            return None, False
 
         import os
         normalized = os.path.normpath(local_path)
         if ".." in normalized.split(os.sep):
             logger.error(f"[{task_id}] Path traversal detected: {local_path}")
-            return None
+            return None, False
         if not normalized.startswith("/repos/"):
             logger.error(f"[{task_id}] Local path must be under /repos/: {local_path}")
-            return None
+            return None, False
         if not os.path.isdir(normalized):
             logger.error(f"[{task_id}] Directory does not exist: {normalized}")
-            return None
+            return None, False
 
         logger.info(f"[{task_id}] Using local directory: {normalized}")
-        return normalized
+        return normalized, False
 
     elif source == "zip":
         zip_path_str = config.get("zip_path")
         if not zip_path_str:
             logger.error(f"[{task_id}] ZIP source but zip_path is empty")
-            return None
+            return None, False
 
         zip_path = Path(zip_path_str)
         if not zip_path.exists():
             logger.error(f"[{task_id}] ZIP file not found: {zip_path}")
-            return None
+            return None, False
 
         try:
             with zipfile.ZipFile(zip_path, 'r') as zf:
@@ -504,24 +520,24 @@ def _prepare_code(task_id: str, config: dict) -> str | None:
                 zf.extractall(work_dir)
 
             logger.info(f"[{task_id}] ZIP extracted: {len(infolist)} files to {work_dir}")
-            return str(work_dir)
+            return str(work_dir), True
 
         except zipfile.BadZipFile:
             logger.error(f"[{task_id}] Invalid ZIP file: {zip_path}")
-            return None
+            return None, False
         except ValueError as e:
             logger.error(f"[{task_id}] ZIP validation failed: {e}")
-            return None
+            return None, False
         except Exception as e:
             logger.exception(f"[{task_id}] ZIP extraction failed: {e}")
-            return None
+            return None, False
 
     elif source == "direct_upload":
         # 直接上传代码片段/文件：config["files"] = [{"path": "src/a.py", "content": "..."}]
         files = config.get("files") or []
         if not files:
             logger.error(f"[{task_id}] direct_upload but files is empty")
-            return None
+            return None, False
 
         MAX_FILES = 200
         MAX_FILE_BYTES = 1024 * 1024   # 单文件 1MB
@@ -529,7 +545,7 @@ def _prepare_code(task_id: str, config: dict) -> str | None:
         total = 0
         if len(files) > MAX_FILES:
             logger.error(f"[{task_id}] direct_upload files={len(files)} exceeds limit {MAX_FILES}")
-            return None
+            return None, False
         try:
             for item in files:
                 rel = str(item.get("path", "")).strip()
@@ -551,11 +567,11 @@ def _prepare_code(task_id: str, config: dict) -> str | None:
                 target.write_bytes(data)
         except (ValueError, OSError) as e:
             logger.error(f"[{task_id}] direct_upload rejected: {e}")
-            return None
+            return None, False
         logger.info(f"[{task_id}] direct_upload wrote {len(files)} file(s) to {work_dir}")
-        return str(work_dir)
+        return str(work_dir), True
 
-    return None
+    return None, False
 
 
 def _run_static_analysis(task_id: str, code_path: str) -> list[dict]:
@@ -738,10 +754,11 @@ def _generate_report(task_id: str, findings: list[dict], formats: list[str], nut
                 report["pdf_error"] = "PDF generation not supported in async worker context"
             else:
                 raise
-        report["digital_signature"] = "sha256:" + hashlib.sha256(json.dumps(report).encode()).hexdigest()[:32]
-
     # 主线 A: 输出护栏 — 报告输出前脱敏系统提示内容，防止 Agent 泄露
     report = guard_report(report)
+
+    # 数字签名：对最终交付（脱敏后）的报告统一计算，所有格式一致（P1-7）
+    report["digital_signature"] = "sha256:" + hashlib.sha256(json.dumps(report).encode()).hexdigest()[:32]
     return report
 
 

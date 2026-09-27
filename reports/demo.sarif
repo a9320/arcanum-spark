@@ -7,7 +7,7 @@
         "driver": {
           "name": "CodeRisk Cloud",
           "version": "2.0.0",
-          "informationUri": "https://github.com/a9320/coderisk-cloud",
+          "informationUri": "https://github.com/a9320/arcanum-spark",
           "rules": [
             {
               "id": "PIT-T-46",

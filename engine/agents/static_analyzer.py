@@ -1,8 +1,7 @@
-"""Agent 1: Tree-sitter Static Analyzer
+"""Agent 1: Static Analyzer（regex 模式匹配，无 AST/tree-sitter 依赖）
 
 Responsibilities:
-- Parse AST using Tree-sitter
-- Detect dangerous patterns in C/Python code
+- Detect dangerous patterns in C/Python code via curated regex rules
 - Output structured risk list
 
 PATCH (DevNetwork Day 8):
@@ -260,12 +259,12 @@ PYTHON_NEW_PATTERNS = [
 PYTHON_FLASK_PATTERNS = [
     # SQL Injection
     {
-        "pattern": r"\.execute\s*\([^)]*%s",
+        "pattern": r"\.execute\s*\(\s*(?:[rbfu]*['\"][^'\"]*%s[^'\"]*['\"]\s*%|['\"][^'\"]*%s[^'\"]*['\"]\s*\.format\s*\()",
         "cwe": "CWE-89",
         "severity": Severity.CRITICAL,
         "title": "SQL Injection (string formatting)",
-        "desc": "SQL query uses %s string formatting, vulnerable to SQL injection",
-        "fix": "Use parameterized queries with ? placeholders",
+        "desc": "SQL query text is built with % string formatting / str.format, vulnerable to SQL injection",
+        "fix": "Pass values as DB-API bind parameters (cursor.execute(sql, params)) instead of formatting the SQL string",
     },
     {
         "pattern": r"\.execute\s*\([^)]*f['\"]",

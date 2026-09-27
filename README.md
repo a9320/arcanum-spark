@@ -25,7 +25,7 @@ It ships in three layers:
 
 ```bash
 bash verify.sh
-# → deterministic test suite (84 tests, zero LLM calls)
+# → deterministic test suite (119 tests, zero LLM calls)
 # → dry scan of the demo repo (12 expected PITAX hits)
 # → eval regression check (full expected-coverage + severity floor)
 # → clean control repo currently produces zero findings on the checked control fixture (not a population-wide FP rate)
@@ -107,7 +107,7 @@ codeark/                # 6-agent pipeline (Strands Agents SDK)
 ├── pitax/              # PITAX detection engine (imported by Agent0 and the ai-repo-audit skill)
 ├── memory/             # pluggable memory layer (local + DynamoDB): past false-positive patterns re-injected into Scout prompts
 ├── tools/              # pitax_scan / static_scan / taint_flow / dep_scan (bound no-arg tools)
-└── tests/              # deterministic test suite (84 tests, zero LLM calls)
+└── tests/              # deterministic test suite (119 tests, zero LLM calls)
 app/                    # legacy platform
 ├── pitax/              # PITAX detection engine (rules/detectors/scanner/CLI/SARIF, pure stdlib)
 ├── agents/             # Agent 0: input sanitizer / PITAX pre-scan
@@ -120,7 +120,7 @@ eval/                   # private regression set (expected.json) + deterministic
 evidence/               # real run artifacts: reports, anti-injection log quotes, verify output
 reports/                # generated audit reports & run artifacts (JSON / SARIF / Markdown)
 docs/                   # architecture, demo script, sprint plan, submission checklist
-tests/                  # legacy test suite (57 tests)
+tests/                  # root test suite (87 tests)
 ```
 
 ## Legacy platform pipeline (Agent 0–4)

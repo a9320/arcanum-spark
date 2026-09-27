@@ -1,7 +1,8 @@
 """CodeRisk Agent - Local CVE Database Client
 
 Queries a local SQLite database built from NVD JSON feeds.
-No external API calls — 100% offline operation.
+Fully offline by default: the NVD API fallback is disabled unless the
+environment variable CODERISK_ALLOW_NVD=1 is explicitly set (P1-5).
 
 Usage:
     # Build database first (one-time setup):
@@ -14,6 +15,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import os
 import re
 import sqlite3
 from pathlib import Path
@@ -61,7 +63,11 @@ class CVEClient:
         return self._conn
 
     def _query_api(self, cwe_id: str, max_results: int = 5) -> list[dict]:
-        """Fallback: query NVD API when local database is not available."""
+        """Fallback: query NVD API when local database is not available.
+
+        默认禁用（离线口径，P1-5）；仅 CODERISK_ALLOW_NVD=1 时出网。"""
+        if os.getenv("CODERISK_ALLOW_NVD", "") != "1":
+            return []
         try:
             import httpx
             url = "https://services.nvd.nist.gov/rest/json/cves/2.0"

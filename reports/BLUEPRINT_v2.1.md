@@ -130,7 +130,7 @@
 **Key 文件格式兼容（`_extract_key`）：**
 ```
 Base URL：https://api.tokenrouter.com/v1     ← 全角冒号
-Key：sk-s3G…Zz0a   ← 需提取标签后内容
+Key：（已移除——密钥片段不入库，统一走 .env / 环境变量管理）
 ```
 直接整文件当 key → `UnicodeEncodeError: 'ascii' codec can't encode '\uff1a'`。
 `_extract_key()` 智能提取 + 剔除非 ASCII（51 字符）。

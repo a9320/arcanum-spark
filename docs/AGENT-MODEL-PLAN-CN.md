@@ -52,10 +52,10 @@
 | Agent | 推荐模型 | 备选 | API Key 文件 |
 |-------|---------|------|-------------|
 | Agent 0 | 无 LLM | — | — |
-| Agent 1 Scout | **GLM-4-Flash** | DeepSeek-V4-Flash | `/mnt/d/API Key/glm-4.7.txt` |
-| Agent 2 Verify | **GLM-4** | DeepSeek-V4-Pro（召回副审） | `/mnt/d/API Key/glm-4.7.txt` |
-| Agent 3 Deepen | **GLM-4** | Kimi K2.7（长程任务） | `/mnt/d/API Key/glm-4.7.txt` |
-| Agent 4 Arbiter | **GLM-4** | Kimi K2.7（第二票） | `/mnt/d/API Key/glm-4.7.txt` |
+| Agent 1 Scout | **GLM-4-Flash** | DeepSeek-V4-Flash | （本地 key 文件，路径经 CODERISK_KEY_DIR 注入，不入库） |
+| Agent 2 Verify | **GLM-4** | DeepSeek-V4-Pro（召回副审） | （本地 key 文件，路径经 CODERISK_KEY_DIR 注入，不入库） |
+| Agent 3 Deepen | **GLM-4** | Kimi K2.7（长程任务） | （本地 key 文件，路径经 CODERISK_KEY_DIR 注入，不入库） |
+| Agent 4 Arbiter | **GLM-4** | Kimi K2.7（第二票） | （本地 key 文件，路径经 CODERISK_KEY_DIR 注入，不入库） |
 | Agent 5 Report | 无 LLM | — | — |
 
 ### 已有 API Key 清单

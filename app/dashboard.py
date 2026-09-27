@@ -417,7 +417,7 @@ with col_report:
                     "Category": f.get("category", f.get("type", "")),
                     "File": file_name,  # ← 只显示文件名
                     "Line": f.get("line", ""),
-                    "Confidence": f"{f.get('confidence', 0)*100:.0f}%",
+                    "Confidence": f"{f.get('confidence', 0) * (100 if f.get('confidence', 0) <= 1 else 1):.0f}%",
                     "Agent": f.get("agent", ""),
                 })
             df = pd.DataFrame(table_data)
@@ -437,7 +437,7 @@ with col_report:
                     st.markdown(f"**Severity:** <span class='severity-{f.get('severity','info').lower()}'>{f.get('severity','').upper()}</span>", unsafe_allow_html=True)
                     st.markdown(f"**Category:** {f.get('category', f.get('type', ''))}")
                     st.markdown(f"**CWE:** {f.get('cwe', 'N/A')}")
-                    st.markdown(f"**Confidence:** {f.get('confidence', 0)*100:.0f}%")
+                    st.markdown(f"**Confidence:** {f.get('confidence', 0) * (100 if f.get('confidence', 0) <= 1 else 1):.0f}%")
                     st.markdown(f"**Agent:** `{f.get('agent', '')}`")
                 with col_d2:
                     st.markdown(f"**File:** `{f.get('file')}`:{f.get('line')}")  # ← Detail View 保留完整路径

@@ -396,18 +396,25 @@ class NutrientDWSClient:
         source = report_data.get("source", "unknown")
 
         # 渲染 findings
+        import html as _html
+
+        def _safe(v) -> str:
+            # P1-6: HTML 转义 + brace 翻倍——finding 文本常含 { }/代码片段，
+            # 直入 str.format 会 KeyError 且构成报告注入面
+            return _html.escape(str(v), quote=True).replace("{", "{{").replace("}", "}}")
+
         findings_html = ""
         for f in findings:
             sev = f.get("severity", "info").lower()
             findings_html += FINDING_HTML_TEMPLATE.format(
                 severity_class=sev,
                 severity=sev.upper(),
-                title=f.get("title", "Untitled Finding"),
-                file_path=f.get("file", "unknown"),
+                title=_safe(f.get("title", "Untitled Finding")),
+                file_path=_safe(f.get("file", "unknown")),
                 line=f.get("line", 0),
-                rule_id=f.get("rule_id", f.get("type", "N/A")),
-                description=f.get("description", ""),
-                cwe_id=f.get("cwe_id", f.get("cwe", "N/A")),
+                rule_id=_safe(f.get("rule_id", f.get("type", "N/A"))),
+                description=_safe(f.get("description", "")),
+                cwe_id=_safe(f.get("cwe_id", f.get("cwe", "N/A"))),
                 confidence=f.get("confidence", 85),
             )
 
@@ -418,7 +425,7 @@ class NutrientDWSClient:
         return REPORT_HTML_TEMPLATE.format(
             task_id=task_id,
             generated_at=generated_at,
-            source=source,
+            source=_safe(source),
             count_critical=summary.get("critical", 0),
             count_high=summary.get("high", 0),
             count_medium=summary.get("medium", 0),

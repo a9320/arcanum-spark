@@ -203,7 +203,10 @@ def main() -> int:
             if src.exists():
                 shutil.copy2(src, out_dir / vendor)
             else:
-                print(f"  ⚠ 底座缺 {vendor}，输出 checkpoint 将无法被 RLAgent 直读——从 laya 根目录 cp 后重跑保存")
+                raise FileNotFoundError(
+                    f"底座缺 {vendor}：输出 checkpoint 将无法被 RLAgent 直读。"
+                    "请从 laya 根目录 cp 两 vendor 脚本后重跑（score_laya --model 直指所需加载件）"
+                )
         out_cfg = dict(cfg)
         out_cfg["fine_tuned"] = True
         out_cfg["model_name"] = "laya-r0-arcanum"

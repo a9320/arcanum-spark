@@ -2,8 +2,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: coderisk-redis
-    ports:
-      - "6379:6379"
+    # 不发布宿主端口（P1-4）：仅 compose 内部网络可达
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -18,7 +17,7 @@ services:
       - "8000:8000"
     environment:
       - REDIS_URL=redis://redis:6379/0
-      - CODERISK_API_KEY=dev-key-change-in-production
+      - CODERISK_API_KEY=${CODERISK_API_KEY:?must set CODERISK_API_KEY (no weak default, P1-1)}
       - CODERISK_PATH=/app/engine
       - NUTRIENT_DWS_API_KEY=${NUTRIENT_DWS_API_KEY:-}
       - REPORTS_DIR=/app/reports
@@ -36,7 +35,7 @@ services:
     command: celery -A app.tasks worker --loglevel=info --concurrency=${WORKER_CONCURRENCY:-2}
     environment:
       - REDIS_URL=redis://redis:6379/0
-      - CODERISK_API_KEY=dev-key-change-in-production
+      - CODERISK_API_KEY=${CODERISK_API_KEY:?must set CODERISK_API_KEY (no weak default, P1-1)}
       - CODERISK_PATH=/app/engine
       - PYTHONPATH=/app:/app/engine
       - NUTRIENT_DWS_API_KEY=${NUTRIENT_DWS_API_KEY:-}

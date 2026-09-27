@@ -27,8 +27,13 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # 应用代码（含内置引擎层 engine/ + PITAX app/pitax）
 COPY app/ ./app/
 COPY engine/ ./engine/
+COPY codeark/ ./codeark/
+COPY eval/ ./eval/
+COPY tests/ ./tests/
+COPY skills/ ./skills/
 COPY demo/ ./demo/
 COPY docs/ ./docs/
+COPY pytest.ini ./
 COPY README.md LICENSE .env.example ./
 COPY streamlit_app.py ./streamlit_app.py
 
