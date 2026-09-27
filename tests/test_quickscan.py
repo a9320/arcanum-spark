@@ -57,11 +57,10 @@ def test_scan_one_hits_injected_rule(tmp_path):
     assert {"file", "type"} <= set(f)                   # 实锤键名 type（title/description 也在）
 
 
-def test_scan_one_clean_repo_zero_fp():
-    """FP=0 纪律：clean-repo（QB-S2 反作弊卷）agent0 零命中。"""
-    s = scan_one(REPO_ROOT / "demo" / "clean-repo", Path(__file__).parent / "_tmp_scan_clean")
+def test_scan_one_clean_repo_zero_fp(tmp_path):
+    """FP=0 纪律：clean-repo（QB-S2 反作弊卷）agent0 零命中。输出进 pytest tmp_path。"""
+    s = scan_one(REPO_ROOT / "demo" / "clean-repo", tmp_path)
     assert s["n_findings"] == 0
-    (Path(__file__).parent / "_tmp_scan_clean" / "clean-repo" / "pseudo_report.json").unlink(missing_ok=True)
 
 
 def test_pseudo_report_feeds_synth_end_to_end(tmp_path):
