@@ -30,9 +30,9 @@ def test_determinism_and_schema():
     assert json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
     assert a["schema"] == "gate-dataset/1"
     ids = [it["id"] for it in a["items"]]
-    assert len(ids) == len(set(ids)) == 23
+    assert len(ids) == len(set(ids)) == 24
     assert a["n_baseline"] == len(a["baseline_rows"]) == 7
-    assert a["source"]["generator"] == "hard_exam/1"
+    assert a["source"]["generator"] == "hard_exam/2"
 
 
 def test_baseline_matches_expected_registry():
@@ -49,7 +49,7 @@ def test_labels_by_construction():
     ds = _ds()
     labels = {it["id"]: it["label"]["gate"] for it in ds["items"]}
     assert set(labels.values()) == {"KEEP", "PRUNE"}
-    assert all(it["label"]["source"] == "hard_exam/1" and it["label"]["note"] for it in ds["items"])
+    assert all(it["label"]["source"] == "hard_exam/2" and it["label"]["note"] for it in ds["items"])
     assert len(_by_prefix(ds, "ECHO-")) == 6
     assert len(_by_prefix(ds, "PARA-")) == 6
     ks = [it for it in ds["items"] if it["id"].startswith("BOUND-") and it["id"].endswith("K")]
@@ -70,7 +70,13 @@ def test_labels_by_construction():
         assert it["heuristics"]["echo_of_baseline"]
         assert it["file_path"] != "src/config.py"
     h9 = next(it for it in ds["items"] if it["id"] == "H9")
+    assert h9["vuln_type"] == "SECRET_EXFIL"  # v2：语义类型=生产真实 H9 形态，且不在基线规则域
     assert h9["heuristics"]["evidence_backed"] and h9["label"]["gate"] == "KEEP"
+    # REDUN-1：同型+证据风味 → 管线一致标签 PRUNE（echo-first 先于 evidence）
+    redun = next(it for it in ds["items"] if it["id"] == "REDUN-1")
+    assert redun["vuln_type"] == "PIT-E-57" and redun["file_path"] == "src/config.py"
+    assert redun["heuristics"]["echo_of_baseline"] and redun["label"]["gate"] == "PRUNE"
+    assert redun["heuristics"]["evidence_backed"]  # 文件级证据如实记录，echo 决定 PRUNE
 
 
 def test_tfidf_trap_fires():
