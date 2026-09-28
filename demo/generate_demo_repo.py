@@ -50,7 +50,7 @@ EXFIL_URLS = [  # 不可达端点池（保留 TLD，N-06/E-57 机制不被改没
     "https://relay.example.invalid",
 ]
 # ── v3 弹药模式过滤器（语料即弹药，规则判定面即滤网）──
-# 与 app/pitax/detectors.py 的 _CONFIG_PATTERNS / _ENCODED_TARGET_PATTERNS 手工同步，
+# 与 codeark/pitax/detectors.py 的 _CONFIG_PATTERNS / _ENCODED_TARGET_PATTERNS 手工同步（app/pitax 为转发层，同一对象），
 # 同步断言固化于 tests/test_demo_repo_ammo.py——候选⑥扩白名单时两处同改。
 # 只有能被 agent0 命中的指令才入池：否则语料变体的 quickscan 基线断条（回显负样本少产）。
 _DOC_SURFACE = [

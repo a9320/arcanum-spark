@@ -293,3 +293,25 @@ def test_tasks_sarif_delegates_to_pitax_module():
     sarif = _to_sarif([{"type": "PIT-E-23", "severity": "high", "description": "d",
                         "file": "a.py", "line": 1, "pitax": {"name": "Invisible Text"}}])
     assert sarif["runs"][0]["tool"]["driver"]["rules"][0]["id"] == "PIT-E-23"
+
+
+# ── P2-9 单一数据源（结构防漂移）──
+def test_pitax_single_source_forwarding():
+    """app 侧包必须是 codeark 权威实现的纯转发——双拷贝漂移（P2-9）的 CI 防线。
+
+    历史事故：app/pitax 与 codeark/pitax 各持一份 detectors/rules，漂移到
+    detectors 433/432 行、rules 180/198 行。现 app 侧为转发层，本断言在 identity
+    级钉死"同一对象"；任何人往 app 侧塞回实现（哪怕重定义一份相等的）都会炸。
+    """
+    import app.pitax.detectors as app_det
+    import app.pitax.rules as app_rules
+    import codeark.pitax.detectors as core_det
+    import codeark.pitax.rules as core_rules
+
+    assert app_det.detect_encoded_payloads is core_det.detect_encoded_payloads
+    assert app_det.detect_invisible_text is core_det.detect_invisible_text
+    assert app_det._CONFIG_PATTERNS is core_det._CONFIG_PATTERNS
+    assert app_det._ENCODED_TARGET_PATTERNS is core_det._ENCODED_TARGET_PATTERNS
+    assert app_rules.PITAX_RULES is core_rules.PITAX_RULES
+    assert app_rules.ALL_RULES is core_rules.ALL_RULES
+    assert app_rules.get_rule is core_rules.get_rule
