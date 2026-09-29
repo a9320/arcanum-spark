@@ -43,14 +43,22 @@ def _usage(meta: dict[str, Any]) -> dict[str, int] | None:
     return out or None
 
 
-def summarize_report(path: str | Path, arm: str) -> dict[str, Any]:
-    """Return one normalized ablation row from a report JSON file."""
+def summarize_report(
+    path: str | Path, arm: str, baseline_keys: set[tuple[str, str]] | None = None
+) -> dict[str, Any]:
+    """Return one normalized ablation row from a report JSON file.
+
+    ``baseline_keys`` is the shared rules-arm baseline; arms without their own
+    agent0 archive (single agent keeps it empty by design) are measured against
+    it instead of an empty set.
+    """
     report_path = Path(path)
     report = json.loads(report_path.read_text(encoding="utf-8"))
     meta = report.get("meta") or {}
     ablation = meta.get("ablation") or {}
     baseline = meta.get("agent0_findings") or []
-    baseline_keys = {_finding_key(row) for row in baseline if isinstance(row, dict)}
+    own_baseline = {_finding_key(row) for row in baseline if isinstance(row, dict)}
+    ref_baseline = baseline_keys if baseline_keys is not None else own_baseline
     hypothesis_set = meta.get("hypothesis_set") or {}
     hypotheses = {
         str(row.get("id")): row
@@ -72,7 +80,7 @@ def summarize_report(path: str | Path, arm: str) -> dict[str, Any]:
         if hyp is None:
             continue
         key = _finding_key(hyp)
-        if key not in baseline_keys:
+        if key not in ref_baseline:
             increments.add(key)
 
     if arm == "rules":
@@ -80,7 +88,14 @@ def summarize_report(path: str | Path, arm: str) -> dict[str, Any]:
     elif verdicts:
         semantic_increment = len(increments)
     else:
-        semantic_increment = None
+        # No verdict archive (single-agent arm): claimed findings beyond the
+        # rules baseline — an observable claim count, not confirmed truth.
+        claimed = {
+            _finding_key(row)
+            for row in report.get("findings") or []
+            if isinstance(row, dict)
+        }
+        semantic_increment = len(claimed - ref_baseline) if ref_baseline else None
 
     elapsed = ablation.get("elapsed_seconds")
     if elapsed is None:
@@ -99,14 +114,32 @@ def summarize_report(path: str | Path, arm: str) -> dict[str, Any]:
         "elapsed_seconds": elapsed if isinstance(elapsed, (int, float)) else None,
         "usage": usage,
         "notes": (
-            "REFUTED is an observable model verdict, not an independently labeled FP rate; "
-            "semantic increment requires hypothesis/verdict archive."
+            "Six-agent increment counts CONFIRMED verdicts beyond the rules baseline; "
+            "single-agent increment counts claimed findings beyond it (no verdicts, not "
+            "confirmed truth). REFUTED is a model verdict, not an independently labeled "
+            "FP rate. Missing usage or timing stays null."
         ),
     }
 
 
 def summarize_reports(paths: dict[str, str | Path]) -> dict[str, Any]:
-    rows = [summarize_report(path, arm) for arm, path in paths.items()]
+    rules_path = paths.get("rules")
+    rules_baseline: set[tuple[str, str]] | None = None
+    if rules_path:
+        rules_report = json.loads(Path(rules_path).read_text(encoding="utf-8"))
+        rules_baseline = {
+            _finding_key(row)
+            for row in (rules_report.get("meta") or {}).get("agent0_findings") or []
+            if isinstance(row, dict)
+        }
+    rows = [
+        summarize_report(
+            path,
+            arm,
+            baseline_keys=rules_baseline if arm != "rules" else None,
+        )
+        for arm, path in paths.items()
+    ]
     return {"schema": "ablation-summary/1", "arms": rows}
 
 

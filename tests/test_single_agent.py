@@ -81,7 +81,8 @@ def test_single_agent_report_writes_standard_outputs(tmp_path):
 def test_ablation_summary_keeps_unknown_metrics_null(tmp_path):
     rules = {"findings": [{"file": "a.py", "type": "PIT-X"}],
              "meta": {"agent0_findings": [{"file": "a.py", "type": "PIT-X"}]}}
-    single = {"findings": [], "meta": {"agent0_findings": [], "ablation": {}}}
+    single = {"findings": [{"file_path": "src/new1.py", "vuln_type": "SQL"}],
+              "meta": {"agent0_findings": [], "ablation": {}}}
     multi = {
         "findings": [],
         "meta": {
@@ -102,6 +103,9 @@ def test_ablation_summary_keeps_unknown_metrics_null(tmp_path):
         "rules": paths["rules"], "single_agent": paths["single"],
         "six_agent": paths["multi"],
     })
-    assert result["arms"][1]["semantic_increment_confirmed"] is None
+    # single agent: claimed findings beyond the shared rules baseline (no verdicts)
+    assert result["arms"][1]["semantic_increment_confirmed"] == 1
+    assert result["arms"][1]["usage"] is None
+    # six agent: verdict-based confirmed increment
     assert result["arms"][2]["semantic_increment_confirmed"] == 1
     assert result["arms"][2]["usage"]["total_tokens"] == 99
