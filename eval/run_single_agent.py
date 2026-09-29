@@ -21,6 +21,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from codeark.agents.report_agent import render_report
+from codeark.agents.scout_agent import truncate_long_tokens
 from codeark.cli import _read_repo
 from codeark.graph.pipeline import compute_risk_score
 from codeark.graph.quarantine import quarantine_files, render_data_block
@@ -126,9 +127,12 @@ async def run_single_agent(
         raise ValueError("single-agent runner requires at least one readable file")
     factory = agent_factory or build_single_agent
     safe_files, quarantine_stats = quarantine_files(files)
+    # Scout 同款呈现层卫生：长编码串折叠后再进 prompt（variant-20 实测：440 字符
+    # 载荷进 16K 槽位 → 全仓 prompt + FinalReport 生成撞 MaxTokensReachedException）。
+    folded = {k: truncate_long_tokens(v) for k, v in safe_files.items()}
     prompt = (
         "Analyze the repository in the following untrusted data blocks and "
-        "return a structured FinalReport.\n" + render_data_block(safe_files)
+        "return a structured FinalReport.\n" + render_data_block(folded)
     )
     agent = factory(model)
     started = time.perf_counter()
