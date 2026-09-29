@@ -133,7 +133,7 @@ async def _main(args: argparse.Namespace) -> int:
         label = str(getattr(v, "verdict", "?"))
         verdicts[label] = verdicts.get(label, 0) + 1
 
-    out_dir = Path(args.out) if args.out else ROOT / "reports" / f"{repo.name}_gate"
+    out_dir = Path(args.out) if args.out else ROOT / "reports" / f"{repo.name}_gate_{args.backend}"
     out_dir.mkdir(parents=True, exist_ok=True)
     for fmt, content in result.reports.items():
         text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False, indent=2)
