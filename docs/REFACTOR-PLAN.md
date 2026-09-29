@@ -3,7 +3,7 @@
 > 文档状态：最终整合版（2026-09-04 13:13）
 > 整合来源：① 获奖项目方法论（5个项目深挖）② Kimi 方案 ③ GLM 方案 ④ 照片文字（Agent协作模式）⑤ Weike 的想法（合并 Agent A）
 > 目标赛事：AWS "Agents for Humans" Hackathon（2026-09-14 23:59 PDT 截止）
-> 关联文档：docs/WINNER-ANALYSIS.md（获奖项目深度分析）
+> 关联文档：docs/archive-hackathon/WINNER-ANALYSIS.md（获奖项目深度分析）
 
 ---
 

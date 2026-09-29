@@ -25,7 +25,7 @@ It ships in three layers:
 
 ```bash
 bash verify.sh
-# → deterministic test suite (119 tests, zero LLM calls)
+# → deterministic test suite; count via scripts/test_count.py (zero LLM calls)
 # → dry scan of the demo repo (12 expected PITAX hits)
 # → eval regression check (full expected-coverage + severity floor)
 # → clean control repo currently produces zero findings on the checked control fixture (not a population-wide FP rate)
@@ -64,7 +64,8 @@ Key engineering mechanisms:
 - **Heterogeneous model council** — the four stages run on four distinct model families, and the Arbiter never shares a family with the proposers: judging is decorrelated from proposing to prevent self-endorsement.
 - **Severity deterministic floor** — rule-level severity is the baseline; LLMs may escalate with evidence, never downgrade.
 - **Node-level degradation disclosure** — any model outage falls back to a deterministic path and is disclosed in the report (empty findings ≠ safe repository).
-- **Evidence pack** — see [`evidence/`](evidence/) for real run artifacts, including model logs where agents face live injection bait and report it as data instead of obeying. Demo narrative: [`docs/DEMO-SCRIPT.md`](docs/DEMO-SCRIPT.md).
+- **Evidence pack** — see [`evidence/`](evidence/) for real run artifacts, including model logs where agents face live injection bait and report it as data instead of obeying.
+- **Threat model** — [`THREAT-MODEL.md`](THREAT-MODEL.md) records current assets, trust boundaries, controls, and residual risks.
 
 ## Self-hosted local council (one-click, AMD MI300X / ROCm)
 
@@ -105,9 +106,9 @@ codeark/                # 6-agent pipeline (Strands Agents SDK)
 ├── graph/              # pipeline orchestration + prompt quarantine layer
 ├── models/             # per-stage endpoint routing + provider factory + local adapters + Pydantic schemas
 ├── pitax/              # PITAX detection engine (imported by Agent0 and the ai-repo-audit skill)
-├── memory/             # pluggable memory layer (local + DynamoDB): past false-positive patterns re-injected into Scout prompts
+├── memory/             # opt-in memory layer (local + DynamoDB), appended to Scout as quarantined constraints
 ├── tools/              # pitax_scan / static_scan / taint_flow / dep_scan (bound no-arg tools)
-└── tests/              # deterministic test suite (119 tests, zero LLM calls)
+└── tests/              # deterministic suite; run `python scripts/test_count.py` for the live count
 app/                    # legacy platform
 ├── pitax/              # PITAX detection engine (rules/detectors/scanner/CLI/SARIF, pure stdlib)
 ├── agents/             # Agent 0: input sanitizer / PITAX pre-scan
@@ -119,8 +120,9 @@ demo/                   # demo repo generator + vuln-demo-repo (12 PITAX hits) +
 eval/                   # private regression set (expected.json) + deterministic checker
 evidence/               # real run artifacts: reports, anti-injection log quotes, verify output
 reports/                # generated audit reports & run artifacts (JSON / SARIF / Markdown)
-docs/                   # architecture, demo script, sprint plan, submission checklist
-tests/                  # root test suite (87 tests)
+docs/                   # architecture, roadmap, and maintained project docs
+docs/archive-hackathon/ # historical hackathon planning and submission artifacts
+tests/                  # root suite, included in scripts/test_count.py
 ```
 
 ## Legacy platform pipeline (Agent 0–4)
@@ -171,10 +173,10 @@ curl -H "Authorization: Bearer dev-key-change-in-production" \
 
 ## Documentation
 
-- [Architecture & sprint plan](docs/SPRINT-0914-PLAN.md)
-- [Demo video script & pitch narrative](docs/DEMO-SCRIPT.md)
-- [Hackathon submission checklist](docs/HACKATHON-SUBMISSION-CHECKLIST.md)
-- [PITAX integration notes](docs/PITAX.md) · [Roadmap](docs/ROADMAP.md) · [Competition positioning](docs/COMPETITION.md)
+- [PITAX integration notes](docs/PITAX.md) · [Roadmap](docs/ROADMAP.md)
+- [Archived sprint plan](docs/archive-hackathon/SPRINT-0914-PLAN.md) · [archived demo script](docs/archive-hackathon/DEMO-SCRIPT.md)
+- [Archived submission checklist](docs/archive-hackathon/HACKATHON-SUBMISSION-CHECKLIST.md) · [archived competition notes](docs/archive-hackathon/COMPETITION.md)
+- [Archived Devpost description](docs/archive-hackathon/DEVPOST-DESCRIPTION-EN.md) · [archived winner analysis](docs/archive-hackathon/WINNER-ANALYSIS.md)
 
 ## Acknowledgements
 

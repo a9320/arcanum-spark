@@ -76,6 +76,7 @@ class GraphResult:
     def __init__(self) -> None:
         self.agent0_findings: list[dict] = []
         self.hypothesis_set: Any = None
+        self.gated_hypothesis_set: Any = None
         self.verifications: list[Any] = []
         self.attack_chains: list[Any] = []
         self.final_report: Any = None
@@ -89,6 +90,8 @@ class GraphResult:
         self.node_errors: dict[str, str] = {}
         # severity 确定性打底（§11-H）：LLM 试图降级规则级别时被抬回的条数
         self.severity_floor_upgraded: int = 0
+        # Scout→Verify gate：默认关闭；启用时只记录并重排，不删除原始假设。
+        self.gate: dict[str, Any] = {"enabled": False, "reason": "disabled"}
 
     def to_dict(self) -> dict:
         def _dump(x: Any) -> Any:
@@ -101,6 +104,7 @@ class GraphResult:
         return {
             "agent0_findings": self.agent0_findings,
             "hypothesis_set": _dump(self.hypothesis_set),
+            "gated_hypothesis_set": _dump(self.gated_hypothesis_set),
             "verifications": _dump(self.verifications),
             "attack_chains": _dump(self.attack_chains),
             "final_report": _dump(self.final_report),
@@ -110,6 +114,7 @@ class GraphResult:
             "deepen_failures": self.deepen_failures,
             "node_errors": self.node_errors,
             "severity_floor_upgraded": self.severity_floor_upgraded,
+            "gate": self.gate,
         }
 
 
@@ -130,11 +135,15 @@ class CodeRiskGraph:
         *,
         stage_models: StageModels | None = None,
         tuning: StageTuning | None = None,
+        hypothesis_gate: Callable[[Any, list[dict]], Any] | None = None,
+        memory_service: Any | None = None,
     ) -> None:
         self.model = model  # None → 各节点用默认免费模型
         self.stage_models = stage_models
         # verify/deepen 循环调用调优：缺省从 ARCA_*_MAX_CONCURRENCY 等环境变量读取
         self.tuning = tuning if tuning is not None else make_stage_tuning_from_env()
+        self.hypothesis_gate = hypothesis_gate
+        self.memory_service = memory_service
         self.dry = dry
 
     def _model_for(self, stage: str):
@@ -203,12 +212,23 @@ class CodeRiskGraph:
             res.hypothesis_set = self._dry_scout(files, res.agent0_findings)
         else:
             try:
-                res.hypothesis_set = await run_scout(
-                    files, self._model_for("scout"), prompt_files=safe_files,
-                    agent0_findings=res.agent0_findings,
-                    fallback_model=(
+                memory_prompt = ""
+                if self.memory_service is not None:
+                    try:
+                        memory_prompt = self.memory_service.build_insight_prompt()
+                    except Exception as memory_exc:
+                        res.node_errors["memory"] = f"{type(memory_exc).__name__}: {redact_error(memory_exc)}"
+                scout_kwargs = {
+                    "prompt_files": safe_files,
+                    "agent0_findings": res.agent0_findings,
+                    "fallback_model": (
                         self.stage_models.fallback("scout") if self.stage_models else None
                     ),
+                }
+                if self.memory_service is not None:
+                    scout_kwargs["memory_prompt"] = memory_prompt
+                res.hypothesis_set = await run_scout(
+                    files, self._model_for("scout"), **scout_kwargs
                 )
             except Exception as exc:
                 res.node_errors["scout"] = f"{type(exc).__name__}: {redact_error(exc)}"
@@ -218,6 +238,35 @@ class CodeRiskGraph:
         from codeark.models.schemas import assign_hypothesis_ids
         assign_hypothesis_ids(res.hypothesis_set)
 
+        # 2.5 可选 gate：默认关闭；只把重排副本交给后续节点，原始 Scout 集永存。
+        verify_hypothesis_set = res.hypothesis_set
+        if self.hypothesis_gate is not None and not self.dry:
+            try:
+                decision = self.hypothesis_gate(res.hypothesis_set, res.agent0_findings)
+                if hasattr(decision, "hypothesis_set") and hasattr(decision, "metadata"):
+                    verify_hypothesis_set = decision.hypothesis_set
+                    res.gate = dict(decision.metadata)
+                elif isinstance(decision, tuple) and len(decision) == 2:
+                    verify_hypothesis_set, metadata = decision
+                    res.gate = dict(metadata)
+                else:
+                    raise TypeError("hypothesis_gate must return GateResult or (HypothesisSet, metadata)")
+                if not hasattr(verify_hypothesis_set, "hypotheses"):
+                    raise TypeError("hypothesis_gate returned no HypothesisSet")
+            except Exception as exc:
+                res.gate = {
+                    "enabled": True,
+                    "backend": getattr(self.hypothesis_gate, "__name__", "custom"),
+                    "fallback": True,
+                    "reason": f"{type(exc).__name__}: {redact_error(exc)}",
+                    "ordered_ids": [getattr(h, "id", "") for h in res.hypothesis_set.hypotheses],
+                    "selected_ids": [getattr(h, "id", "") for h in res.hypothesis_set.hypotheses],
+                    "pruned_ids": [],
+                }
+                print(f"[Pipeline] ⚠ gate 失败，回退原始假设顺序: {redact_error(exc)}")
+                verify_hypothesis_set = res.hypothesis_set
+        res.gated_hypothesis_set = verify_hypothesis_set if self.hypothesis_gate is not None and not self.dry else None
+
         # 3. 验证：**逐假设拆分**裁决（每条独立小调用，REFUTED/UNCERTAIN 有出现空间；
         #    失败 → 降级为规则证实口径）
         if self.dry:
@@ -225,7 +274,7 @@ class CodeRiskGraph:
         else:
             try:
                 res.verifications = await run_verify_split(
-                    res.hypothesis_set, files, self._model_for("verify"), prompt_files=safe_files,
+                    verify_hypothesis_set, files, self._model_for("verify"), prompt_files=safe_files,
                     inter_call_delay=self.tuning.verify_delay,
                     max_concurrency=self.tuning.verify_concurrency,
                     per_invoke_timeout=self.tuning.verify_timeout,
@@ -233,7 +282,27 @@ class CodeRiskGraph:
             except Exception as exc:
                 res.node_errors["verify"] = f"{type(exc).__name__}: {redact_error(exc)}"
                 print(f"[Pipeline] ⚠ Verify 失败，降级为规则证实口径: {redact_error(exc)}")
-                res.verifications = self._dry_verify(res.hypothesis_set)
+                res.verifications = self._dry_verify(verify_hypothesis_set)
+
+        # 3.5 可选跨 run 记忆：只写稳定类型/路径键，不持久化原文证据。
+        if self.memory_service is not None and not self.dry:
+            by_id = {str(getattr(h, "id", "")): h for h in verify_hypothesis_set.hypotheses}
+            for verdict in res.verifications:
+                try:
+                    hyp = by_id.get(str(getattr(verdict, "hypothesis_id", "")))
+                    if hyp is None:
+                        continue
+                    key = (
+                        f"{str(getattr(hyp, 'vuln_type', '') or 'UNKNOWN').strip().upper()}"
+                        f"@{str(getattr(hyp, 'file_path', '') or '').replace(chr(92), '/').strip().lower()}"
+                    )
+                    self.memory_service.record_verdict(
+                        key,
+                        str(getattr(verdict, "verdict", "") or ""),
+                    )
+                except Exception as memory_exc:
+                    res.node_errors["memory"] = f"{type(memory_exc).__name__}: {redact_error(memory_exc)}"
+                    break
 
         # 4. 深挖：对 CONFIRMED 推演攻击链（失败 → 占位链 + 降级计数披露）
         confirmed = [v for v in res.verifications if getattr(v, "verdict", "") == "CONFIRMED"]
@@ -264,7 +333,7 @@ class CodeRiskGraph:
         else:
             try:
                 res.final_report = await run_arbiter(
-                    res.hypothesis_set, res.verifications, res.attack_chains,
+                    verify_hypothesis_set, res.verifications, res.attack_chains,
                     self._model_for("arbiter"),
                 )
             except Exception as exc:
@@ -272,7 +341,7 @@ class CodeRiskGraph:
                 print(f"[Pipeline] ⚠ Arbiter 异常，切换确定性兜底定稿: {redact_error(exc)}")
                 from codeark.agents.arbiter_agent import _deterministic_fallback_report
                 res.final_report = _deterministic_fallback_report(
-                    res.verifications, res.attack_chains, res.hypothesis_set,
+                    res.verifications, res.attack_chains, verify_hypothesis_set,
                     reason=f"arbiter 异常 {type(exc).__name__}: {redact_error(exc)}",
                 )
 
@@ -299,6 +368,8 @@ class CodeRiskGraph:
                 "severity_floor_upgraded": res.severity_floor_upgraded,
                 "agent0_findings": res.agent0_findings,
                 "hypothesis_set": _jsonable(res.hypothesis_set),
+                "gated_hypothesis_set": _jsonable(res.gated_hypothesis_set),
+                "gate": res.gate,
                 "verifications": _jsonable(res.verifications),
             },
         )
@@ -325,7 +396,15 @@ async def run_pipeline(
     dry: bool = False,
     *,
     stage_models: StageModels | None = None,
+    hypothesis_gate: Callable[[Any, list[dict]], Any] | None = None,
+    memory_service: Any | None = None,
 ) -> GraphResult:
     """一次性跑完整 6 节点流水线。"""
-    graph = CodeRiskGraph(model=model, dry=dry, stage_models=stage_models)
+    graph = CodeRiskGraph(
+        model=model,
+        dry=dry,
+        stage_models=stage_models,
+        hypothesis_gate=hypothesis_gate,
+        memory_service=memory_service,
+    )
     return await graph.run(files)

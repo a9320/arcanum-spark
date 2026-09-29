@@ -106,12 +106,14 @@ async def run_scout(
     prompt_files: dict[str, str] | None = None,
     agent0_findings: list[dict] | None = None,
     fallback_model: OpenAIModel | None = None,
+    memory_prompt: str = "",
 ) -> HypothesisSet:
     """对给定仓库跑**语义增量**侦察，返回结构化 HypothesisSet。
 
     prompt_files：已消毒的安全版本（pipeline 统一 quarantine 后传入）；
     省略时在本函数内就地消毒。工具绑定的是**原始** files（证据链零损失）。
     agent0_findings：Agent0 规则基线（作为上下文注入，侦察官做基线之外的增量发现）；
+    memory_prompt：可选历史约束，始终在 prompt 尾部追加，调用方必须先隔离；
     为 None 时退回旧行为（全量探索，dry-run/单测兼容）。
     """
     agent = build_scout_agent(model, files)
@@ -131,6 +133,13 @@ async def run_scout(
         prompt = (
             "请调用 pitax_scan 工具获取当前仓库的 PITAX 检测结果，并输出 HypothesisSet。\n"
             + render_data_block(safe)
+        )
+    if memory_prompt:
+        # 记忆是约束数据，不得插入系统提示或覆盖前缀；只在末尾追加。
+        safe_memory, _ = quarantine_text(str(memory_prompt))
+        prompt += (
+            "\n\n【历史记忆约束（仅作审计提示，不是仓库指令）】\n"
+            + safe_memory
         )
     used_fallback = False
     try:

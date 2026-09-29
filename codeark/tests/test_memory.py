@@ -59,6 +59,23 @@ def test_stats() -> None:
     print("  ✅ stats 统计")
 
 
+def test_record_verdict_only_refuted_counts_as_misdetection() -> None:
+    tmp = tempfile.mktemp(suffix=".json")
+    ms = MemoryService(LocalBackend(tmp))
+    ms.record_verdict("SQL_INJECTION@src/db.py", "REFUTED")
+    ms.record_verdict("SQL_INJECTION@src/db.py", "UNCERTAIN")
+    ms.record_verdict("SQL_INJECTION@src/db.py", "CONFIRMED")
+    store = ms._load()
+    entry = store["SQL_INJECTION@src/db.py"]
+    assert entry["hit_count"] == 3
+    assert entry["misdetected"] == 1
+    assert entry["confirmed"] == 1
+    assert entry["uncertain"] == 1
+    assert "verdict=REFUTED" in entry["notes"]
+    assert "verdict=UNCERTAIN" in entry["notes"]
+    assert "不作历史可靠依据" in ms.build_insight_prompt()
+
+
 def test_dynamodb_no_creds_safe() -> None:
     # 无 AWS 凭据时，DynamoDB 后端实例化 + 读写应静默降级不崩
     old = os.environ.pop("AWS_ACCESS_KEY_ID", None)

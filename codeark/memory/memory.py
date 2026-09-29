@@ -150,6 +150,31 @@ class MemoryService:
         entry["last_seen"] = time.strftime("%Y-%m-%d %H:%M")
         self.backend.record(pattern_key, entry)
 
+    def record_verdict(self, pattern_key: str, verdict: str, note: str = "") -> None:
+        """Persist one Verify verdict as an explicit cross-run observation.
+
+        ``REFUTED`` is the only verdict treated as a historical misdetection;
+        ``UNCERTAIN`` stays neutral and is not presented as reliable evidence.
+        Callers decide the pattern key so raw code or model prompts are never
+        persisted accidentally.
+        """
+        normalized = str(verdict or "").strip().upper()
+        if normalized not in {"CONFIRMED", "REFUTED", "UNCERTAIN"}:
+            normalized = "UNCERTAIN"
+        store = self._load()
+        entry = store.get(pattern_key, {"hit_count": 0, "misdetected": 0, "notes": []})
+        entry["hit_count"] = entry.get("hit_count", 0) + 1
+        entry["confirmed"] = entry.get("confirmed", 0) + int(normalized == "CONFIRMED")
+        entry["uncertain"] = entry.get("uncertain", 0) + int(normalized == "UNCERTAIN")
+        if normalized == "REFUTED":
+            entry["misdetected"] = entry.get("misdetected", 0) + 1
+        verdict_note = f"verdict={normalized}"
+        if note:
+            verdict_note += f"; {note}"
+        entry["notes"] = entry.get("notes", []) + [verdict_note]
+        entry["last_seen"] = time.strftime("%Y-%m-%d %H:%M")
+        self.backend.record(pattern_key, entry)
+
     def build_insight_prompt(self) -> str:
         """生成记忆前馈约束文本，注入假设生成器 prompt（蓝图 §5.7）。"""
         store = self._load()
@@ -159,9 +184,19 @@ class MemoryService:
         for key, entry in store.items():
             hits = entry.get("hit_count", 0)
             mis = entry.get("misdetected", 0)
+            uncertain = entry.get("uncertain", 0)
+            confirmed = entry.get("confirmed", 0)
             if mis > 0:
-                lines.append(f"- 模式 {key}: 命中 {hits} 次，其中误报 {mis} 次 → 优先证实再下结论")
+                line = f"- 模式 {key}: 命中 {hits} 次，其中误报 {mis} 次 → 优先证实再下结论"
+                if uncertain > 0:
+                    line += f"；另有待复核 {uncertain} 次 → 不作历史可靠依据"
+                lines.append(line)
+            elif uncertain > 0:
+                lines.append(f"- 模式 {key}: 命中 {hits} 次，其中待复核 {uncertain} 次 → 不作历史可靠依据")
+            elif confirmed > 0:
+                lines.append(f"- 模式 {key}: 命中 {hits} 次，历史已确认 → 历史可靠，可正常引用")
             else:
+                # Preserve the legacy record_finding contract for non-verdict entries.
                 lines.append(f"- 模式 {key}: 命中 {hits} 次（历史可靠）→ 可正常引用")
         return "\n".join(lines)
 
