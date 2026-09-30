@@ -1,0 +1,24 @@
+{
+  "risk_score": 6,
+  "agent0_findings": 14,
+  "hypotheses": 5,
+  "verifications": 5,
+  "confirmed": 2,
+  "attack_chains": 2,
+  "deepen_failures": 0,
+  "quarantine_stats": {
+    "files_total": 11,
+    "files_changed": 5,
+    "chars_removed": 6,
+    "patterns_neutralized": 11,
+    "changed_files": [
+      ".cursor/rules",
+      "AGENTS.md",
+      "docs/AI_GUIDE.md",
+      "src/payout.py",
+      "src/privileges.py"
+    ]
+  },
+  "node_errors": {},
+  "dry_run": false
+}

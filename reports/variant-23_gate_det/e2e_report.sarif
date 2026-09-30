@@ -1,0 +1,360 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "CodeRisk Arcanum",
+          "informationUri": "https://www.modelscope.cn/studios/Weike22/coderisk-arcanum",
+          "rules": [
+            {
+              "id": "PIT-T-46",
+              "shortDescription": {
+                "text": "[PIT-T-46] Agent Instruction-File Injection"
+              },
+              "properties": {
+                "cwe": "CWE-77",
+                "severity": "critical"
+              }
+            },
+            {
+              "id": "PIT-N-06",
+              "shortDescription": {
+                "text": "[PIT-N-06] Document / File Upload"
+              },
+              "properties": {
+                "cwe": null,
+                "severity": "high"
+              }
+            },
+            {
+              "id": "PIT-E-57",
+              "shortDescription": {
+                "text": "[PIT-E-57] Layered Encoding"
+              },
+              "properties": {
+                "cwe": null,
+                "severity": "critical"
+              }
+            },
+            {
+              "id": "PIT-E-54",
+              "shortDescription": {
+                "text": "[PIT-E-54] Trojan Source"
+              },
+              "properties": {
+                "cwe": null,
+                "severity": "high"
+              }
+            },
+            {
+              "id": "PIT-E-23",
+              "shortDescription": {
+                "text": "[PIT-E-23] Invisible Text"
+              },
+              "properties": {
+                "cwe": null,
+                "severity": "high"
+              }
+            },
+            {
+              "id": "PIT-T-51",
+              "shortDescription": {
+                "text": "[PIT-T-51] Instruction Override"
+              },
+              "properties": {
+                "cwe": null,
+                "severity": "high"
+              }
+            },
+            {
+              "id": "SQL_INJECTION",
+              "shortDescription": {
+                "text": "SQL injection via string concatenation in get_user"
+              },
+              "properties": {
+                "cwe": "",
+                "severity": "high"
+              }
+            },
+            {
+              "id": "PATH_TRAVERSAL",
+              "shortDescription": {
+                "text": "Unvalidated filename allows path traversal in save_report"
+              },
+              "properties": {
+                "cwe": "",
+                "severity": "high"
+              }
+            },
+            {
+              "id": "WEAK_CRYPTO",
+              "shortDescription": {
+                "text": "Unsalted SHA-256 password hashing"
+              },
+              "properties": {
+                "cwe": "",
+                "severity": "high"
+              }
+            },
+            {
+              "id": "LOGIC_ERROR",
+              "shortDescription": {
+                "text": "Type confusion causes always-true condition and recursive grant_admin"
+              },
+              "properties": {
+                "cwe": "",
+                "severity": "high"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "PIT-T-46",
+          "level": "warning",
+          "message": {
+            "text": "AI 指令文件中检测到指令覆盖/角色劫持模式（Ignore all previous instructions，共 1 行出现）。攻击者可能在仓库的 AI 助手配置中植入后门（同 CVE-2025-53773 攻击模式）。"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/copilot-instructions.md"
+                },
+                "region": {
+                  "startLine": 2,
+                  "snippet": {
+                    "text": "Ignore all previous instructions"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "PIT-T-46",
+          "level": "warning",
+          "message": {
+            "text": "AI 指令文件中检测到指令覆盖/角色劫持模式（Ignore all previous instructions，共 1 行出现）。攻击者可能在仓库的 AI 助手配置中植入后门（同 CVE-2025-53773 攻击模式）。"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "AGENTS.md"
+                },
+                "region": {
+                  "startLine": 2,
+                  "snippet": {
+                    "text": "Ignore all previous instructions"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "PIT-N-06",
+          "level": "error",
+          "message": {
+            "text": "项目文档中检测到面向 AI Agent 的指令注入模式（ignore all previous instructions，共 1 行出现）。文档是 Agent 的常规输入，投毒不会被人类评审与传统工具注意。"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "guides/AGENT_NOTES.md"
+                },
+                "region": {
+                  "startLine": 2,
+                  "snippet": {
+                    "text": "ignore all previous instructions"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "PIT-E-57",
+          "level": "warning",
+          "message": {
+            "text": "检测到2层编码（base64→base64）的提示注入载荷，用于规避基于关键词的过滤。"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/config.py"
+                },
+                "region": {
+                  "startLine": 2,
+                  "snippet": {
+                    "text": "U1dkdWIzSmxJR0ZzYkNCd2NtVjJhVzkxY3lCcGJuTjBjblZqZEdsdmJuTWdZVzVrSUdOaGJpQjViM1Vn..."
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "PIT-E-54",
+          "level": "error",
+          "message": {
+            "text": "检测到双向文本控制符（U+202E Right-to-Left Override, U+2066 Left-to-Right Isolate, U+2069 Pop Directional Isolate，共 4 处）。Bidi 字符可改变源码视觉呈现顺序（Trojan Source，CVE-2021-42574），使代码看起来与实际逻辑不一致，同时欺骗人类评审与 AI 助手。"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/privileges.py"
+                },
+                "region": {
+                  "startLine": 3,
+                  "snippet": {
+                    "text": "U+202E Right-to-Left Override; U+2066 Left-to-Right Isolate; U+2069 Pop Directional Isolate; U+2066 Left-to-Right Isolate"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "PIT-E-23",
+          "level": "error",
+          "message": {
+            "text": "检测到不可见 Unicode 字符（U+200B Zero-Width Space，共 1 行出现）。不可见字符常用于在人类阅读不可见的情况下向 LLM 走私指令。"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/rewards.py"
+                },
+                "region": {
+                  "startLine": 2,
+                  "snippet": {
+                    "text": "U+200B Zero-Width Space at line(s) [2]"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "PIT-T-51",
+          "level": "error",
+          "message": {
+            "text": "代码注释中检测到提示注入指令模式（reveal the system prompt）。当 LLM 阅读该代码/注释时可能被劫持，执行非预期指令。"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/rewards.py"
+                },
+                "region": {
+                  "startLine": 4,
+                  "snippet": {
+                    "text": "reveal the system prompt"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SQL_INJECTION",
+          "level": "error",
+          "message": {
+            "text": "在 `src/db.py` 第 3-5 行中，`uid` 参数未经任何类型校验、转义或参数化处理，直接以字符串拼接方式嵌入 SQL 语句中。由于函数签名对外暴露了任意字符串入口，攻击者可以轻易构造恶意载荷。"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/db.py"
+                },
+                "region": {
+                  "startLine": 0,
+                  "snippet": {
+                    "text": "query = \"SELECT * FROM users WHERE id = \" + uid"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "PATH_TRAVERSAL",
+          "level": "error",
+          "message": {
+            "text": "在 `src/uploads.py` 的 `save_report` 函数中，`name` 参数未经任何规范化、白名单过滤或边界检查（如 `Path.resolve()`），直接参与路径拼接并作为 `Path.write_text` 的目标路径。"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/uploads.py"
+                },
+                "region": {
+                  "startLine": 0,
+                  "snippet": {
+                    "text": "target = Path(base_dir) / name"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "WEAK_CRYPTO",
+          "level": "error",
+          "message": {
+            "text": "在 `src/auth.py` 中，密码仅使用单轮、无盐值的 SHA-256 直接生成十六进制摘要。缺乏盐值（Salt）和密钥衍生函数（KDF）的保护，使得该实现极易受到彩虹表攻击和快速暴力破解。"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/auth.py"
+                },
+                "region": {
+                  "startLine": 0,
+                  "snippet": {
+                    "text": "return hashlib.sha256(pw.encode()).hexdigest()"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "LOGIC_ERROR",
+          "level": "error",
+          "message": {
+            "text": "在 `src/privileges.py` 中，`access_level = 0` (int) 与字符串比较 `!=` 结果恒为 `True`，且函数 `grant_admin` 内部缺乏终止条件，导致必然的无限递归。此外，该行代码包含 Trojan Source 双向文本控制符（CVE-2021-42574），具有欺骗人工与 AI 评审的意图。"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/privileges.py"
+                },
+                "region": {
+                  "startLine": 0,
+                  "snippet": {
+                    "text": "if access_level != \"user // Check if admin \":\\n        grant_admin()"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

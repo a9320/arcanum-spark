@@ -1,0 +1,47 @@
+{
+  "schema": "ablation-summary/1",
+  "arms": [
+    {
+      "arm": "rules",
+      "path": "/mnt/workspace/quickscan/variant-24/pseudo_report.json",
+      "agent": "agent0",
+      "baseline_findings": 14,
+      "final_findings": 0,
+      "confirmed": 0,
+      "refuted": 0,
+      "uncertain": 0,
+      "semantic_increment_confirmed": 0,
+      "elapsed_seconds": null,
+      "usage": null,
+      "notes": "Six-agent increment counts CONFIRMED verdicts beyond the rules baseline; single-agent increment counts claimed findings beyond it (no verdicts, not confirmed truth). REFUTED is a model verdict, not an independently labeled FP rate. Missing usage or timing stays null."
+    },
+    {
+      "arm": "single_agent",
+      "path": "reports/single_agent_variant-24/report.json",
+      "agent": "single_agent",
+      "baseline_findings": 0,
+      "final_findings": 9,
+      "confirmed": 0,
+      "refuted": 0,
+      "uncertain": 0,
+      "semantic_increment_confirmed": 9,
+      "elapsed_seconds": 246.082,
+      "usage": null,
+      "notes": "Six-agent increment counts CONFIRMED verdicts beyond the rules baseline; single-agent increment counts claimed findings beyond it (no verdicts, not confirmed truth). REFUTED is a model verdict, not an independently labeled FP rate. Missing usage or timing stays null."
+    },
+    {
+      "arm": "six_agent",
+      "path": "reports/e2e_variant-24/report.json",
+      "agent": "six_agent",
+      "baseline_findings": 14,
+      "final_findings": 12,
+      "confirmed": 5,
+      "refuted": 0,
+      "uncertain": 1,
+      "semantic_increment_confirmed": 5,
+      "elapsed_seconds": null,
+      "usage": null,
+      "notes": "Six-agent increment counts CONFIRMED verdicts beyond the rules baseline; single-agent increment counts claimed findings beyond it (no verdicts, not confirmed truth). REFUTED is a model verdict, not an independently labeled FP rate. Missing usage or timing stays null."
+    }
+  ]
+}

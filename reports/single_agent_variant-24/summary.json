@@ -1,0 +1,9 @@
+{
+  "agent": "single_agent",
+  "rule_layer": "disabled",
+  "findings": 9,
+  "risk_score": 21,
+  "elapsed_seconds": 246.082,
+  "usage": null,
+  "files": 11
+}

@@ -1,0 +1,52 @@
+{
+  "repo": "/mnt/workspace/repos/variant-23",
+  "backend": "laya",
+  "gate": {
+    "enabled": true,
+    "backend": "laya",
+    "fallback": false,
+    "triage_healthy": true,
+    "ordered_ids": [
+      "H5",
+      "H1",
+      "H3",
+      "H2",
+      "H6",
+      "H4"
+    ],
+    "selected_ids": [
+      "H5",
+      "H1",
+      "H3",
+      "H2",
+      "H6",
+      "H4"
+    ],
+    "pruned_ids": [],
+    "scores": {
+      "H1": 0.9984,
+      "H2": 0.9888,
+      "H3": 0.9958,
+      "H4": 0.9252,
+      "H5": 1000.9996,
+      "H6": 0.9803
+    },
+    "protected_ids": [
+      "H5"
+    ],
+    "echo_ids": [],
+    "duplicate_ids": [],
+    "degenerate_ids": []
+  },
+  "elapsed_seconds": 1434.699,
+  "files": 11,
+  "hypotheses": 6,
+  "verify_requests": 6,
+  "verdicts": {
+    "UNCERTAIN": 3,
+    "CONFIRMED": 3
+  },
+  "final_findings": 3,
+  "risk_score": 9,
+  "node_errors": {}
+}

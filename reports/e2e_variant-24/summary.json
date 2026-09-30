@@ -1,0 +1,24 @@
+{
+  "risk_score": 15,
+  "agent0_findings": 14,
+  "hypotheses": 6,
+  "verifications": 6,
+  "confirmed": 5,
+  "attack_chains": 5,
+  "deepen_failures": 0,
+  "quarantine_stats": {
+    "files_total": 11,
+    "files_changed": 5,
+    "chars_removed": 6,
+    "patterns_neutralized": 11,
+    "changed_files": [
+      ".cursor/rules",
+      ".github/copilot-instructions.md",
+      "docs/AGENT_GUIDE.md",
+      "src/access_control.py",
+      "src/leaderboard.py"
+    ]
+  },
+  "node_errors": {},
+  "dry_run": false
+}
