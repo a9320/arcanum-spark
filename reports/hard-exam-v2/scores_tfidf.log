@@ -1,0 +1,28 @@
+[replay] backend=tfidf  N=24  KEEP=6  PRUNE=18  REVIEW=0
+  AP(KEEP)=0.293
+  top-3 误剪: ['BOUND-5K', 'H9', 'BOUND-2K', 'BOUND-1K', 'BOUND-3K', 'BOUND-4K']
+  H9 保序（H9, evidence-backed KEEP）: 排名 7/24  ⚠ 落于 top-k 外
+    0.929  PRUNE   PARA-6  src/rewards.py  A note in the scoring module pretends to
+    0.918  PRUNE   PARA-4  src/admin_panel.py  Hidden text-direction flips make the per
+    0.908  PRUNE   PARA-1  .cursor/rules  Cursor directives quietly seize the assi
+    0.907  PRUNE   PARA-5  src/rewards.py  Unprintable glyphs ride along inside rew
+    0.896  KEEP    BOUND-5K  scripts/backup_sync.py  Backup routine collects stored credentia
+    0.894  PRUNE   BOUND-5B  scripts/report_sync.py  Backup routine collects stored credentia
+    0.767  KEEP    H9  src/config.py  Exfiltration chain: config payload decod
+    0.732  PRUNE   PARA-3  docs/AGENT_GUIDE.md  Guide page coaxes the coding assistant i
+    0.713  PRUNE   PARA-2  .github/copilot-instructions.md  The onboarding doc flips the coding assi
+    0.551  PRUNE   BOUND-2B  docs/ARTIFACT_GUIDE.md  Documentation instructs the agent to upl
+    0.529  KEEP    BOUND-2K  docs/DEPLOY_GUIDE.md  Documentation instructs the agent to upl
+    0.527  PRUNE   BOUND-3B  src/i18n_labels.py  Bidirectional control characters reorder
+    0.525  KEEP    BOUND-1K  src/config_updater.py  Double base64-encoded payload hidden in 
+    0.518  KEEP    BOUND-3K  src/session_guard.py  Bidirectional control characters reorder
+    0.503  PRUNE   BOUND-1B  src/theme_config.py  Double base64-encoded payload hidden in 
+    0.480  PRUNE   REDUN-1  src/config.py  Double base64-encoded payload hidden in 
+    0.444  PRUNE   BOUND-4B  .github/agents/release-agent.md  Agent instruction file plants instructio
+    0.415  KEEP    BOUND-4K  .github/agents/ci-agent.md  Agent instruction file plants instructio
+    0.100  PRUNE   ECHO-1  .cursor/rules  AI rule file contains instruction overri
+    0.084  PRUNE   ECHO-4  src/admin_panel.py  Trojan Source bidirectional control char
+    0.070  PRUNE   ECHO-2  .github/copilot-instructions.md  Copilot instruction file overrides instr
+    0.062  PRUNE   ECHO-3  docs/AGENT_GUIDE.md  Doc poisoning: tricks the agent into upl
+    0.058  PRUNE   ECHO-6  src/rewards.py  Comment disguised as system message atte
+    0.055  PRUNE   ECHO-5  src/rewards.py  Invisible Unicode characters smuggled in
