@@ -119,8 +119,11 @@ python -m codeark.cli <repo_dir> [--dry] [--out OUT] [--formats json,sarif,markd
 ### 3.1 测试文件（codeark/tests/）
 - `test_pitax_scan.py` — PITAX 扫描逻辑
 - `test_dep_scan.py` — 依赖扫描逻辑（6 项）
-- `test_scout_loop.py` / `test_scout_loop_v2.py` — 侦察闭环
-- `test_model_connect.py` — 模型连通
+- `test_engine_integration.py`（tests/） — 引擎层集成（模块层仅标准库，收集安全；运行期需 Redis/rich，verify.sh 显式排除）
+
+冒烟脚本（`scripts/smoke/`，非 pytest 套件——模块层读本机 API key，仅历史联通性探针，不入验证路径）：
+- `model_connect_smoke.py` — 模型连通（Cloudflare/AMD 免费模型）
+- `scout_loop_smoke.py` / `scout_loop_v2_smoke.py` — 侦察闭环
 
 ### 3.2 端到端验收（真实 DeepSeek，本地 demo 仓库）
 **已验证通过：**

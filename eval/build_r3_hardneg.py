@@ -2,7 +2,8 @@
 """R3 难负训练实例构造器 — 同型不同实例（难卷 23 条本体保持 held-out）。
 
 背景（2026-09-28 终判首战判读，WORK_LOG 20:27 区块）：laya-r2 AP=0.574 首胜
-tfidf 0.296，但 H9 保序失守 + BOUND 2/5 倒挂。病灶=R2 训练分布缺口：①自驳型
+tfidf 0.296，但 H9 保序失守 + BOUND 2/5 倒挂（数字溯源：docs/EVAL-LEDGER.md）。
+病灶=R2 训练分布缺口：①自驳型
 benign-twin 零训练；②换措辞回显（PARA 型）零训练；③echo-shape 文件域上的
 证据型 KEEP 零训练。本构造器用 build_hard_exam.py 同款构造逻辑生成**训练实例**：
 同型不同实例（换 file 名/措辞/端点/载荷），anti-leak 由 tests 断言（title/
