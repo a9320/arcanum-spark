@@ -2,6 +2,9 @@ __pycache__/
 *.pyc
 .env
 *.log
+# reports/ 下的 .log 是实验证据（如 hard-exam score tee 日志），豁免全局忽略——
+# 2026-09-30 教训：9e5a0d1 提交时 scores_*.log 被 *.log 静默吞掉，EVAL-LEDGER 声称落仓而文件缺席
+!reports/**/*.log
 *.zip
 *.bak
 *.bak_*
