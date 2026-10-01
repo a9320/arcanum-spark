@@ -5,7 +5,7 @@ deployspec:
 
 # Arcanum · Spark（Arcanum · 星火）
 
-**Catch the first spark before it becomes a wildfire.** Code security audit for AI-era vulnerabilities — built on the [Arcanum Prompt Injection Taxonomy](https://arcanum-sec.com/pitax) (Jason Haddix, Arcanum Information Security), packaged as an Agent Skill plus a 6-agent LLM pipeline. It runs fully local and deterministic (zero LLM), or on either of **two model setups**: a heterogeneous cloud API council, or four self-hosted llama-servers on AMD MI300X.
+**Catch the first spark before it becomes a wildfire.** Code security audit for AI-era vulnerabilities — built on the [Arcanum Prompt Injection Taxonomy](https://arcanum-sec.com/pitax) (Jason Haddix, Arcanum Information Security), packaged as an Agent Skill plus a 6-agent LLM pipeline. It runs fully local and deterministic (zero LLM), or self-hosted on **four llama-servers on AMD MI300X** (`ARCA_DEPLOYMENT=local`) — the operative deployment — with the original per-stage **cloud API council** still available through environment routing.
 
 > **Provenance:** independent repository reworked on top of upstream [a9320/code-risk-arcanum](https://github.com/a9320/code-risk-arcanum) (MIT, `upstream` remote, import anchored at `fcfc6f7`).
 
@@ -13,7 +13,7 @@ CodeRisk Arcanum is among the first tools designed to detect **AI prompt injecti
 
 It ships in three layers:
 
-1. **`codeark/` — a 6-agent audit pipeline** (Strands Agents SDK): a deterministic rule layer, semantic reconnaissance, per-hypothesis verification with bound tools, attack-chain derivation, multi-source arbiter, and deterministic report rendering. Models bind through per-stage endpoint routing — the cloud API council or the self-hosted MI300X council.
+1. **`codeark/` — a 6-agent audit pipeline** (Strands Agents SDK): a deterministic rule layer, semantic reconnaissance, per-hypothesis verification with bound tools, attack-chain derivation, multi-source arbiter, and deterministic report rendering. Models bind through per-stage endpoint routing — the self-hosted MI300X council or a cloud API council.
 2. **`skills/ai-repo-audit/` — the deterministic PITAX layer packaged as an Agent Skill**: pure-stdlib scanner (Python ≥3.10), zero network / zero GPU, emitting JSON / SARIF 2.1.0 / Markdown reports; installable into any Agent-Skills-compatible client.
 3. **`app/` — the legacy deterministic platform**: the pure-stdlib PITAX engine, FastAPI service, and Celery pipeline (powers the [live demo](https://www.modelscope.cn/studios/Weike22/code-risk-arcanum)).
 
@@ -46,13 +46,13 @@ python -m codeark.cli demo/vuln-demo-repo --dry
 python test_e2e.py            # real LLMs, ~15 min with concurrency tuning, reports land in reports/
 
 # 3. Regression-check a report against the private eval set
-python eval/check_report.py --report reports/dry_eval/report.json
+python eval/check_report.py --report reports/verify/report.json
 ```
 
 Model binding is environment-driven (`codeark/models/routing.py` + `factory.py`), no code changes needed:
 
-- **API cloud council (default)** — four stages on four distinct provider families, each with its own endpoint / key / timeout: Scout `step-5-preview` (StepFun, with an independent fallback endpoint `gpt-5.6-luna`), Verify `Qwen3.8-Flash-Next`, Deepen `DeepSeek-V4-Flash`, Arbiter `gpt-6-sol`. Enable with the per-stage keys (`ARCA_SCOUT_PRIMARY_API_KEY`, `ARCA_VERIFY_API_KEY`, …); every field is overridable via `ARCA_<STAGE>_MODEL | BASE_URL | TIMEOUT | TOOL_FORMAT | …`.
-- **MI300X local council** — `ARCA_DEPLOYMENT=local` binds all four stages to loopback llama-servers: `:8081 muse-scout` (Muse-Glimmer-30B) / `:8182 qwen-verify` (Qwen3.8-27B) / `:8083 r1-deepen` (R1-Distill-32B) / `:8084 gemma-arbiter` (Gemma4-26B-A4B). One-click provisioning below.
+- **MI300X local council (operative)** — `ARCA_DEPLOYMENT=local` binds all four stages to loopback llama-servers: `:8081 muse-scout` (Muse-Glimmer-30B) / `:8182 qwen-verify` (Qwen3.8-27B) / `:8083 r1-deepen` (R1-Distill-32B) / `:8084 gemma-arbiter` (Gemma4-26B-A4B). One-click provisioning below.
+- **Cloud API council (original setup, still supported)** — per-stage heterogeneous providers; current route table (`factory.py`): Scout `GLM-5.3` (TokenRouter) / Verify `DeepSeek-V4-Flash` (AMD Radeon Cloud) / Deepen `DeepSeek-V4-Flash` / Arbiter `GLM-5.3` (decorrelated second vote), fallback `Kimi-K3`. Enable with the per-stage keys (`ARCA_SCOUT_PRIMARY_API_KEY`, `ARCA_VERIFY_API_KEY`, …); every field is overridable via `ARCA_<STAGE>_MODEL | BASE_URL | TIMEOUT | TOOL_FORMAT | …`.
 
 > Legacy single-model adapters (Step-3.7-Flash `local_step.py`, Nemotron, and the XML tool-call formats in `xml_model.py`) remain in `codeark/models/` for one-model local runs; they are not part of either current setup.
 
@@ -66,6 +66,12 @@ Key engineering mechanisms:
 - **Node-level degradation disclosure** — any model outage falls back to a deterministic path and is disclosed in the report (empty findings ≠ safe repository).
 - **Evidence pack** — see [`evidence/`](evidence/) for real run artifacts, including model logs where agents face live injection bait and report it as data instead of obeying.
 - **Threat model** — [`THREAT-MODEL.md`](THREAT-MODEL.md) records current assets, trust boundaries, controls, and residual risks.
+
+## Decision gate (Laya — optional, offline-tuned)
+
+The pipeline accepts an optional **decision gate** in front of Verify: a compact KEEP/PRUNE classifier (GRPO-style fine-tuned head; model lineage `laya-r0…r6`) that re-orders and protects hypotheses so verification lands on the most probable real threats first. In the default mounted posture the gate is strictly **order-only** — every hypothesis is still verified (`pruned_ids` empty), so mounting it cannot drop findings relative to the gate-free baseline.
+
+Tooling in `eval/`: `run_gate_e2e.py` (gate-integrated e2e) · `compare_gate_e2e.py` (P1 reorder-only / P2 no-fallback / P3 quality-floor acceptance) · `time_laya.py` (per-item latency + accuracy) · `build_r*_hardneg.py` + `finetune_*.py` (the fine-tuning loop). Acceptance artifacts live under `reports/gate11/` and `reports/gate-e2e/`; every referenced number is traceable in [`docs/EVAL-LEDGER.md`](docs/EVAL-LEDGER.md).
 
 ## Self-hosted local council (one-click, AMD MI300X / ROCm)
 

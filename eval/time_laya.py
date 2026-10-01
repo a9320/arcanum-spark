@@ -9,7 +9,7 @@
 
 用法：
     python eval/time_laya.py --dataset reports/hard-exam-v2/gate_dataset_hard.json \
-        --model /mnt/workspace/models/laya-r3 --out reports/hard-exam-v2/timing-r3.json
+        --model /mnt/workspace/models/laya-r6 --out reports/hard-exam-v2/timing-r6.json
 """
 from __future__ import annotations
 

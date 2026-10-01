@@ -15,7 +15,7 @@ eval/replay.py build 可直接消费。
 
 用法（DSW，四服务就绪后）：
     ARCA_DEPLOYMENT=local python eval/run_gate_e2e.py /mnt/workspace/repos/variant-20 \
-        --model /mnt/workspace/models/laya-r3
+        --model /mnt/workspace/models/laya-r6
     ARCA_DEPLOYMENT=local python eval/run_gate_e2e.py <repo> --backend deterministic
 """
 from __future__ import annotations
