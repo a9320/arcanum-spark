@@ -73,6 +73,8 @@ The pipeline accepts an optional **decision gate** in front of Verify: a compact
 
 Tooling in `eval/`: `run_gate_e2e.py` (gate-integrated e2e) · `compare_gate_e2e.py` (P1 reorder-only / P2 no-fallback / P3 quality-floor acceptance) · `time_laya.py` (per-item latency + accuracy) · `build_r*_hardneg.py` + `finetune_*.py` (the fine-tuning loop). Acceptance artifacts live under `reports/gate11/` and `reports/gate-e2e/`; every referenced number is traceable in [`docs/EVAL-LEDGER.md`](docs/EVAL-LEDGER.md).
 
+Mounting is env-driven (`ARCA_GATE_BACKEND` = `laya` by default / `deterministic`; `ARCA_GATE_MODEL` for the model directory), and acceptance arms pin the same hypothesis set via `run_gate_e2e.py --hypotheses-from <baseline report.json>` — Scout runs once, all arms verify the identical set (the v1.2 fix for cross-arm hypothesis drift).
+
 ## Self-hosted local council (one-click, AMD MI300X / ROCm)
 
 [`deploy/mi300x-oneclick.sh`](deploy/mi300x-oneclick.sh) provisions the full four-llama-server council on a fresh instance: idempotent (existing files are skipped), resumable downloads (`curl -C -`), quota-proof (writes only to `/root`, never the NFS workspace), self-healing (rebuilds llama.cpp for `gfx942` if the binary is missing), health-checks all four endpoints and reports VRAM.

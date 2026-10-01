@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -44,7 +45,14 @@ from codeark.models.factory import make_stage_models_from_env  # noqa: E402
 from codeark.models.routing import redact_error  # noqa: E402
 from codeark.models.schemas import HypothesisSet  # noqa: E402
 
-__all__ = ["baseline_rows_from_agent0", "make_deterministic_gate", "make_laya_gate", "main"]
+__all__ = [
+    "baseline_rows_from_agent0",
+    "load_pinned_hypotheses",
+    "make_deterministic_gate",
+    "make_laya_gate",
+    "resolve_backend",
+    "main",
+]
 
 
 def baseline_rows_from_agent0(agent0_findings: list[dict] | None) -> list[dict]:
@@ -119,10 +127,20 @@ async def _main(args: argparse.Namespace) -> int:
     else:
         gate = make_deterministic_gate()
 
+    pinned = None
+    if args.hypotheses_from:
+        try:
+            pinned = load_pinned_hypotheses(args.hypotheses_from)
+        except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+            print(f"gate e2e failed: {exc}")
+            return 2
+
     routes = make_stage_models_from_env()
     started = time.perf_counter()
     try:
-        result = await CodeRiskGraph(stage_models=routes, hypothesis_gate=gate).run(files)
+        result = await CodeRiskGraph(stage_models=routes, hypothesis_gate=gate).run(
+            files, pinned_hypothesis_set=pinned
+        )
     except Exception as exc:
         print(f"gate e2e failed: {type(exc).__name__}: {redact_error(exc)}")
         return 1
@@ -149,6 +167,7 @@ async def _main(args: argparse.Namespace) -> int:
     summary = {
         "repo": str(repo),
         "backend": args.backend,
+        "hypothesis_source": getattr(result, "hypothesis_source", "scout"),
         "gate": result.gate,
         "elapsed_seconds": round(elapsed, 3),
         "files": len(files),
@@ -173,14 +192,60 @@ async def _main(args: argparse.Namespace) -> int:
     return 0
 
 
+def load_pinned_hypotheses(path: str) -> dict:
+    """从 baseline e2e 报告恢复 meta.hypothesis_set（gate v1.2 钉假设集）。
+
+    三臂验收的污染根因=Scout temp1.0 每臂独立发挥（假设集 6/7/5）；钉假设集
+    =各臂经 --hypotheses-from 共用 nogate 臂归档的同一批假设。dict 形态在
+    pipeline.run() 内经 HypothesisSet.model_validate 复原。
+    """
+    p = Path(path)
+    if not p.is_file():
+        raise FileNotFoundError(f"hypotheses source not found: {path}")
+    data = json.loads(p.read_text(encoding="utf-8"))
+    hs = (data.get("meta") or {}).get("hypothesis_set") or data.get("hypothesis_set")
+    if not isinstance(hs, dict) or not hs.get("hypotheses"):
+        raise ValueError(f"no hypothesis_set.hypotheses in {path}")
+    return hs
+
+
+def resolve_backend(explicit: str | None, env_value: str | None) -> str:
+    """--backend 显式值优先；否则 ARCA_GATE_BACKEND（缺省 laya=挂默认）。
+
+    支持的 env 值：laya（默认）/ deterministic / det；其他值报错——挂载旋钮
+    必须显式可判，静默回落会掩盖配置错误。
+    """
+    if explicit:
+        return explicit
+    value = (env_value or "").strip().lower()
+    if value in ("", "laya"):
+        return "laya"
+    if value in ("deterministic", "det"):
+        return "deterministic"
+    raise ValueError(f"unsupported ARCA_GATE_BACKEND value: {env_value!r}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Gate v1 e2e acceptance runner (reorder-only)")
     parser.add_argument("repo", help="repository directory to scan")
-    parser.add_argument("--backend", default="laya", choices=["laya", "deterministic"],
-                        help="laya=模型分+确定性保护；deterministic=纯确定性对照臂")
-    parser.add_argument("--model", help="laya 模型目录（DSW: /mnt/workspace/models/laya-r3）")
+    parser.add_argument("--backend", default=None, choices=["laya", "deterministic"],
+                        help="laya=模型分+确定性保护；deterministic=纯确定性对照臂"
+                             "（缺省读 ARCA_GATE_BACKEND，仍缺省 laya=挂默认）")
+    parser.add_argument("--model", default=None,
+                        help="laya 模型目录（缺省读 ARCA_GATE_MODEL；DSW: /mnt/workspace/models/laya-r6）")
     parser.add_argument("--out", help="报告输出目录（默认 reports/<repo>_gate）")
-    return asyncio.run(_main(parser.parse_args()))
+    parser.add_argument("--hypotheses-from", default=None, dest="hypotheses_from",
+                        help="baseline e2e 报告 report.json：恢复 meta.hypothesis_set 并跳过 Scout"
+                             "（gate v1.2 钉假设集，三臂共用同一批假设）")
+    args = parser.parse_args()
+    try:
+        args.backend = resolve_backend(args.backend, os.environ.get("ARCA_GATE_BACKEND"))
+    except ValueError as exc:
+        print(f"gate e2e failed: {exc}")
+        return 2
+    if args.backend == "laya" and not args.model:
+        args.model = os.environ.get("ARCA_GATE_MODEL") or ""
+    return asyncio.run(_main(args))
 
 
 if __name__ == "__main__":

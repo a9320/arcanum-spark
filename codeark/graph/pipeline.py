@@ -88,6 +88,8 @@ class GraphResult:
         self.deepen_failures: int = 0
         # 节点级故障披露（invoke 级容错：失败节点降级为确定性路径并记录）
         self.node_errors: dict[str, str] = {}
+        # 假设集来源（gate v1.2 钉假设集：三臂验收共用同一批假设时为 "pinned"）
+        self.hypothesis_source: str = "scout"
         # severity 确定性打底（§11-H）：LLM 试图降级规则级别时被抬回的条数
         self.severity_floor_upgraded: int = 0
         # Scout→Verify gate：默认关闭；启用时只记录并重排，不删除原始假设。
@@ -103,6 +105,7 @@ class GraphResult:
 
         return {
             "agent0_findings": self.agent0_findings,
+            "hypothesis_source": self.hypothesis_source,
             "hypothesis_set": _dump(self.hypothesis_set),
             "gated_hypothesis_set": _dump(self.gated_hypothesis_set),
             "verifications": _dump(self.verifications),
@@ -196,7 +199,9 @@ class CodeRiskGraph:
         ) for _ in confirmed]
 
     # ── 主入口 ──
-    async def run(self, files: dict[str, str]) -> GraphResult:
+    async def run(
+        self, files: dict[str, str], *, pinned_hypothesis_set: Any = None
+    ) -> GraphResult:
         res = GraphResult()
 
         # 1. Agent0：PITAX 规则层（无 LLM，确定性基线）——永远跑**原始**文件
@@ -208,7 +213,15 @@ class CodeRiskGraph:
             safe_files, res.quarantine_stats = quarantine_files(files)
 
         # 2. 侦察：基线之外的**语义增量**发现（失败 → 降级为规则基线假设，不中断流水线）
-        if self.dry:
+        if pinned_hypothesis_set is not None:
+            # gate v1.2 钉假设集：三臂验收共用同一批假设（跳过 Scout，防假设集漂移污染对照）。
+            res.hypothesis_source = "pinned"
+            if isinstance(pinned_hypothesis_set, dict):
+                from codeark.models.schemas import HypothesisSet
+
+                pinned_hypothesis_set = HypothesisSet.model_validate(pinned_hypothesis_set)
+            res.hypothesis_set = pinned_hypothesis_set
+        elif self.dry:
             res.hypothesis_set = self._dry_scout(files, res.agent0_findings)
         else:
             try:
@@ -398,6 +411,7 @@ async def run_pipeline(
     stage_models: StageModels | None = None,
     hypothesis_gate: Callable[[Any, list[dict]], Any] | None = None,
     memory_service: Any | None = None,
+    pinned_hypothesis_set: Any = None,
 ) -> GraphResult:
     """一次性跑完整 6 节点流水线。"""
     graph = CodeRiskGraph(
@@ -407,4 +421,4 @@ async def run_pipeline(
         hypothesis_gate=hypothesis_gate,
         memory_service=memory_service,
     )
-    return await graph.run(files)
+    return await graph.run(files, pinned_hypothesis_set=pinned_hypothesis_set)
