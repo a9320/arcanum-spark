@@ -1,0 +1,49 @@
+{
+  "repo": "/mnt/workspace/repos/variant-23",
+  "backend": "deterministic",
+  "gate": {
+    "enabled": true,
+    "backend": "deterministic",
+    "fallback": false,
+    "triage_healthy": true,
+    "ordered_ids": [
+      "H5",
+      "H1",
+      "H2",
+      "H3",
+      "H4"
+    ],
+    "selected_ids": [
+      "H5",
+      "H1",
+      "H2",
+      "H3",
+      "H4"
+    ],
+    "pruned_ids": [],
+    "scores": {
+      "H1": 12.0,
+      "H2": 12.0,
+      "H3": 12.0,
+      "H4": 12.0,
+      "H5": 132.0
+    },
+    "protected_ids": [
+      "H5"
+    ],
+    "echo_ids": [],
+    "duplicate_ids": [],
+    "degenerate_ids": []
+  },
+  "elapsed_seconds": 1167.364,
+  "files": 11,
+  "hypotheses": 5,
+  "verify_requests": 5,
+  "verdicts": {
+    "CONFIRMED": 4,
+    "UNCERTAIN": 1
+  },
+  "final_findings": 4,
+  "risk_score": 12,
+  "node_errors": {}
+}

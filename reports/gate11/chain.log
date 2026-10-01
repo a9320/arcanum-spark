@@ -1,0 +1,37 @@
+== [23] nogate start 16:45 ==
+[23] NOGATE_EXIT=0
+== [23] laya-r5 gate start 17:14 ==
+[23] NOGATE_EXIT=0
+== [23] laya-r5 gate start 17:23 ==
+[23] LAYA_EXIT=0
+== [23] det gate start 17:41 ==
+[23] DET_EXIT=0
+# Gate e2e Acceptance
+
+> baseline=`/mnt/workspace/runs/20261001-gate11/nogate_v23/report.json` — verdict: **ACCEPT** (P1 reorder-only / P2 no-fallback / P3 quality-floor; REFUTED is a model verdict, not an FP rate)
+
+| Arm | Backend | P1 | P2 | P3 | Confirmed(base) | Final(base) | Verify req | Protected | Seconds | Verdict |
+| --- | --- | --- | --- | --- | --- | --- | ---: | --- | ---: | --- |
+| laya_v23 | laya | ✅ | ✅ | ✅ | 3(3) | 10(10) | 5 | 1 | 1563.218 | PASS |
+| det_v23 | deterministic | ✅ | ✅ | ✅ | 4(3) | 11(10) | 5 | 1 | 1167.364 | PASS |
+
+wrote /mnt/workspace/runs/20261001-gate11/acceptance_v23.json and /mnt/workspace/runs/20261001-gate11/acceptance_v23.md
+[23] COMPARE_EXIT=0 baseline=/mnt/workspace/runs/20261001-gate11/nogate_v23/report.json
+== [27] nogate start 18:00 ==
+[27] NOGATE_EXIT=0
+== [27] laya-r5 gate start 18:16 ==
+[27] LAYA_EXIT=0
+== [27] det gate start 18:35 ==
+[27] DET_EXIT=0
+# Gate e2e Acceptance
+
+> baseline=`/mnt/workspace/runs/20261001-gate11/nogate_v27/report.json` — verdict: **REJECT** (P1 reorder-only / P2 no-fallback / P3 quality-floor; REFUTED is a model verdict, not an FP rate)
+
+| Arm | Backend | P1 | P2 | P3 | Confirmed(base) | Final(base) | Verify req | Protected | Seconds | Verdict |
+| --- | --- | --- | --- | --- | --- | --- | ---: | --- | ---: | --- |
+| laya_v27 | laya | ✅ | ✅ | ❌ | 4(6) | 11(13) | 5 | 1 | 1140.283 | FAIL |
+| det_v27 | deterministic | ✅ | ✅ | ✅ | 6(6) | 13(13) | 7 | 1 | 1627.487 | PASS |
+
+wrote /mnt/workspace/runs/20261001-gate11/acceptance_v27.json and /mnt/workspace/runs/20261001-gate11/acceptance_v27.md
+[27] COMPARE_EXIT=1 baseline=/mnt/workspace/runs/20261001-gate11/nogate_v27/report.json
+GATE11_ALL_DONE 19:02
