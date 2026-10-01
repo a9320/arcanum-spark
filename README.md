@@ -52,7 +52,7 @@ python eval/check_report.py --report reports/verify/report.json
 Model binding is environment-driven (`codeark/models/routing.py` + `factory.py`), no code changes needed:
 
 - **MI300X local council (operative)** — `ARCA_DEPLOYMENT=local` binds all four stages to loopback llama-servers: `:8081 muse-scout` (Muse-Glimmer-30B) / `:8182 qwen-verify` (Qwen3.8-27B) / `:8083 r1-deepen` (R1-Distill-32B) / `:8084 gemma-arbiter` (Gemma4-26B-A4B). One-click provisioning below.
-- **Cloud API council (original setup, still supported)** — per-stage heterogeneous providers; current route table (`factory.py`): Scout `GLM-5.3` (TokenRouter) / Verify `DeepSeek-V4-Flash` (AMD Radeon Cloud) / Deepen `DeepSeek-V4-Flash` / Arbiter `GLM-5.3` (decorrelated second vote), fallback `Kimi-K3`. Enable with the per-stage keys (`ARCA_SCOUT_PRIMARY_API_KEY`, `ARCA_VERIFY_API_KEY`, …); every field is overridable via `ARCA_<STAGE>_MODEL | BASE_URL | TIMEOUT | TOOL_FORMAT | …`.
+- **Cloud API council (original setup, still supported)** — five heterogeneous endpoints, each with its own key / timeout: Scout `step-5-preview` (StepFun) with an independent fallback endpoint `gpt-5.6-luna` (LMU gateway), Verify `Qwen3.8-Flash-Next` (AMD Radeon Cloud), Deepen `DeepSeek-V4-Flash` (AMD Radeon Cloud), Arbiter `gpt-6-sol` (LMU gateway). Enable with the per-stage keys (`ARCA_SCOUT_PRIMARY_API_KEY`, `ARCA_VERIFY_API_KEY`, …); every field is overridable via `ARCA_<STAGE>_MODEL | BASE_URL | TIMEOUT | TOOL_FORMAT | …`.
 
 > Legacy single-model adapters (Step-3.7-Flash `local_step.py`, Nemotron, and the XML tool-call formats in `xml_model.py`) remain in `codeark/models/` for one-model local runs; they are not part of either current setup.
 
