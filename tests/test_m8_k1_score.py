@@ -1,8 +1,9 @@
 """M8/K1 判分脚本单测 — 合成报告/清单，零网络。
 
 契约（docs/M8-CTF-TRUTH.md v0）：
-1. intended CONFIRMED → tp=True；intended REFUTED → refuted_on_intended（独立口径 FP）；
+1. intended CONFIRMED → tp=True（fn=False）；intended REFUTED → refuted_on_intended（独立口径 FP）；
    非 intended CONFIRMED → unplanned_confirmed（不自动计 FP）；
+   FN：intended 无假设或全被 PRUNE/REFUTED → True，UNCERTAIN/未验证 → null 不猜；
 2. intended_types=null 或 meta 缺失 → 对应层 null（缺失=null 不猜）；
 3. flag 只落 sha256 前 12 位，不原样落盘。
 """
@@ -44,7 +45,46 @@ def test_tp_refuted_on_intended_and_unplanned(tmp_path: Path):
     assert out["judgment"]["tp"] is True
     assert [r["id"] for r in out["judgment"]["refuted_on_intended"]] == ["H2"]
     assert [r["id"] for r in out["judgment"]["unplanned_confirmed"]] == ["H3"]
-    assert out["judgment"]["fn"] is None  # FN 由聚合层落定，判分层不猜
+    assert out["judgment"]["fn"] is False  # tp=True ⇒ 非漏报（FN 落定，外审整改）
+
+
+def test_fn_true_no_intended_or_all_refuted():
+    out = m8.judge_question(_ENTRY, _report([("H1", "SECRET_EXFIL", "CONFIRMED")]), None)
+    assert out["judgment"]["fn"] is True  # intended 类目无假设
+    out2 = m8.judge_question(_ENTRY, _report([("H1", "PIT-T-46", "REFUTED")]), None)
+    assert out2["judgment"]["fn"] is True  # 全部 intended 被否
+    assert [r["id"] for r in out2["judgment"]["refuted_on_intended"]] == ["H1"]
+
+
+def test_fn_true_via_gate_prune():
+    report = _report([("H2", "SECRET_EXFIL", "CONFIRMED")])
+    report["meta"]["hypothesis_set"]["hypotheses"].append(
+        {"id": "H1", "vuln_type": "PIT-T-46", "title": "t-H1"})
+    report["meta"]["gated_hypothesis_set"] = {"hypotheses": [
+        {"id": "H2", "vuln_type": "SECRET_EXFIL", "title": "t-H2"}]}
+    out = m8.judge_question(_ENTRY, report, None)
+    assert out["judgment"]["fn"] is True  # intended 假设被 gate 剪掉 = 协议口径 FN
+    assert out["judgment"]["intended_status"] == {"pruned": 1}
+
+
+def test_fn_null_when_intended_uncertain():
+    out = m8.judge_question(_ENTRY, _report([("H1", "PIT-T-46", "UNCERTAIN")]), None)
+    assert out["judgment"]["fn"] is None  # UNCERTAIN 不猜
+    assert out["judgment"]["intended_status"] == {"indeterminate": 1}
+
+
+def test_aggregate_counts():
+    rows = [
+        {"judgment": {"tp": True, "fn": False, "refuted_on_intended": [1], "unplanned_confirmed": []}},
+        {"judgment": {"tp": False, "fn": True, "refuted_on_intended": [], "unplanned_confirmed": [1, 2]}},
+        {"judgment": {"tp": False, "fn": None, "refuted_on_intended": [], "unplanned_confirmed": []}},
+        {"judgment": None},
+        {"pipeline": None},
+    ]
+    assert m8._aggregate(rows) == {
+        "questions": 5, "judged": 3, "tp": 1, "fn": 1, "fn_indeterminate": 1,
+        "refuted_on_intended": 1, "unplanned_confirmed": 2,
+    }
 
 
 def test_missing_intended_or_meta_gives_null(tmp_path: Path):

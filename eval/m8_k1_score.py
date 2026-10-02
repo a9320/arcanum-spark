@@ -4,7 +4,9 @@
 军规兼容的独立真值：能拿 flag ⇒ 漏洞真实可利用，无需模型或人工裁判。
 判分口径（协议 §一）：
 - TP      = intended 类目的假设被 CONFIRMED
-- FN      = intended 类目无假设或全被 PRUNE/REFUTED（REFUTED-on-intended = 独立口径 FP）
+- FN      = tp=True → False；intended 类目无假设、或全部 intended 假设被
+            PRUNE/REFUTED → True；存在 UNCERTAIN/未验证 → null 不猜
+            （REFUTED-on-intended = 独立口径 FP）
 - Unplanned = 非 intended 类目的 CONFIRMED（单列，不自动计 FP）
 - 缺失=null 不猜：meta/verifications/hypothesis_set/intended_types 任一缺失 → 该层 null
 
@@ -42,6 +44,51 @@ def _flag_digest(challenge_dir: Path | None) -> dict:
                     "flag_sha256_12": hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12],
                 }
     return {"flag_present": False}
+
+
+def _judge_fn(
+    intended: list | None,
+    type_by_id: dict[str, str | None],
+    verifications: list,
+    gated_ids: set[str] | None,
+    tp: bool | None,
+) -> tuple[bool | None, dict[str, int] | None]:
+    """FN 落定（协议 §一）+ intended 假设状态盘点。
+
+    tp=True → False；intended 类目无假设、或全部 intended 假设被 PRUNE/REFUTED
+    → True；存在 UNCERTAIN/未验证（未被剪但无裁决）→ None 不猜。
+    """
+    if intended is None:
+        return None, None
+    if tp is True:
+        return False, None
+    intended_ids = [hid for hid, t in type_by_id.items() if t in intended]
+    if not intended_ids:
+        return True, None
+    status: list[str] = []
+    for hid in intended_ids:
+        verdict = next(
+            (str(v.get("verdict") or "").upper() for v in verifications
+             if isinstance(v, dict) and str(v.get("hypothesis_id")) == hid),
+            "",
+        )
+        if verdict == "REFUTED":
+            status.append("refuted")
+        elif verdict == "CONFIRMED":
+            status.append("confirmed")  # tp=False 时理论不可达，防御保留
+        elif gated_ids is not None and hid not in gated_ids:
+            status.append("pruned")
+        elif verdict == "UNCERTAIN":
+            status.append("indeterminate")
+        else:
+            status.append("unverified")
+    counts = {
+        s: status.count(s)
+        for s in ("confirmed", "refuted", "pruned", "indeterminate", "unverified")
+    }
+    intended_status = {k: v for k, v in counts.items() if v}
+    fn = True if all(s in ("refuted", "pruned") for s in status) else None
+    return fn, intended_status
 
 
 def judge_question(entry: dict, report: dict | None, upstream_root: Path | None) -> dict:
@@ -93,21 +140,46 @@ def judge_question(entry: dict, report: dict | None, upstream_root: Path | None)
                 refuted_intended.append(row)
         elif verdict == "CONFIRMED":
             unplanned.append(row)
+    gated_meta = meta.get("gated_hypothesis_set")
+    gated_ids = (
+        {str(h.get("id")) for h in gated_meta.get("hypotheses") or []
+         if isinstance(h, dict) and h.get("id")}
+        if isinstance(gated_meta, dict) else None
+    )
+    tp = (
+        bool([r for r in confirmed if r["vuln_type"] in intended])
+        if intended is not None
+        else None
+    )
+    fn, intended_status = _judge_fn(intended, type_by_id, verifications, gated_ids, tp)
     out["pipeline"] = {
         "hypotheses": len(hyps),
         "verifications": len(verifications),
         "confirmed": confirmed,
     }
     out["judgment"] = {
-        "tp": bool([r for r in confirmed if r["vuln_type"] in (intended or [])])
-        if intended is not None
-        else None,
+        "tp": tp,
         "refuted_on_intended": refuted_intended if intended is not None else None,
         "unplanned_confirmed": unplanned if intended is not None else None,
         "unclassifiable": unclassifiable if intended is not None else None,
-        "fn": None,  # FN 由聚合层判定：tp=False 且无未验证的 intended 假设时落定
+        "fn": fn,
+        "intended_status": intended_status,
     }
     return out
+
+
+def _aggregate(rows: list[dict]) -> dict:
+    """跨题聚合（真值对照表汇总行）；judgment=None（未跑/缺 meta）不计入 judged。"""
+    judged = [r["judgment"] for r in rows if isinstance(r.get("judgment"), dict)]
+    return {
+        "questions": len(rows),
+        "judged": len(judged),
+        "tp": sum(1 for j in judged if j.get("tp") is True),
+        "fn": sum(1 for j in judged if j.get("fn") is True),
+        "fn_indeterminate": sum(1 for j in judged if j.get("tp") is False and j.get("fn") is None),
+        "refuted_on_intended": sum(len(j.get("refuted_on_intended") or []) for j in judged),
+        "unplanned_confirmed": sum(len(j.get("unplanned_confirmed") or []) for j in judged),
+    }
 
 
 def main() -> int:
@@ -134,6 +206,7 @@ def main() -> int:
                 report = json.loads(candidate.read_text(encoding="utf-8"))
                 break
         rows.append(judge_question(entry, report, root))
+    print("aggregate: " + json.dumps(_aggregate(rows), ensure_ascii=False), file=sys.stderr)
     payload = json.dumps(rows, ensure_ascii=False, indent=1)
     if args.out:
         Path(args.out).write_text(payload, encoding="utf-8")
