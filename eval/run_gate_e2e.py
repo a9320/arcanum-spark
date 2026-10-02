@@ -10,6 +10,9 @@ eval/replay.py build 可直接消费。
   确定性保护（非 echo 证据 KEEP 优先 / echo·重复·复读沉底）叠加在模型分之上；
 - deterministic：纯确定性排序对照臂（零模型），用于隔离"模型分 vs 结构规则"的贡献。
 
+gate 工厂（make_laya_gate/make_deterministic_gate/resolve_backend）单一数据源在
+codeark/graph/gate_factory.py（生产 dashboard 同源挂载），本模块反向导入。
+
 治理约束（WORK_LOG 2026-09-28 22:58 M4）：M1 v2 裁定通过前**不启用**——本工具入库
 不等于 gate 上线。验收对照指标 = Verify 请求数 / 总耗时 / 裁决分布 / findings 数。
 
@@ -27,23 +30,21 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Any, Callable
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-_EVAL_DIR = str(Path(__file__).resolve().parent)
-if _EVAL_DIR not in sys.path:
-    sys.path.insert(0, _EVAL_DIR)
-
-import replay  # noqa: E402  # eval/replay.py（同目录脚本态导入，build_hard_exam 同款）
 
 from codeark.cli import _read_repo  # noqa: E402
-from codeark.graph.gate import GateResult, rerank_hypotheses  # noqa: E402
+from codeark.graph.gate_factory import (  # noqa: E402  # gate 工厂单一数据源（生产 dashboard 同源）
+    baseline_rows_from_agent0,
+    make_deterministic_gate,
+    make_laya_gate,
+    resolve_backend,
+)
 from codeark.graph.pipeline import CodeRiskGraph  # noqa: E402
 from codeark.models.factory import make_stage_models_from_env  # noqa: E402
 from codeark.models.routing import redact_error  # noqa: E402
-from codeark.models.schemas import HypothesisSet  # noqa: E402
 
 __all__ = [
     "baseline_rows_from_agent0",
@@ -53,59 +54,6 @@ __all__ = [
     "resolve_backend",
     "main",
 ]
-
-
-def baseline_rows_from_agent0(agent0_findings: list[dict] | None) -> list[dict]:
-    """agent0 findings → replay 基线行形态（_laya_state 读 file/rule/title）。"""
-    rows: list[dict] = []
-    for f in agent0_findings or []:
-        if not isinstance(f, dict):
-            continue
-        rows.append({
-            "file": str(f.get("file") or f.get("file_path") or ""),
-            "rule": str(f.get("type") or f.get("rule") or f.get("vuln_type") or ""),
-            "title": str(f.get("title") or ""),
-        })
-    return rows
-
-
-def make_deterministic_gate() -> Callable[[HypothesisSet, list[dict]], GateResult]:
-    """纯确定性排序 gate（零模型）：保护/echo-first/去重/复读/triage≤6 健康加成。"""
-
-    def gate(hypothesis_set, agent0_findings):
-        return rerank_hypotheses(hypothesis_set, agent0_findings, backend="deterministic")
-
-    gate.__name__ = "deterministic_gate"
-    return gate
-
-
-def make_laya_gate(model_path: str) -> Callable[[HypothesisSet, list[dict]], GateResult]:
-    """laya 评分 gate：live HypothesisSet → items → score_laya → scores map → 重排。
-
-    只喂 Scout 阶段信息（_laya_state 契约），Verify 裁决不进 gate——防标签泄漏。
-    """
-    if not model_path:
-        raise ValueError("laya gate 需要 --model <模型目录>")
-
-    def gate(hypothesis_set, agent0_findings):
-        items = [
-            {
-                "id": str(getattr(h, "id", "") or ""),
-                "title": str(getattr(h, "title", "") or ""),
-                "vuln_type": str(getattr(h, "vuln_type", "") or ""),
-                "file_path": str(getattr(h, "file_path", "") or ""),
-                "attack_path": str(getattr(h, "attack_path", "") or ""),
-                "code_snippet": str(getattr(h, "code_snippet", "") or ""),
-            }
-            for h in hypothesis_set.hypotheses
-        ]
-        baseline = baseline_rows_from_agent0(agent0_findings)
-        probs, _confs = replay.score_laya(items, baseline, model_path)
-        scores = {item["id"]: float(p) for item, p in zip(items, probs)}
-        return rerank_hypotheses(hypothesis_set, agent0_findings, scores=scores, backend="laya")
-
-    gate.__name__ = "laya_gate"
-    return gate
 
 
 async def _main(args: argparse.Namespace) -> int:
@@ -207,22 +155,6 @@ def load_pinned_hypotheses(path: str) -> dict:
     if not isinstance(hs, dict) or not hs.get("hypotheses"):
         raise ValueError(f"no hypothesis_set.hypotheses in {path}")
     return hs
-
-
-def resolve_backend(explicit: str | None, env_value: str | None) -> str:
-    """--backend 显式值优先；否则 ARCA_GATE_BACKEND（缺省 laya=挂默认）。
-
-    支持的 env 值：laya（默认）/ deterministic / det；其他值报错——挂载旋钮
-    必须显式可判，静默回落会掩盖配置错误。
-    """
-    if explicit:
-        return explicit
-    value = (env_value or "").strip().lower()
-    if value in ("", "laya"):
-        return "laya"
-    if value in ("deterministic", "det"):
-        return "deterministic"
-    raise ValueError(f"unsupported ARCA_GATE_BACKEND value: {env_value!r}")
 
 
 def main() -> int:

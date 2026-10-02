@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from codeark.graph.gate_factory import build_gate_from_env  # noqa: E402
 from codeark.graph.pipeline import CodeRiskGraph, compute_risk_score  # noqa: E402
 from codeark.memory.memory import get_memory_service  # noqa: E402
 from codeark.models.factory import make_stage_models_from_env  # noqa: E402
@@ -122,7 +123,12 @@ def main() -> None:
         with st.spinner(f"运行 6 节点流水线（{'dry-run' if dry else '按环境配置的真实模型'}）..."):
             try:
                 stage_models = None if dry else make_stage_models_from_env()
-                res = asyncio.run(CodeRiskGraph(dry=dry, stage_models=stage_models).run(files))
+                gate, gate_meta = (None, "") if dry else build_gate_from_env()
+                if not dry and gate is None:
+                    st.warning(f"假设 gate 未挂载，无 gate 继续扫描: {gate_meta}")
+                res = asyncio.run(
+                    CodeRiskGraph(dry=dry, stage_models=stage_models, hypothesis_gate=gate).run(files)
+                )
             except Exception as e:
                 st.error(f"流水线失败: {type(e).__name__}: {str(e)[:300]}")
                 return
