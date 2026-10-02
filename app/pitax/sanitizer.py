@@ -28,7 +28,8 @@ logger = logging.getLogger("coderisk.pitax")
 SCAN_EXTENSIONS = {
     ".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".go", ".rs", ".c", ".h",
     ".cpp", ".hpp", ".cs", ".rb", ".php", ".sh", ".yaml", ".yml", ".json",
-    ".md", ".txt", ".toml", ".cfg", ".ini", ".html", ".vue", ".sql",
+    ".md", ".mdc", ".cursorrules", ".txt", ".toml", ".cfg", ".ini",
+    ".html", ".vue", ".sql",
 }
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build"}
 MAX_FILE_BYTES = 2 * 1024 * 1024  # 2MB，防 zip 炸弹式超大文件

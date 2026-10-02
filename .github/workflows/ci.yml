@@ -1,0 +1,29 @@
+# 确定性 CI（登记册 #4）：零 LLM API 调用，全量回归靠 verify.sh。
+# 引擎集成测试（tests/test_engine_integration.py）需 Redis/rich 运行期环境，
+# verify.sh 内已显式排除（收集安全），此处沿用同一入口避免口径漂移。
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  deterministic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Explicit test count
+        run: python scripts/test_count.py
+
+      - name: Deterministic suite (verify.sh — 5 steps, zero LLM)
+        run: bash verify.sh

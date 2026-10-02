@@ -237,7 +237,7 @@ def detect_ai_config_injection(code: str, file: str) -> list[Finding]:
 
 
 # ────────────────── PIT-N-06: 项目文档投毒 ──────────────────
-DOC_EXTENSIONS = {".md", ".markdown", ".rst", ".txt"}
+DOC_EXTENSIONS = {".md", ".mdc", ".markdown", ".rst", ".txt"}
 
 
 def is_doc_path(path: str) -> bool:
