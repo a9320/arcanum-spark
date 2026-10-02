@@ -17,7 +17,30 @@ It ships in three layers:
 2. **`skills/ai-repo-audit/` — the deterministic PITAX layer packaged as an Agent Skill**: pure-stdlib scanner (Python ≥3.10), zero network / zero GPU, emitting JSON / SARIF 2.1.0 / Markdown reports; installable into any Agent-Skills-compatible client.
 3. **`app/` — the legacy deterministic platform**: the pure-stdlib PITAX engine, FastAPI service, and Celery pipeline (powers the [live demo](https://www.modelscope.cn/studios/Weike22/code-risk-arcanum)).
 
-![6-agent pipeline architecture — rule layer, Scout, Verify, Deepen, Arbiter, Report with heterogeneous model routing](docs/architecture-6node.png)
+```mermaid
+flowchart LR
+    R["RULES · Agent0<br/>PITAX 9 rules — deterministic<br/>no LLM"]
+    S["SCOUT<br/>semantic recon — proposes hypotheses<br/>muse-scout :8081 · Muse-Glimmer-30B"]
+    G["GATE · Laya — optional<br/>KEEP/PRUNE scorer, ~22ms per item<br/>order-only: never deletes a hypothesis"]
+    V["VERIFY<br/>per-hypothesis verdicts<br/>bound tools — can REFUTE<br/>qwen-verify :8182 · Qwen3.8-27B"]
+    D["DEEPEN<br/>attack-chain derivation<br/>r1-deepen :8083 · R1-Distill-32B"]
+    A["ARBITER<br/>multi-source verdict<br/>never the proposer's model family<br/>gemma-arbiter :8084 · Gemma4-26B-A4B"]
+    P["REPORT<br/>JSON / SARIF 2.1.0 / Markdown<br/>no LLM"]
+    R --> S
+    S -.->|optional| G
+    G -.-> V
+    V --> D
+    D --> A
+    A --> P
+    classDef det stroke:#2e7d32,stroke-width:2px
+    classDef llm stroke:#1e88e5,stroke-width:2px
+    classDef gate stroke:#f9a825,stroke-width:2px,stroke-dasharray: 5 3
+    class R,P det
+    class S,V,D,A llm
+    class G gate
+```
+
+*The diagram shows the operative **MI300X local council** (`ARCA_DEPLOYMENT=local`); the original cloud API council remains available via per-stage `ARCA_<STAGE>_*` routing (see below). The Laya gate is optional and strictly order-only — mounting it cannot drop findings.*
 
 ## One-click verification (zero LLM API calls)
 
