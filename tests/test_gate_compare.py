@@ -1,9 +1,11 @@
 """Gate e2e 扩仓验收对照器单测 — 零模型、零网络（合成报告夹具）。
 
-覆盖 compare_gate_e2e 的三个契约：
-1. 健康双臂（reorder-only+no-fallback+质量不降）→ ACCEPT；
+覆盖 compare_gate_e2e 的四个契约：
+1. 健康双臂（reorder-only+no-fallback+质量不降+确认覆盖）→ ACCEPT；
 2. gated 副本丢假设（违反 P1）→ REJECT；
-3. fallback=True（违反 P2）→ REJECT。
+3. fallback=True（违反 P2）→ REJECT；
+4. P4 确认覆盖：数量达标但基线 CONFIRMED 键未覆盖 → REJECT（外审整改）；
+   verifications 缺失 → P4=null 记 missing_evidence。
 """
 from __future__ import annotations
 
@@ -96,3 +98,30 @@ def test_fallback_rejects(tmp_path):
     result = compare.compare_arms(_baseline_file(tmp_path), [arm])
     assert result["verdict"] == "REJECT"
     assert result["arms"][0]["criteria"]["P2_no_fallback"] is False
+
+
+def test_confirmed_coverage_gap_rejects(tmp_path):
+    """外审整改（P4）：P1/P2/P3 全过但基线 CONFIRMED 键未被臂覆盖 → REJECT。"""
+    arm = _arm_dir(tmp_path, gated_ids=["H2", "H1"], fallback=False, confirmed=True)
+    report = json.loads((arm / "e2e_report.json").read_text(encoding="utf-8"))
+    for v in report["meta"]["verifications"]:
+        if v["hypothesis_id"] == "H2":
+            v["verdict"] = "UNCERTAIN"  # 基线 CONFIRMED 的 H2 在臂上掉出确认集
+    (arm / "e2e_report.json").write_text(json.dumps(report), encoding="utf-8")
+    result = compare.compare_arms(_baseline_file(tmp_path), [arm])
+    row = result["arms"][0]
+    assert result["verdict"] == "REJECT"
+    assert row["criteria"]["P3_quality_floor"] is True   # 数量地板仍过——P3 洞实锤
+    assert row["criteria"]["P4_confirmed_coverage"] is False
+    assert row["observations"]["baseline_confirmed_missing_in_arm"] == ["H2"]
+
+
+def test_p4_null_when_verifications_absent(tmp_path):
+    arm = _arm_dir(tmp_path, gated_ids=["H2", "H1"], fallback=False, confirmed=True)
+    report = json.loads((arm / "e2e_report.json").read_text(encoding="utf-8"))
+    del report["meta"]["verifications"]
+    (arm / "e2e_report.json").write_text(json.dumps(report), encoding="utf-8")
+    result = compare.compare_arms(_baseline_file(tmp_path), [arm])
+    row = result["arms"][0]
+    assert row["criteria"]["P4_confirmed_coverage"] is None
+    assert "confirmed_coverage" in row["missing_evidence"]

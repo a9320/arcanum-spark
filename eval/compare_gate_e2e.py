@@ -8,6 +8,11 @@
   P1 reorder-only   gated 副本与原始假设集同 id 同数（结构级"只重排不删"）
   P2 no-fallback    臂 gate.fallback == False
   P3 quality-floor  confirmed 与 final_findings 均不低于无 gate 基线
+  P4 confirmed-coverage  基线 CONFIRMED 假设逐键 ⊆ 臂 CONFIRMED（外审整改
+      2026-10-02：数量判据对"假设集漂移丢真威胁"失明——gate11 v27 基线 CONFIRMED
+      的 H6 不在 laya 臂宇宙即为实例）。未钉假设集的数据上 id 是位置级键，
+      P4 失败=宇宙漂移或真损失，从严 REJECT；任一侧 verifications 缺失→null
+      不猜，记入 missing_evidence。
 观测项（不作硬判据）：verify_requests、protected_ids、elapsed、node_errors、语义增量。
 
 用法：
@@ -39,6 +44,19 @@ def _hyp_ids(meta: dict[str, Any], key: str) -> list[str]:
     return [str(row.get("id")) for row in rows if isinstance(row, dict) and row.get("id")]
 
 
+def _confirmed_ids(report: dict[str, Any]) -> set[str] | None:
+    """报告的 CONFIRMED 假设 id 集；verifications 缺失 → None（不猜）。"""
+    vers = (report.get("meta") or {}).get("verifications")
+    if not isinstance(vers, list):
+        return None
+    return {
+        str(row.get("hypothesis_id"))
+        for row in vers
+        if isinstance(row, dict) and row.get("hypothesis_id")
+        and str(row.get("verdict") or "").upper() == "CONFIRMED"
+    }
+
+
 def _load_arm(arm_dir: Path) -> dict[str, Any]:
     summary_path = arm_dir / "summary.json"
     report_path = arm_dir / "e2e_report.json"
@@ -50,8 +68,13 @@ def _load_arm(arm_dir: Path) -> dict[str, Any]:
     return {"summary": summary, "report": report}
 
 
-def accept_arm(baseline_row: dict[str, Any], baseline_keys: set[tuple[str, str]], arm_dir: Path) -> dict[str, Any]:
-    """对照基线行评一个 gate 臂：硬判据 P1/P2/P3 + 观测项，缺失=null 不猜。"""
+def accept_arm(
+    baseline_row: dict[str, Any],
+    baseline_keys: set[tuple[str, str]],
+    arm_dir: Path,
+    baseline_confirmed: set[str] | None = None,
+) -> dict[str, Any]:
+    """对照基线行评一个 gate 臂：硬判据 P1-P4 + 观测项，缺失=null 不猜。"""
     arm_dir = Path(arm_dir)
     loaded = _load_arm(arm_dir)
     summary, report = loaded["summary"], loaded["report"]
@@ -68,6 +91,14 @@ def accept_arm(baseline_row: dict[str, Any], baseline_keys: set[tuple[str, str]]
     fallback = gate_info.get("fallback", summary.get("gate", {}).get("fallback"))
     protected = gate_info.get("protected_ids", summary.get("gate", {}).get("protected_ids"))
 
+    arm_confirmed = _confirmed_ids(report)
+    coverage_missing = baseline_confirmed is None or arm_confirmed is None
+    confirmed_coverage = None if coverage_missing else baseline_confirmed <= arm_confirmed
+    missing_confirmed = (
+        sorted(baseline_confirmed - arm_confirmed)
+        if not coverage_missing else None
+    )
+
     criteria = {
         "P1_reorder_only": reorder_only,
         "P2_no_fallback": fallback is False,
@@ -75,17 +106,23 @@ def accept_arm(baseline_row: dict[str, Any], baseline_keys: set[tuple[str, str]]
             row["confirmed"] >= baseline_row["confirmed"]
             and row["final_findings"] >= baseline_row["final_findings"]
         ),
+        "P4_confirmed_coverage": confirmed_coverage,
     }
+    core_ok = all(
+        criteria[key] is True
+        for key in ("P1_reorder_only", "P2_no_fallback", "P3_quality_floor")
+    )
     return {
         "arm": arm_dir.name,
         "backend": summary.get("backend") or gate_info.get("backend"),
         "criteria": criteria,
-        "passed": all(criteria.values()),
+        "passed": core_ok and confirmed_coverage is not False,
         "observations": {
             "hypotheses": row["baseline_findings"],
             "verify_requests": summary.get("verify_requests"),
             "confirmed_vs_baseline": [row["confirmed"], baseline_row["confirmed"]],
             "final_findings_vs_baseline": [row["final_findings"], baseline_row["final_findings"]],
+            "baseline_confirmed_missing_in_arm": missing_confirmed,
             "semantic_increment_confirmed": row["semantic_increment_confirmed"],
             "refuted": row["refuted"],
             "uncertain": row["uncertain"],
@@ -98,6 +135,7 @@ def accept_arm(baseline_row: dict[str, Any], baseline_keys: set[tuple[str, str]]
             for key, value in (
                 ("fallback", fallback),
                 ("verify_requests", summary.get("verify_requests")),
+                ("confirmed_coverage", None if coverage_missing else "present"),
             )
             if value is None
         ],
@@ -105,17 +143,23 @@ def accept_arm(baseline_row: dict[str, Any], baseline_keys: set[tuple[str, str]]
 
 
 def compare_arms(baseline_path: str | Path, arm_dirs: list[str | Path]) -> dict[str, Any]:
+    baseline_path = Path(baseline_path)
+    baseline_json = json.loads(baseline_path.read_text(encoding="utf-8"))
     baseline_row = summarize_ablation.summarize_report(baseline_path, arm="baseline_no_gate")
     baseline_keys = {
         summarize_ablation._finding_key(row)  # noqa: SLF001  # 共享基线键集，与消融器同源
-        for row in (json.loads(Path(baseline_path).read_text(encoding="utf-8")).get("meta") or {}).get("agent0_findings") or []
+        for row in (baseline_json.get("meta") or {}).get("agent0_findings") or []
         if isinstance(row, dict)
     }
-    arms = [accept_arm(baseline_row, baseline_keys, Path(d)) for d in arm_dirs]
+    baseline_confirmed = _confirmed_ids(baseline_json)
+    arms = [
+        accept_arm(baseline_row, baseline_keys, Path(d), baseline_confirmed)
+        for d in arm_dirs
+    ]
     overall = all(arm["passed"] for arm in arms) and bool(arms)
     return {
-        "schema": "gate-e2e-acceptance/1",
-        "baseline": baseline_path and str(baseline_path),
+        "schema": "gate-e2e-acceptance/2",
+        "baseline": str(baseline_path),
         "verdict": "ACCEPT" if overall else "REJECT",
         "arms": arms,
     }
@@ -126,19 +170,23 @@ def render_markdown(acceptance: dict[str, Any]) -> str:
         "# Gate e2e Acceptance",
         "",
         f"> baseline=`{acceptance['baseline']}` — verdict: **{acceptance['verdict']}** "
-        "(P1 reorder-only / P2 no-fallback / P3 quality-floor; REFUTED is a model verdict, not an FP rate)",
+        "(P1 reorder-only / P2 no-fallback / P3 quality-floor / P4 confirmed-coverage; "
+        "REFUTED is a model verdict, not an FP rate)",
         "",
-        "| Arm | Backend | P1 | P2 | P3 | Confirmed(base) | Final(base) | Verify req | Protected | Seconds | Verdict |",
-        "| --- | --- | --- | --- | --- | --- | --- | ---: | --- | ---: | --- |",
+        "| Arm | Backend | P1 | P2 | P3 | P4 | Confirmed(base) | Final(base) | Verify req | Protected | Seconds | Verdict |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for arm in acceptance["arms"]:
         obs = arm["observations"]
         conf, final = arm["criteria"], obs
+        p4 = conf["P4_confirmed_coverage"]
+        p4_cell = "✅" if p4 is True else ("❌" if p4 is False else "–")
         lines.append(
             f"| {arm['arm']} | {arm.get('backend') or 'null'} "
             f"| {'✅' if conf['P1_reorder_only'] else '❌'} "
             f"| {'✅' if conf['P2_no_fallback'] else '❌'} "
             f"| {'✅' if conf['P3_quality_floor'] else '❌'} "
+            f"| {p4_cell} "
             f"| {obs['confirmed_vs_baseline'][0]}({obs['confirmed_vs_baseline'][1]}) "
             f"| {obs['final_findings_vs_baseline'][0]}({obs['final_findings_vs_baseline'][1]}) "
             f"| {obs['verify_requests'] if obs['verify_requests'] is not None else 'null'} "
@@ -146,6 +194,10 @@ def render_markdown(acceptance: dict[str, Any]) -> str:
             f"| {obs['elapsed_seconds'] if obs['elapsed_seconds'] is not None else 'null'} "
             f"| {'PASS' if arm['passed'] else 'FAIL'} |"
         )
+    for arm in acceptance["arms"]:
+        missing = arm["observations"].get("baseline_confirmed_missing_in_arm")
+        if missing:
+            lines.append(f"> {arm['arm']}: 基线 CONFIRMED 未覆盖键: {', '.join(missing)}")
     return "\n".join(lines) + "\n"
 
 
