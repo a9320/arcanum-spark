@@ -1,0 +1,75 @@
+{
+  "schema": "gate-e2e-acceptance/2",
+  "baseline": "/mnt/workspace/runs/20261002-gate12v3/nogate_v23/report.json",
+  "verdict": "ACCEPT",
+  "arms": [
+    {
+      "arm": "laya_v23",
+      "backend": "laya",
+      "criteria": {
+        "P1_reorder_only": true,
+        "P2_no_fallback": true,
+        "P3_quality_floor": true,
+        "P4_confirmed_coverage": true
+      },
+      "passed": true,
+      "observations": {
+        "hypotheses": 14,
+        "verify_requests": 6,
+        "confirmed_vs_baseline": [
+          4,
+          4
+        ],
+        "final_findings_vs_baseline": [
+          11,
+          11
+        ],
+        "baseline_confirmed_missing_in_arm": [],
+        "semantic_increment_confirmed": 4,
+        "refuted": 0,
+        "uncertain": 2,
+        "protected_ids": [
+          "H3",
+          "H6"
+        ],
+        "elapsed_seconds": 1067.504,
+        "node_errors": {}
+      },
+      "missing_evidence": []
+    },
+    {
+      "arm": "det_v23",
+      "backend": "deterministic",
+      "criteria": {
+        "P1_reorder_only": true,
+        "P2_no_fallback": true,
+        "P3_quality_floor": true,
+        "P4_confirmed_coverage": true
+      },
+      "passed": true,
+      "observations": {
+        "hypotheses": 14,
+        "verify_requests": 6,
+        "confirmed_vs_baseline": [
+          4,
+          4
+        ],
+        "final_findings_vs_baseline": [
+          11,
+          11
+        ],
+        "baseline_confirmed_missing_in_arm": [],
+        "semantic_increment_confirmed": 4,
+        "refuted": 0,
+        "uncertain": 2,
+        "protected_ids": [
+          "H3",
+          "H6"
+        ],
+        "elapsed_seconds": 1075.84,
+        "node_errors": {}
+      },
+      "missing_evidence": []
+    }
+  ]
+}

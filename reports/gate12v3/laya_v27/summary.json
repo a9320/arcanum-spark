@@ -1,0 +1,50 @@
+{
+  "repo": "/mnt/workspace/repos/variant-27",
+  "backend": "laya",
+  "hypothesis_source": "pinned",
+  "gate": {
+    "enabled": true,
+    "backend": "laya",
+    "fallback": false,
+    "triage_healthy": true,
+    "ordered_ids": [
+      "H4",
+      "H5",
+      "H2",
+      "H3",
+      "H1"
+    ],
+    "selected_ids": [
+      "H4",
+      "H5",
+      "H2",
+      "H3",
+      "H1"
+    ],
+    "pruned_ids": [],
+    "scores": {
+      "H1": 0.9486,
+      "H2": 0.9731,
+      "H3": 0.9518,
+      "H4": 1000.8054,
+      "H5": 0.9998
+    },
+    "protected_ids": [
+      "H4"
+    ],
+    "echo_ids": [],
+    "duplicate_ids": [],
+    "degenerate_ids": []
+  },
+  "elapsed_seconds": 652.934,
+  "files": 11,
+  "hypotheses": 5,
+  "verify_requests": 5,
+  "verdicts": {
+    "CONFIRMED": 4,
+    "UNCERTAIN": 1
+  },
+  "final_findings": 4,
+  "risk_score": 12,
+  "node_errors": {}
+}

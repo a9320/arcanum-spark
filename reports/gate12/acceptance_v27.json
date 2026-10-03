@@ -1,0 +1,79 @@
+{
+  "schema": "gate-e2e-acceptance/2",
+  "baseline": "reports/gate11/nogate_v27/report.json",
+  "verdict": "REJECT",
+  "arms": [
+    {
+      "arm": "laya_v27",
+      "backend": "laya",
+      "criteria": {
+        "P1_reorder_only": true,
+        "P2_no_fallback": true,
+        "P3_quality_floor": false,
+        "P4_confirmed_coverage": false
+      },
+      "passed": false,
+      "observations": {
+        "hypotheses": 14,
+        "verify_requests": 6,
+        "confirmed_vs_baseline": [
+          4,
+          6
+        ],
+        "final_findings_vs_baseline": [
+          11,
+          13
+        ],
+        "baseline_confirmed_missing_in_arm": [
+          "H2",
+          "H3"
+        ],
+        "semantic_increment_confirmed": 4,
+        "refuted": 0,
+        "uncertain": 2,
+        "protected_ids": [
+          "H3"
+        ],
+        "elapsed_seconds": 1959.511,
+        "node_errors": {}
+      },
+      "missing_evidence": []
+    },
+    {
+      "arm": "det_v27",
+      "backend": "deterministic",
+      "criteria": {
+        "P1_reorder_only": true,
+        "P2_no_fallback": true,
+        "P3_quality_floor": false,
+        "P4_confirmed_coverage": false
+      },
+      "passed": false,
+      "observations": {
+        "hypotheses": 14,
+        "verify_requests": 6,
+        "confirmed_vs_baseline": [
+          4,
+          6
+        ],
+        "final_findings_vs_baseline": [
+          11,
+          13
+        ],
+        "baseline_confirmed_missing_in_arm": [
+          "H2",
+          "H3"
+        ],
+        "semantic_increment_confirmed": 4,
+        "refuted": 0,
+        "uncertain": 2,
+        "protected_ids": [
+          "H3"
+        ],
+        "elapsed_seconds": 1486.424,
+        "node_errors": {}
+      },
+      "missing_evidence": []
+    }
+  ]
+}
