@@ -1,0 +1,257 @@
+[
+ {
+  "challenge_id": "I Got Id",
+  "upstream_path": "development/2016/CSAW-Quals/web/I Got Id",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "PATH_TRAVERSAL",
+   "COMMAND_INJECTION",
+   "CODE_INJECTION",
+   "ARBITRARY_FILE_READ"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "nekocat",
+  "upstream_path": "removed/2018/CSAW-Finals/web/nekocat",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "DESERIALIZATION",
+   "COMMAND_INJECTION",
+   "SSTI",
+   "PATH_TRAVERSAL"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "raid_fat_fs_chal",
+  "upstream_path": "removed/2018/CSAW-Finals/web/raid_fat_fs_chal",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "PATH_TRAVERSAL",
+   "ARBITRARY_FILE_READ",
+   "LOGIC_ERROR"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "very_SaaSy",
+  "upstream_path": "removed/2019/CSAW-Finals/web/very_SaaSy",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "SQL_INJECTION",
+   "AUTH_BYPASS",
+   "IDOR",
+   "XSS"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "saasy",
+  "upstream_path": "removed/2019/CSAW-Quals/web/saasy",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "SQL_INJECTION",
+   "AUTH_BYPASS",
+   "IDOR",
+   "XSS"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "secure_file_store",
+  "upstream_path": "removed/2019/CSAW-Quals/web/secure_file_store",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "PATH_TRAVERSAL",
+   "ARBITRARY_FILE_READ",
+   "UNRESTRICTED_FILE_UPLOAD",
+   "LOCAL_FILE_INCLUSION"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "unagi",
+  "upstream_path": "removed/2019/CSAW-Quals/web/unagi",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "DESERIALIZATION",
+   "LOCAL_FILE_INCLUSION",
+   "COMMAND_INJECTION",
+   "PHP_OBJECT_INJECTION"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "flask_caching",
+  "upstream_path": "removed/2020/CSAW-Quals/web/flask_caching",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "DESERIALIZATION",
+   "SSTI",
+   "CACHE_POISONING",
+   "PICKLE_INSECURE_LOAD"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "real-time-chat",
+  "upstream_path": "removed/2020/CSAW-Quals/web/real-time-chat",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "XSS",
+   "CROSS_SITE_SCRIPTING",
+   "COMMAND_INJECTION",
+   "PATH_TRAVERSAL"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "whistleblow",
+  "upstream_path": "removed/2020/CSAW-Quals/web/whistleblow",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "XSS",
+   "SQL_INJECTION",
+   "COMMAND_INJECTION",
+   "CROSS_SITE_SCRIPTING"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "United",
+  "upstream_path": "removed/2021/CSAW-Finals/web/United",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "SSTI",
+   "SERVER_SIDE_TEMPLATE_INJECTION",
+   "REMOTE_CODE_EXECUTION",
+   "CODE_INJECTION"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "good_intentions",
+  "upstream_path": "removed/2022/CSAW-Quals/web/good_intentions",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "COMMAND_INJECTION",
+   "SSRF",
+   "LOGIC_ERROR"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "search_for_pi",
+  "upstream_path": "removed/2022/CSAW-Quals/web/search_for_pi",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "SQL_INJECTION",
+   "LIKE_INJECTION",
+   "XSS",
+   "SSTI"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "nft-world",
+  "upstream_path": "removed/2023/CSAW-Finals/web/nft-world",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "AUTH_BYPASS",
+   "JWT_VULNERABILITY",
+   "SSRF",
+   "IDOR"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "webhooktester",
+  "upstream_path": "removed/2023/CSAW-Finals/web/webhooktester",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "SSRF",
+   "SERVER_SIDE_REQUEST_FORGERY",
+   "COMMAND_INJECTION"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "notmycupofcoffe",
+  "upstream_path": "test/2017/CSAW-Quals/web/notmycupofcoffe",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "JAVA_DESERIALIZATION",
+   "DESERIALIZATION",
+   "PATH_TRAVERSAL"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "nvs",
+  "upstream_path": "test/2018/CSAW-Quals/web/nvs",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "SQL_INJECTION",
+   "PATH_TRAVERSAL",
+   "COMMAND_INJECTION",
+   "XSS"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "picgram",
+  "upstream_path": "test/2020/CSAW-Finals/web/picgram",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "SQL_INJECTION",
+   "IDOR",
+   "PATH_TRAVERSAL"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "gatekeeping",
+  "upstream_path": "test/2021/CSAW-Quals/web/gatekeeping",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "AUTH_BYPASS",
+   "JWT_VULNERABILITY",
+   "ACCESS_CONTROL",
+   "LOGIC_ERROR"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ },
+ {
+  "challenge_id": "poem-collection",
+  "upstream_path": "test/2021/CSAW-Quals/web/poem-collection",
+  "category": "web",
+  "flag_present": true,
+  "intended_types": [
+   "SQL_INJECTION",
+   "LOCAL_FILE_INCLUSION",
+   "XSS",
+   "COMMAND_INJECTION"
+  ],
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+ }
+]
