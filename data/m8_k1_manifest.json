@@ -44,11 +44,10 @@
   "flag_present": true,
   "intended_types": [
    "SQL_INJECTION",
-   "AUTH_BYPASS",
-   "IDOR",
-   "XSS"
+   "BLIND_SQL_INJECTION",
+   "TIME_BASED_SQL_INJECTION"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿 [10-04源码复核:SQL_INJECTION,AUTH_BYPASS,IDOR,XSS->SQL_INJECTION,BLIND_SQL_INJECTION,TIME_BASED_SQL_INJECTION]"
  },
  {
   "challenge_id": "saasy",
@@ -57,11 +56,10 @@
   "flag_present": true,
   "intended_types": [
    "SQL_INJECTION",
-   "AUTH_BYPASS",
-   "IDOR",
-   "XSS"
+   "BLIND_SQL_INJECTION",
+   "ARBITRARY_FILE_READ"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿 [10-04源码复核:SQL_INJECTION,AUTH_BYPASS,IDOR,XSS->SQL_INJECTION,BLIND_SQL_INJECTION,ARBITRARY_FILE_READ]"
  },
  {
   "challenge_id": "secure_file_store",
@@ -69,12 +67,12 @@
   "category": "web",
   "flag_present": true,
   "intended_types": [
-   "PATH_TRAVERSAL",
-   "ARBITRARY_FILE_READ",
+   "XSS",
+   "CROSS_SITE_SCRIPTING",
    "UNRESTRICTED_FILE_UPLOAD",
-   "LOCAL_FILE_INCLUSION"
+   "PATH_TRAVERSAL"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿 [10-04源码复核:PATH_TRAVERSAL,ARBITRARY_FILE_READ,UNRESTRICTED_FILE_UPLOAD,LOCAL_FILE_INCLUSION->XSS,CROSS_SITE_SCRIPTING,UNRESTRICTED_FILE_UPLOAD,PATH_TRAVERSAL]"
  },
  {
   "challenge_id": "unagi",
@@ -209,12 +207,13 @@
   "category": "web",
   "flag_present": true,
   "intended_types": [
-   "SQL_INJECTION",
-   "PATH_TRAVERSAL",
-   "COMMAND_INJECTION",
-   "XSS"
+   "XSS",
+   "CROSS_SITE_SCRIPTING",
+   "SSRF",
+   "SERVER_SIDE_REQUEST_FORGERY",
+   "COMMAND_INJECTION"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿 [10-04源码复核:SQL_INJECTION,PATH_TRAVERSAL,COMMAND_INJECTION,XSS->XSS,CROSS_SITE_SCRIPTING,SSRF,SERVER_SIDE_REQUEST_FORGERY,COMMAND_INJECTION]"
  },
  {
   "challenge_id": "picgram",
