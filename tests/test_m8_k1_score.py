@@ -84,7 +84,90 @@ def test_aggregate_counts():
     assert m8._aggregate(rows) == {
         "questions": 5, "judged": 3, "tp": 1, "fn": 1, "fn_indeterminate": 1,
         "refuted_on_intended": 1, "unplanned_confirmed": 2,
+        "infra_fail": 0, "artifact_confirmed": 0,
+        "tp_semantic": 0, "fn_semantic": 0, "fn_indeterminate_semantic": 0,
+        "refuted_on_intended_semantic": 0,
     }
+
+
+# ── v0.1：infra_fail（空跑根因标记） ──
+
+def test_infra_fail_true_when_empty_hyps_and_node_errors():
+    report = {"meta": {"hypothesis_set": {"hypotheses": []}, "verifications": [],
+                       "node_errors": {"scout": "BadRequestError 400 exceed context"}}}
+    out = m8.judge_question(_ENTRY, report, None)
+    assert out["judgment"]["infra_fail"] is True
+    assert out["judgment"]["fn"] is True  # 漏报计数语义不变，仅加根因标记
+
+
+def test_infra_fail_false_when_healthy_or_nonempty():
+    healthy = {"meta": {"hypothesis_set": {"hypotheses": []}, "verifications": [],
+                        "node_errors": {}}}
+    assert m8.judge_question(_ENTRY, healthy, None)["judgment"]["infra_fail"] is False
+
+    produced = _report([("H1", "PIT-T-46", "CONFIRMED")])
+    produced["meta"]["node_errors"] = {"deepen": "transient"}
+    out = m8.judge_question(_ENTRY, produced, None)
+    assert out["judgment"]["infra_fail"] is False  # 有假设 = 非空跑
+
+
+# ── v0.1：artifact 剥离 ──
+
+def _report_fp(rows: list[tuple[str, str, str, str | None]]) -> dict:
+    hyps = [{"id": h, "vuln_type": t, "title": f"t-{h}",
+             **({"file_path": fp} if fp else {})} for h, t, _, fp in rows]
+    vers = [{"hypothesis_id": h, "hypothesis_title": f"t-{h}", "verdict": v}
+            for h, _, v, _ in rows]
+    return {"meta": {"hypothesis_set": {"hypotheses": hyps}, "verifications": vers}}
+
+
+def test_artifact_split_from_unplanned():
+    report = _report_fp([
+        ("H1", "INFORMATION_DISCLOSURE", "CONFIRMED", "challenge.json"),   # artifact 落点
+        ("H2", "INFORMATION_DISCLOSURE", "CONFIRMED", "routes/admins.js"),  # 真实发现
+        ("H3", "INFORMATION_DISCLOSURE", "CONFIRMED", "flag"),              # artifact 落点
+    ])
+    out = m8.judge_question(_ENTRY, report, None)
+    assert [r["id"] for r in out["judgment"]["artifact_confirmed"]] == ["H1", "H3"]
+    assert [r["id"] for r in out["judgment"]["unplanned_confirmed"]] == ["H2"]
+    agg = m8._aggregate([out])
+    assert agg["artifact_confirmed"] == 2 and agg["unplanned_confirmed"] == 1
+
+
+# ── v0.1：语义等价类口径 ──
+
+def test_semantic_equivalence_class_tp():
+    report = _report([("H1", "DESERIALIZATION_RCE", "CONFIRMED")])
+    entry = dict(_ENTRY, intended_types=["DESERIALIZATION"])
+    out = m8.judge_question(entry, report, None)
+    assert out["judgment"]["tp"] is False            # 机制口径：词表错位
+    assert out["judgment"]["fn"] is True
+    assert out["judgment"]["semantic"]["tp"] is True  # 语义口径：等价类命中
+    assert out["judgment"]["semantic"]["fn"] is False
+
+
+def test_semantic_refuted_on_intended():
+    report = _report([("H1", "TEMPLATE_INJECTION", "REFUTED")])
+    entry = dict(_ENTRY, intended_types=["SSTI"])
+    out = m8.judge_question(entry, report, None)
+    assert out["judgment"]["refuted_on_intended"] == []            # 机制口径不匹配
+    assert [r["id"] for r in out["judgment"]["semantic"]["refuted_on_intended"]] == ["H1"]
+    assert out["judgment"]["semantic"]["fn"] is True
+
+
+def test_weak_mapping_not_adopted():
+    report = _report([("H1", "REMOTE_CODE_EXECUTION", "CONFIRMED")])
+    entry = dict(_ENTRY, intended_types=["COMMAND_INJECTION"])
+    out = m8.judge_question(entry, report, None)
+    # RCE→CI 是弱映射，v0.1 不收：两个口径都落 unplanned
+    assert out["judgment"]["semantic"]["unplanned_confirmed"][0]["id"] == "H1"
+    assert out["judgment"]["semantic"]["tp"] is False
+
+
+def test_semantic_null_when_intended_missing():
+    entry = dict(_ENTRY, intended_types=None)
+    out = m8.judge_question(entry, _report([("H1", "DESERIALIZATION_RCE", "CONFIRMED")]), None)
+    assert out["judgment"]["semantic"] is None  # intended 未定 → 语义层不猜
 
 
 def test_missing_intended_or_meta_gives_null(tmp_path: Path):
