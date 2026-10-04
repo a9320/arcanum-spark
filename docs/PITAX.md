@@ -82,7 +82,7 @@ PITAX findings 在 SARIF 中生成 `tool.driver.rules[]`（规则元数据）与
 ```
 app/pitax/
 ├── rules.py        # 规则注册表（官方编号/名称/严重级/映射/参考链接）
-├── detectors.py    # 9 条确定性检测器（不可见字符/Bidi/配置/注释/文档/编码分层解码）
+├── detectors.py    # 确定性检测器：路径分流（PIT-T-46 AI 指令文件 / PIT-N-06 文档投毒）+ 6 个内容检测器，覆盖 9 条规则
 ├── sanitizer.py    # InputSanitizer（Agent 0）+ scan_directory + 按文件类型分发
 ├── sarif.py        # SARIF 2.1.0 输出（PITAX 元数据扩展）
 └── cli.py          # 零依赖演示 CLI（人类可读 / JSON / SARIF）
@@ -90,7 +90,7 @@ app/prompt_guard.py # 主线 A：系统提示金库 + 输出护栏
 app/agents/sanitizer_agent.py  # Agent 0（接入 Celery 流水线）
 app/tasks.py        # Agent 0 → Agent 1-4 流水线 + 报告护栏
 demo/               # 演示仓库生成器
-tests/              # 正/负样本测试套件（36 用例，防误报回归）
+tests/              # 测试套件（全仓 282 用例，其中 PITAX 相关 54：正/负样本回归防误报）
 ```
 
 ## 流水线集成（Agent 0）
@@ -104,7 +104,7 @@ Agent 0 (PITAX 预扫描) → Agent 1 (静态) → Agent 2 (语义) → Agent 3 
 ## 测试
 
 ```bash
-python -m pytest tests/ -v   # 36 passed：正样本检出 + 负样本零误报 + 映射/SARIF/护栏验证
+python -m pytest tests/ -q   # 282 passed（2026-10-04 实测）：PITAX 正/负样本 + 映射/SARIF/护栏 + 全仓回归
 ```
 
 ## 参考资源

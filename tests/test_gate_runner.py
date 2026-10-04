@@ -24,7 +24,10 @@ def _load(name: str, relative: str):
 
 
 runner = _load("gate_e2e_runner", "eval/run_gate_e2e.py")
-import replay  # noqa: E402  # runner 加载时已把 eval/ 插入 sys.path → 同一模块实例
+import sys  # noqa: E402
+
+sys.path.insert(0, str(ROOT / "eval"))  # 自包含：不依赖兄弟测试的加载副作用
+import replay  # noqa: E402  # 与 runner 内部 import 同一模块实例
 
 
 def _hs() -> HypothesisSet:

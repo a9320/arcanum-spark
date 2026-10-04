@@ -140,6 +140,9 @@ def get_key(provider: ModelProvider) -> str:
 
 
 # ── 模型路由表 ──
+# ⚠️ legacy 档位表（make_model 专用）——现役管线路由见下方
+# _REMOTE_ROUTE_DEFAULTS（云端五端点）/ _LOCAL_ROUTE_DEFAULTS（本地四 llama-server）。
+# 本表与现役路由并存仅作 make_model 的通用档位支持；新增节点配置勿在此表操作。
 
 _MODEL_MAP: dict[tuple[ModelProvider, ModelTier], dict[str, str]] = {
     # GLM-5.3 系列（TokenRouter，OpenAI 兼容）
@@ -225,12 +228,10 @@ def make_model(
 ) -> OpenAIModel:
     """按 provider/tier 构造 OpenAIModel。
 
-    推荐用法（Weike 定稿 2026-09-09）：
-        - Scout:        make_model(ModelProvider.GLM, ModelTier.FLASH)   # GLM-5.2
-        - Verify:       make_model(ModelProvider.KIMI, ModelTier.PRO)    # Kimi-K3
-        - Deepen:       make_model(ModelProvider.KIMI, ModelTier.PRO)    # Kimi-K3
-        - Arbiter:      make_model(ModelProvider.KIMI, ModelTier.PRO)    # Kimi-K3
-        - Fallback:     make_model(ModelProvider.AMD, ModelTier.FLASH)   # DeepSeek-V4-Flash 免费
+    ⚠️ legacy 档位表入口（2026-09-09 定稿的历史选型）——**现役管线路由不经过
+    本函数**：管线四阶段走 make_stage_models_from_env()，按 ARCA_DEPLOYMENT 分流
+    到 _REMOTE_ROUTE_DEFAULTS（云端五端点 named-routes）或 _LOCAL_ROUTE_DEFAULTS
+    （MI300X 四 llama-server）。本函数仅保留给外部脚本兼容/单独模型构造。
     """
     if isinstance(provider, str):
         provider = ModelProvider(provider)
