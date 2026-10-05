@@ -1,0 +1,303 @@
+{
+  "summary": {
+    "schema": "laya-timing/1",
+    "model": "/mnt/workspace/models/laya-r8",
+    "dataset": "reports/hard-exam-v2/gate_dataset_hard.json",
+    "n_items": 24,
+    "model_load_seconds": 19.108,
+    "latency_ms": {
+      "first_call": 3237.3,
+      "median": 20.5,
+      "min": 19.7,
+      "max": 3237.3,
+      "total": 3715.1
+    },
+    "accuracy@0.5": {
+      "tp": 6,
+      "fp": 1,
+      "tn": 17,
+      "fn": 0,
+      "accuracy": 0.9583,
+      "false_prune_rate": 0.0,
+      "false_keep_rate": 0.0556
+    },
+    "AP(KEEP)": 0.9484,
+    "Brier": 0.0464,
+    "ECE": 0.0734,
+    "wrong_items": [
+      {
+        "id": "BOUND-5B",
+        "label": "PRUNE",
+        "pred": "KEEP",
+        "p_keep": 0.9634,
+        "title": "Backup routine collects stored credentials and ships them of"
+      }
+    ]
+  },
+  "items": [
+    {
+      "id": "ECHO-1",
+      "label": "PRUNE",
+      "p_keep": 0.0007,
+      "confidence": 0.9916,
+      "pred": "PRUNE",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 3237.3,
+      "title": "AI rule file contains instruction override and role hijack p"
+    },
+    {
+      "id": "ECHO-2",
+      "label": "PRUNE",
+      "p_keep": 0.0004,
+      "confidence": 0.9955,
+      "pred": "PRUNE",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 22.8,
+      "title": "Copilot instruction file overrides instructions and disables"
+    },
+    {
+      "id": "ECHO-3",
+      "label": "PRUNE",
+      "p_keep": 0.004,
+      "confidence": 0.962,
+      "pred": "PRUNE",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 20.6,
+      "title": "Doc poisoning: tricks the agent into uploading .env to an ex"
+    },
+    {
+      "id": "ECHO-4",
+      "label": "PRUNE",
+      "p_keep": 0.0006,
+      "confidence": 0.9926,
+      "pred": "PRUNE",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 20.4,
+      "title": "Trojan Source bidirectional control characters visually reor"
+    },
+    {
+      "id": "ECHO-5",
+      "label": "PRUNE",
+      "p_keep": 0.0008,
+      "confidence": 0.9911,
+      "pred": "PRUNE",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 20.5,
+      "title": "Invisible Unicode characters smuggled into source (zero-widt"
+    },
+    {
+      "id": "ECHO-6",
+      "label": "PRUNE",
+      "p_keep": 0.0004,
+      "confidence": 0.9947,
+      "pred": "PRUNE",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 21.7,
+      "title": "Comment disguised as system message attempts to leak the sys"
+    },
+    {
+      "id": "PARA-1",
+      "label": "PRUNE",
+      "p_keep": 0.0312,
+      "confidence": 0.7997,
+      "pred": "PRUNE",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 20.5,
+      "title": "Cursor directives quietly seize the assistant persona, then "
+    },
+    {
+      "id": "PARA-2",
+      "label": "PRUNE",
+      "p_keep": 0.0012,
+      "confidence": 0.9871,
+      "pred": "PRUNE",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 20.3,
+      "title": "The onboarding doc flips the coding assistant into an unrest"
+    },
+    {
+      "id": "PARA-3",
+      "label": "PRUNE",
+      "p_keep": 0.01,
+      "confidence": 0.9193,
+      "pred": "PRUNE",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 20.1,
+      "title": "Guide page coaxes the coding assistant into shipping secret "
+    },
+    {
+      "id": "PARA-4",
+      "label": "PRUNE",
+      "p_keep": 0.0032,
+      "confidence": 0.9685,
+      "pred": "PRUNE",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 21.2,
+      "title": "Hidden text-direction flips make the permission test read di"
+    },
+    {
+      "id": "PARA-5",
+      "label": "PRUNE",
+      "p_keep": 0.0011,
+      "confidence": 0.9876,
+      "pred": "PRUNE",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 20.6,
+      "title": "Unprintable glyphs ride along inside reward logic, unseen in"
+    },
+    {
+      "id": "PARA-6",
+      "label": "PRUNE",
+      "p_keep": 0.0012,
+      "confidence": 0.9868,
+      "pred": "PRUNE",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 20.5,
+      "title": "A note in the scoring module pretends to be the runtime and "
+    },
+    {
+      "id": "BOUND-1K",
+      "label": "KEEP",
+      "p_keep": 0.7916,
+      "confidence": 0.2615,
+      "pred": "KEEP",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 21.8,
+      "title": "Double base64-encoded payload hidden in migration constant"
+    },
+    {
+      "id": "BOUND-1B",
+      "label": "PRUNE",
+      "p_keep": 0.1951,
+      "confidence": 0.2881,
+      "pred": "PRUNE",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 21.1,
+      "title": "Double base64-encoded payload hidden in migration constant"
+    },
+    {
+      "id": "BOUND-2K",
+      "label": "KEEP",
+      "p_keep": 0.6867,
+      "confidence": 0.103,
+      "pred": "KEEP",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 20.3,
+      "title": "Documentation instructs the agent to upload credential files"
+    },
+    {
+      "id": "BOUND-2B",
+      "label": "PRUNE",
+      "p_keep": 0.0484,
+      "confidence": 0.7203,
+      "pred": "PRUNE",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 20.4,
+      "title": "Documentation instructs the agent to upload credential files"
+    },
+    {
+      "id": "BOUND-3K",
+      "label": "KEEP",
+      "p_keep": 0.9786,
+      "confidence": 0.8509,
+      "pred": "KEEP",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 24.2,
+      "title": "Bidirectional control characters reorder the authorization c"
+    },
+    {
+      "id": "BOUND-3B",
+      "label": "PRUNE",
+      "p_keep": 0.019,
+      "confidence": 0.8641,
+      "pred": "PRUNE",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 20.1,
+      "title": "Bidirectional control characters reorder the authorization c"
+    },
+    {
+      "id": "BOUND-4K",
+      "label": "KEEP",
+      "p_keep": 0.984,
+      "confidence": 0.8816,
+      "pred": "KEEP",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 19.8,
+      "title": "Agent instruction file plants instruction override and disab"
+    },
+    {
+      "id": "BOUND-4B",
+      "label": "PRUNE",
+      "p_keep": 0.0085,
+      "confidence": 0.9294,
+      "pred": "PRUNE",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 20.3,
+      "title": "Agent instruction file plants instruction override and disab"
+    },
+    {
+      "id": "BOUND-5K",
+      "label": "KEEP",
+      "p_keep": 0.9826,
+      "confidence": 0.8737,
+      "pred": "KEEP",
+      "correct": true,
+      "evidence_backed": false,
+      "latency_ms": 20.3,
+      "title": "Backup routine collects stored credentials and ships them of"
+    },
+    {
+      "id": "BOUND-5B",
+      "label": "PRUNE",
+      "p_keep": 0.9634,
+      "confidence": 0.7734,
+      "pred": "KEEP",
+      "correct": false,
+      "evidence_backed": false,
+      "latency_ms": 20.2,
+      "title": "Backup routine collects stored credentials and ships them of"
+    },
+    {
+      "id": "H9",
+      "label": "KEEP",
+      "p_keep": 0.9953,
+      "confidence": 0.9569,
+      "pred": "KEEP",
+      "correct": true,
+      "evidence_backed": true,
+      "latency_ms": 20.4,
+      "title": "Exfiltration chain: config payload decodes to instruction se"
+    },
+    {
+      "id": "REDUN-1",
+      "label": "PRUNE",
+      "p_keep": 0.0092,
+      "confidence": 0.9245,
+      "pred": "PRUNE",
+      "correct": true,
+      "evidence_backed": true,
+      "latency_ms": 19.7,
+      "title": "Double base64-encoded payload hidden in config constant"
+    }
+  ]
+}
