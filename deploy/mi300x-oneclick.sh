@@ -78,7 +78,7 @@ nohup $LL -m /root/models/qwen38/Qwen3.8-27B-UD-Q4_K_XL.gguf \
   -a qwen-verify -ngl 99 -c 65536 -np 4 --host 127.0.0.1 --port 8182 --jinja \
   > /root/srv_qwen.log 2>&1 &
 nohup $LL -m /root/models/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf \
-  -a muse-scout -ngl 99 -c 65536 -np 2 --temp 1.0 --top-p 0.95 --top-k 64 --host 127.0.0.1 --port 8081 --jinja \
+  -a muse-scout -ngl 99 -c 98304 -np 1 --temp 1.0 --top-p 0.95 --top-k 64 --host 127.0.0.1 --port 8081 --jinja \
   > /root/srv_muse.log 2>&1 &
 echo "4 servers launching"
 INNER_EOF

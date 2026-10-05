@@ -90,7 +90,7 @@ app/prompt_guard.py # 主线 A：系统提示金库 + 输出护栏
 app/agents/sanitizer_agent.py  # Agent 0（接入 Celery 流水线）
 app/tasks.py        # Agent 0 → Agent 1-4 流水线 + 报告护栏
 demo/               # 演示仓库生成器
-tests/              # 测试套件（全仓 282 用例，其中 PITAX 相关 54：正/负样本回归防误报）
+tests/              # 测试套件（全仓 288 用例，其中 PITAX 相关 54：正/负样本回归防误报）
 ```
 
 ## 流水线集成（Agent 0）
@@ -104,7 +104,7 @@ Agent 0 (PITAX 预扫描) → Agent 1 (静态) → Agent 2 (语义) → Agent 3 
 ## 测试
 
 ```bash
-python -m pytest tests/ -q   # 282 passed（2026-10-04 实测）：PITAX 正/负样本 + 映射/SARIF/护栏 + 全仓回归
+python -m pytest tests/ -q   # 288 passed（2026-10-05 实测）：PITAX 正/负样本 + 映射/SARIF/护栏 + 全仓回归
 ```
 
 ## 参考资源

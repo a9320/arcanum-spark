@@ -92,7 +92,7 @@ Key engineering mechanisms:
 
 ## Decision gate (Laya — optional, offline-tuned)
 
-The pipeline accepts an optional **decision gate** in front of Verify: a compact KEEP/PRUNE classifier (GRPO-style fine-tuned head; model lineage `laya-r0…r6`) that re-orders and protects hypotheses so verification lands on the most probable real threats first. In the default mounted posture the gate is strictly **order-only** — every hypothesis is still verified (`pruned_ids` empty), so mounting it cannot drop findings relative to the gate-free baseline.
+The pipeline accepts an optional **decision gate** in front of Verify: a compact KEEP/PRUNE classifier (GRPO-style fine-tuned head; model lineage `laya-r0…r8`) that re-orders and protects hypotheses so verification lands on the most probable real threats first. In the default mounted posture the gate is strictly **order-only** — every hypothesis is still verified (`pruned_ids` empty), so mounting it cannot drop findings relative to the gate-free baseline.
 
 Tooling in `eval/`: `run_gate_e2e.py` (gate-integrated e2e) · `compare_gate_e2e.py` (P1 reorder-only / P2 no-fallback / P3 quality-floor acceptance) · `time_laya.py` (per-item latency + accuracy) · `build_r*_hardneg.py` + `finetune_*.py` (the fine-tuning loop). Acceptance artifacts live under `reports/gate11/` and `reports/gate-e2e/`; every referenced number is traceable in [`docs/EVAL-LEDGER.md`](docs/EVAL-LEDGER.md).
 
