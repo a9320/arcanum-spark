@@ -14,6 +14,7 @@ Agent 分层分配（2026-09-12 调整：异构合议 + Kimi 配额耗尽后降�
 """
 from __future__ import annotations
 
+import logging
 import os
 from enum import Enum
 from pathlib import Path
@@ -35,6 +36,15 @@ __all__ = [
     "make_stage_models_from_env",
     "make_stage_tuning_from_env",
 ]
+
+
+# strands openai 适配层的 "reasoningContent is not supported in multi-turn
+# conversations" 是信息性 warning：该内容块在其 _format_regular_messages 阶段被
+# SDK 自动剥离，调用本身不受影响（2026-10-05 源码实读 strands/models/openai.py
+# :407-424 + 臂 A 冒烟三题 node_errors 全空实证）。该 warning 曾两度被误判为
+# 服务端拒收故障（10-04 Muse"第四故障"、10-05 臂 A 冒烟"重试兜住"），降噪至
+# ERROR 防误判；真实故障走异常路径（node_errors/降级），不经此日志通道。
+logging.getLogger("strands.models.openai").setLevel(logging.ERROR)
 
 
 # ── 枚举 ──
