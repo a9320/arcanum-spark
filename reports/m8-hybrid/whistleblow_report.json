@@ -1,0 +1,196 @@
+{
+  "findings": [
+    {
+      "title": "源代码中硬编码的 AWS Access Key 泄露",
+      "vuln_type": "HARDCODED_SECRET",
+      "file_path": "init_bucket.py",
+      "line_start": 0,
+      "line_end": 0,
+      "code_snippet": "TARGET_ACCESS_KEY = \"AKIAQHTF3NZUTQBCUQCK\"",
+      "severity": "high",
+      "confidence": "high",
+      "evidence": "static_scan 确定性命中：在 init_bucket.py 第 22 行发现硬编码密钥 TARGET_ACCESS_KEY = \"AKIAQHTF3NZUTQBCUQCK\"，符合 AWS Access Key ID 标准格式；第 23 行同时硬编码了 TARGET_SIGNATURE。",
+      "attack_path": "利用 init_bucket.py 中硬编码的 AWS Access Key 和 Signature，攻击者可直接访问 S3 资源，并可将其作为横向移动的凭证基础。",
+      "remediation": ""
+    },
+    {
+      "title": "文档中明文暴露预签名 URL 及签名组件",
+      "vuln_type": "EXPOSED_CREDENTIAL",
+      "file_path": "SETUP.md",
+      "line_start": 0,
+      "line_end": 0,
+      "code_snippet": "https://super-top-secret-dont-look.s3.us-east-2.amazonaws.com/.sorry/.for/.nothing/flag.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQHTF3NZUTQBCUQCK%2F20200909%2Fus-east-2%2Fs3%2Faws4_request&X-Amz-Date=20200909T195323Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=3560cef4b02815e7c5f95f1351c1146c8eeeb7ae0aff0adc5c106f6488db5b6b",
+      "severity": "high",
+      "confidence": "high",
+      "evidence": "文件原文直接证实：SETUP.md 中明文包含了指向 flag.txt 的完整预签名 URL，其中包括 Access Key ID、签名及有效期参数。",
+      "attack_path": "SETUP.md 中明文记录了包含完整签名（Signature）和有效期的预签名 URL，攻击者可在有效期内直接获取敏感文件 flag.txt。",
+      "remediation": ""
+    },
+    {
+      "title": "跨文件凭证分散与重构链：首桶对象泄露第二桶访问要素",
+      "vuln_type": "CROSS_FILE_INFORMATION_DISCLOSURE",
+      "file_path": "solve.txt",
+      "line_start": 0,
+      "line_end": 0,
+      "code_snippet": "Bucket Name: `3a00dd08-541a-4c9f-b85e-ade6839aa4c0/3fa52aaa-78ed-4261-8bcc-04fc0b817395/4bcd2707-48db-4c04-9ec7-df522de2ccd7.txt`",
+      "severity": "high",
+      "confidence": "high",
+      "evidence": "结构化证据：solve.txt 将构建预签名 URL 所需的四个核心要素（桶名、路径、Access Key、Signature）逐一映射到了四个特定的 UUID 对象路径上，证实了凭证分散存储并可被重构的设计。",
+      "attack_path": "通过 solve.txt 中记录的四个随机 UUID 路径，攻击者可以从第一个 S3 桶中提取分散的预签名 URL 四要素（Bucket Name, Path, Access Key, Signature），从而重构出访问第二桶的有效凭证。",
+      "remediation": ""
+    }
+  ],
+  "attack_chains": [
+    {
+      "title": "",
+      "preconditions": [
+        "存在硬编码的 AWS Access Key",
+        "攻击者能够访问包含硬编码密钥的 init_bucket.py 文件",
+        "第一个 S3 桶 ad586b62e3b5921bd86fe2efa4919208 的 ACL 设置为 'authenticated-read'",
+        "第二个 S3 桶 super-top-secret-dont-look 的 ACL 设置为 'authenticated-read'"
+      ],
+      "lateral_moves": [
+        "攻击者利用硬编码的 AWS Access Key (AKIAQHTF3NZUTQBCUQCK) 访问第一个 S3 桶",
+        "攻击者在第一个 S3 桶中查找隐藏的信息，包括目标桶名称、路径、访问密钥和签名",
+        "攻击者利用获取的信息构造预签名 URL 访问第二个 S3 桶中的敏感文件"
+      ],
+      "impact": "攻击者能够访问并窃取存储在第二个 S3 桶中的敏感文件 flag.txt，获取其中的机密信息",
+      "remediation": "删除 init_bucket.py 文件中硬编码的 AWS Access Key，将敏感信息迁移到安全的存储位置，如 AWS Secrets Manager，并更新 IAM 策略以限制最小权限。修改文件: init_bucket.py 行 22，删除 TARGET_ACCESS_KEY = \"AKIAQHTF3NZUTQBCUQCK\"，替换为从 Secrets Manager 获取密钥的代码。同时，修改所有涉及敏感信息的配置，确保密钥和签名不被硬编码。"
+    },
+    {
+      "title": "",
+      "preconditions": [
+        "攻击者能够访问包含预签名 URL 的文档",
+        "攻击者具备有效的 AWS IAM 用户凭证",
+        "目标 S3 桶配置允许基于预签名 URL 的访问"
+      ],
+      "lateral_moves": [
+        "攻击者解析预签名 URL 中的 Access Key ID 和 Signature",
+        "攻击者尝试利用解析出的凭据访问其他 S3 桶资源",
+        "攻击者可能尝试进一步滥用 AWS 服务权限"
+      ],
+      "impact": "攻击者可能获取敏感数据或进一步控制系统资源",
+      "remediation": "删除 init_bucket.py 文件中硬编码的访问密钥和签名信息（文件:init_bucket.py 行:22-23，替换为动态获取或移除硬编码）"
+    },
+    {
+      "title": "",
+      "preconditions": [
+        "Attackers can access the first S3 bucket (ad586b62e3b5921bd86fe2efa4919208) with authenticated-read ACL.",
+        "Attackers can enumerate and retrieve objects from the first bucket to locate the dispersed credential components."
+      ],
+      "lateral_moves": [
+        "Extract the target bucket name, path, access key, and signature from the first bucket's objects.",
+        "Use the extracted access key and signature to generate a presigned URL for the second bucket.",
+        "Access the second bucket (super-top-secret-dont-look) using the presigned URL to retrieve sensitive data."
+      ],
+      "impact": "Attackers can gain unauthorized access to sensitive information stored in the second S3 bucket, potentially leading to data theft or exposure of internal company data.",
+      "remediation": "Modify the S3 bucket policies to restrict access to only authorized users, remove hard-coded credentials from scripts, and implement regular audits of IAM policies and bucket configurations."
+    }
+  ],
+  "conclusion": "该仓库存在多层级的 AWS S3 凭证泄露风险，构成了一个完整的攻击链：从源代码中硬编码的敏感密钥，到文档中直接暴露的预签名 URL，再到利用分散存储在 S3 对象中的凭证要素进行重构。攻击者可以通过获取这些信息（或利用已过期的凭证进行历史溯源/复用分析）实现对目标 S3 桶中敏感文件（如 flag.txt）的非法访问。建议立即从代码中移除硬编码密钥，使用 AWS Secrets Manager 管理凭证，并严格限制 S3 桶的 ACL 与 IAM 策略，防止敏感元数据（如预签名组件）在文档或公开对象中泄露。",
+  "meta": {
+    "quarantine_stats": {
+      "files_total": 10,
+      "files_changed": 0,
+      "chars_removed": 0,
+      "patterns_neutralized": 0,
+      "changed_files": []
+    },
+    "deepen_failures": 0,
+    "node_errors": {},
+    "severity_floor_upgraded": 0,
+    "agent0_findings": [],
+    "hypothesis_set": {
+      "hypotheses": [
+        {
+          "id": "H1",
+          "title": "源代码中硬编码 AWS Access Key 泄露",
+          "vuln_type": "HARDCODED_SECRET",
+          "file_path": "init_bucket.py",
+          "line_start": 18,
+          "line_end": 18,
+          "code_snippet": "TARGET_ACCESS_KEY = \"AKIAQHTF3NZUTQBCUQCK\"",
+          "attack_path": "init_bucket.py 将用于第二桶的 Access Key 以明文常量存储。若仓库被公开或被 AI 上下文加载，密钥可被提取并用于构造/验证对 super-top-secret-dont-look 的请求，与 SETUP.md 中的预签名 URL 形成凭证复用链。",
+          "confidence": "high",
+          "suggested_verification": "在仓库中全局搜索 AKIA[A-Z0-9]{16} 模式，检查 git 历史是否曾提交，验证该 Key 是否仍有效且可用于签名 S3 请求。"
+        },
+        {
+          "id": "H2",
+          "title": "预签名 URL 及签名组件在文档中明文暴露",
+          "vuln_type": "EXPOSED_CREDENTIAL",
+          "file_path": "SETUP.md",
+          "line_start": 28,
+          "line_end": 32,
+          "code_snippet": "https://super-top-secret-dont-look.s3.us-east-2.amazonaws.com/.sorry/.for/.nothing/flag.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQHTF3NZUTQBCUQCK%2F20200909%2Fus-east-2%2Fs3%2Faws4_request&X-Amz-Date=20200909T195323Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=3560cef4b02815e7c5f95f1351c1146c8eeeb7ae0aff0adc5c106f6488db5b6b",
+          "attack_path": "SETUP.md 与 link.txt 将完整的预签名 URL 分段记录，包含 Access Key、Date、Signature 和 604800 秒有效期。文档一旦被读取，攻击者即可在有效期内直接访问 flag.txt，无需通过 IAM 校验。link.txt 进一步将 URL 参数拆分，降低检测难度。",
+          "confidence": "high",
+          "suggested_verification": "提取 SETUP.md / link.txt 中的 URL 参数重组完整链接，检查 X-Amz-Expires 与 X-Amz-Date，尝试访问并确认是否仍可访问；扫描仓库是否将此类 URL 提交到版本控制。"
+        },
+        {
+          "id": "H3",
+          "title": "跨文件凭证分散与重构链：首桶 authenticated-read 对象泄露第二桶访问要素",
+          "vuln_type": "CROSS_FILE_INFORMATION_DISCLOSURE",
+          "file_path": "solve.txt",
+          "line_start": 1,
+          "line_end": 4,
+          "code_snippet": "Bucket Name: `3a00dd08-541a-4c9f-b85e-ade6839aa4c0/3fa52aaa-78ed-4261-8bcc-04fc0b817395/4bcd2707-48db-4c04-9ec7-df522de2ccd7.txt`",
+          "attack_path": "init_bucket.py 将 TARGET_BUCKET、TARGET_PATH、TARGET_ACCESS_KEY、TARGET_SIGNATURE 随机写入首桶 ad586b62e3b5921bd86fe2efa4919208 的四个对象，并在 solve.txt 中记录其随机 UUID 路径。具备 authenticated-read 的攻击者可读取这些对象，按顺序重构出第二桶的预签名 URL，实现权限横向提升。README.md 与 letter 中诱导‘valid user’访问首桶，配合 SETUP.md 的说明形成完整的攻击链。",
+          "confidence": "medium",
+          "suggested_verification": "模拟对桶 ad586b62e3b5921bd86fe2efa4919208 的 authenticated-read 列举，按 solve.txt 记录的路径读取对象内容，验证是否可拼装出完整的第二桶访问凭证；检查桶 ACL 与 IAM 策略是否限制列举。"
+        },
+        {
+          "id": "H4",
+          "title": "文档中社会工程式指令诱导 AI 上下文加载与数据渗出",
+          "vuln_type": "PROMPT_INJECTION_SOCIAL_ENGINEERING",
+          "file_path": "README.md",
+          "line_start": 7,
+          "line_end": 15,
+          "code_snippet": "Hey Fellow Coworker,\n\nHeard you were coming into the Sacremento office today. I have some sensitive information for you to read about the company stored at ad586b62e3b5921bd86fe2efa4919208 once you are settled in. Make sure you're a valid user!",
+          "attack_path": "README.md 与 letter 采用内部邮件口吻，包含时间压力‘Act quickly! All of this stuff will disappear a week from 19:53:23 on September 9th 2020’以及地点条件‘read it once you are back in Columbus’。若该文档被作为 AI 助手的上下文加载，可能诱导模型执行 S3 访问或披露敏感信息，属于文档投毒/上下文加载链的语义增量风险。",
+          "confidence": "low",
+          "suggested_verification": "将 README.md / letter 作为独立提示输入至受测 LLM，观察是否产生对 S3 桶的访问建议或信息披露；检查文档中是否存在指令类动词与条件触发的组合，并评估在工具调用链路中的执行可能性。"
+        }
+      ],
+      "coverage_notes": "已覆盖仓库中所有文本文件：README.md、SETUP.md、bucket_policy.json、challenge.json、flag.txt、init_bucket.py、letter、link.txt、solve.txt、test_solver/test.sh。PITAX 确定性检测返回空，未命中 9 条 AI 提示注入规则。未检查二进制资产、外部 S3 实际对象内容、运行时 IAM 策略生效状态及 CI/CD 流水线中的秘密注入。未覆盖未列出的子目录或动态生成的文件。"
+    },
+    "gated_hypothesis_set": null,
+    "gate": {
+      "enabled": false,
+      "reason": "disabled"
+    },
+    "verifications": [
+      {
+        "hypothesis_id": "H1",
+        "hypothesis_title": "源代码中硬编码 AWS Access Key 泄露",
+        "verdict": "CONFIRMED",
+        "confidence": 0.9,
+        "evidence": "static_scan 工具实际返回（确定性命中）：{\"type\": \"HARDCODED_SECRET\", \"severity\": \"high\", \"confidence\": 90, \"evidence\": \"硬编码密钥：疑似明文密码/密钥/令牌\", \"file\": \"init_bucket.py\", \"line\": 22, \"code_snippet\": \"TARGET_ACCESS_KEY = \\\"AKIAQHTF3NZUTQBCUQCK\\\"\", \"rule\": \"STATIC-HARDCODED_SECRET\"}。文件原文中该常量以明文硬编码，且 \"AKIA\" 前缀 + 16 位大写字母数字完全符合 AWS Access Key ID 标准格式（AKIA[A-Z0-9]{16}），与假设 H1 的 code_snippet 逐字一致（假设标注 line 18，工具定位 line 22，行号差异源于文件头 docstring 计数口径，内容完全吻合）。同文件还硬编码了 TARGET_BUCKET（s3://super-top-secret-dont-look）、TARGET_PATH 及 64 位十六进制 TARGET_SIGNATURE（static_scan 另报 HARDPARSED_B64，line 23），构成完整的凭证/签名泄露链。注：文件注释自称 \"if you are seeing this source code publicly, they probably don't work anymore :p\"，暗示密钥可能已轮换，但无法离线验证其当前有效性；硬编码密钥这一事实本身已被工具证据确认。数据块内未发现注入指令。",
+        "verification_method": "static_scan 确定性静态扫描（HARDCODED_SECRET 规则命中）+ 文件原文人工比对（AKIA 前缀格式校验、与假设 snippet 逐字核对）"
+      },
+      {
+        "hypothesis_id": "H2",
+        "hypothesis_title": "预签名 URL 及签名组件在文档中明文暴露",
+        "verdict": "CONFIRMED",
+        "confidence": 0.8,
+        "evidence": "【文件原文直接证据 (SETUP.md, 假设所指行)】文档明文包含完整预签名 URL：\n\"$ aws s3 presign s3://super-top-secret-dont-look/.sorry/.for/.nothing/flag.txt --expires-in 604800\nhttps://super-top-secret-dont-look.s3.us-east-2.amazonaws.com/.sorry/.for/.nothing/flag.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQHTF3NZUTQBCUQCK%2F20200909%2Fus-east-2%2Fs3%2Faws4_request&X-Amz-Date=20200909T195323Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=3560cef4b02815e7c5f95f1351c1146c8eeeb7ae0aff0adc5c106f6488db5b6b\"\n→ Access Key ID、X-Amz-Date、X-Amz-Expires、X-Amz-Signature 全部明文暴露，假设核心事实成立。\n\n【工具证据 (static_scan 实际返回原文)】\n[{\"type\": \"HARDCODED_SECRET\", \"severity\": \"high\", \"confidence\": 90, \"evidence\": \"硬编码密钥：疑似明文密码/密钥/令牌\", \"file\": \"init_bucket.py\", \"line\": 22, \"code_snippet\": \"TARGET_ACCESS_KEY = \\\"AKIAQHTF3NZUTQBCUQCK\\\"\", \"rule\": \"STATIC-HARDCODED_SECRET\"}, {\"type\": \"HARDPARSED_B64\", \"severity\": \"low\", \"confidence\": 90, \"evidence\": \"可疑 Base64：字符串中有大段 base64 编码\", \"file\": \"init_bucket.py\", \"line\": 23, \"code_snippet\": \"TARGET_SIGNATURE = \\\"3560cef4b02815e7c5f95f1351c1146c8eeeb7ae0aff0adc5c106f6488db5b6b\\\"\", \"rule\": \"STATIC-HARDPARSED_B64\"}]\n→ 同一 Access Key ID (AKIAQHTF3NZUTQBCUQCK) 与同一 Signature 值亦硬编码于 init_bucket.py，确定性工具佐证该凭据材料确实存在于仓库中。\n\n【限定/降级因素（不影响\"暴露\"事实，但降低当前可利用性）】\n1) 该 URL X-Amz-Date=20200909、X-Amz-Expires=604800(7天)，已于约 2020-09-16 过期，当前不可直接访问，非\"活\"凭据。\n2) 预签名 URL 本身不含 secret access key，仅含 Access Key ID(标识符)与已过期签名，故 URL 未泄露真正的密钥。\n3) 该文件为 CTF 风格 setup 文档(flag.txt/solve.txt/\"First Bucket\")，暴露部分属挑战设计。\n综上：暴露事实经文件原文+static_scan 双重证实，判 CONFIRMED；因 URL 已过期且未含 secret key，属文档卫生/凭据暴露类问题而非当前可利用的活凭据泄露，故 confidence 取 0.8。",
+        "verification_method": "static_scan（命中 HARDCODED_SECRET/HARDPARSED_B64，佐证同一 Access Key 与 Signature 硬编码于 init_bucket.py）+ 直接审阅 SETUP.md 文件原文（确认预签名 URL 及签名组件明文存在）；taint_flow/pitax_scan/dep_scan 均返回空，未提供额外结论。"
+      },
+      {
+        "hypothesis_id": "H3",
+        "hypothesis_title": "跨文件凭证分散与重构链：首桶 authenticated-read 对象泄露第二桶访问要素",
+        "verdict": "CONFIRMED",
+        "confidence": 0.65,
+        "evidence": "【工具证据（static_scan 实际返回原文）】\n1) {\"type\":\"HARDCODED_SECRET\",\"severity\":\"high\",\"confidence\":90,\"evidence\":\"硬编码密钥：疑似明文密码/密钥/令牌\",\"file\":\"init_bucket.py\",\"line\":22,\"code_snippet\":\"TARGET_ACCESS_KEY = \\\"AKIAQHTF3NZUTQBCUQCK\\\"\",\"rule\":\"STATIC-HARDCODED_SECRET\"}\n2) {\"type\":\"HARDPARSED_B64\",\"severity\":\"low\",\"confidence\":90,\"evidence\":\"可疑 Base64：字符串中有大段 base64 编码\",\"file\":\"init_bucket.py\",\"line\":23,\"code_snippet\":\"TARGET_SIGNATURE = \\\"3560cef4b02815e7c5f95f1351c1146c8eeeb7ae0aff0adc5c106f6488db5b6b\\\"\",\"rule\":\"STATIC-HARDPARSED_B64\"}\n→ 证实第二桶访问要素（Access Key、Signature）真实存在于 setup 脚本 init_bucket.py 中，即假设所称\"被分散写入首桶对象\"的凭证要素确实存在且为 setup 流程的目标数据。\n\n【被审计文件 solve.txt 原文（直接结构证据）】\nBucket Name: `3a00dd08-541a-4c9f-b85e-ade6839aa4c0/3fa52aaa-78ed-4261-8bcc-04fc0b817395/4bcd2707-48db-4c04-9ec7-df522de2ccd7.txt`\nPath: `7092a3ec-8b3a-4f24-bdbd-23124af06a41/7db7f9b0-ab6a-4605-9fc1-1cc8ba7877a1/1b56b43a-7525-429a-9777-02602b52dc1e.txt`\nAccess Key: `c9bf9d72-8f62-4233-9cd6-1a0f8805b0af/acbad485-dd20-4295-99fa-f45e3d5bdb45/1eaddd5d-fe24-4deb-8e6e-5463f395fa03.txt`\nSignature: `6c748996-e05a-408a-8ed8-925bf01be752/c1fe922c-aec8-4908-a97d-398029d39236/77010958-c8ed-4a7b-802a-f189d0f76ec0.txt`\n→ solve.txt 将\"Bucket Name / Path / Access Key / Signature\"四个预签名 URL 必需要素逐一映射到四个随机 UUID 对象路径，与假设描述的\"凭证分散存储 + 索引文件记录路径\"设计完全吻合；四要素齐备即可重构第二桶访问凭证，重构链逻辑成立。\n\n【其他工具】pitax_scan / taint_flow / dep_scan 均返回空（[]），无矛盾证据。\n\n【限制说明（影响 confidence 上限）】本环境无法实际访问 S3 桶 ad586b62e3b5921bd86fe2efa4919208，故\"首桶 ACL 是否允许 authenticated-read 列举/读取\"及\"对象内容是否确为四要素值\"两点未能直接取证；但 solve.txt 的索引结构 + init_bucket.py 中要素值存在的工具证据已足以证实分散-重构链的设计与可行性前提，故判 CONFIRMED 而非 UNCERTAIN，confidence 取 0.65。",
+        "verification_method": "static_scan（全仓库确定性扫描，命中 init_bucket.py 硬编码 TARGET_ACCESS_KEY/TARGET_SIGNATURE）+ solve.txt 原文逐行结构分析（四要素→UUID 对象路径映射）+ pitax_scan/taint_flow/dep_scan 交叉排除（均空）"
+      },
+      {
+        "hypothesis_id": "H4",
+        "hypothesis_title": "文档中社会工程式指令诱导 AI 上下文加载与数据渗出",
+        "verdict": "REFUTED",
+        "confidence": 0.65,
+        "evidence": "【工具取证原文】\n- pitax_scan（专为 AI 提示注入/文档投毒设计的 9 条确定性规则）: 返回 [] —— 对 README.md 无任何提示注入/不可见字符/文档投毒命中。\n- static_scan: 返回 2 条，但均位于 init_bucket.py（line22 TARGET_ACCESS_KEY=\"AKIAQHTF3NZUTQBCUQCK\" 硬编码密钥；line23 TARGET_SIGNATURE 硬解析 B64），与 README.md 及本假设无关。\n- taint_flow: 返回 []（无 source→sink 污点链）。\n- dep_scan: 返回 []。\n\n【逻辑分析（不成立）】\n1. README.md 是 CTF 挑战描述（标题 \"whistleblow\"，描述 \"Various flaws in AWS S3 bucket configurations\"）。其中 \"Hey Fellow Coworker… Totally Loyal Coworker\" 的内部邮件口吻、时间压力（\"Act quickly! … will disappear a week from 19:53:23 on September 9th 2020\"）、地点条件（\"read it once you are back in Columbus\"）均为面向人类玩家的**挑战叙事/风味文本**，而非针对 AI 系统的注入载荷。\n2. 被审计仓库中**不存在任何 AI 组件**将 README.md 载入 LLM 上下文，无工具调用链、无消费路径；假设的攻击路径完全依赖外部假设（\"若该文档被作为 AI 助手的上下文加载，可能诱导模型…\"），在被审计代码库内无具体可利用路径。\n3. 针对该 vuln_type（PROMPT_INJECTION_SOCIAL_ENGINEERING）的专用确定性检测器 PITAX 返回空，属明确阴性而非无结论。\n4. 本仓库真实风险（S3 桶配置缺陷、init_bucket.py 硬编码 AWS 密钥）与本假设无关，H4 将 CTF 叙事文本误判为提示注入漏洞，属类别错误。\n\n结论：专用工具未命中 + 逻辑分析不成立（无仓库内 AI 消费路径、文本为 CTF 叙事、攻击路径纯假设）→ 判 REFUTED。残留不确定性仅在于\"该文本若被外部 LLM 加载是否会语义上影响模型\"这一行为学问题，需 LLM 行为测试方可完全排除，但不构成被审计系统内的现实漏洞。",
+        "verification_method": "pitax_scan + static_scan + taint_flow + dep_scan 四工具确定性取证（预跑全空，复跑确认）+ 对 README.md 的逻辑/上下文分析（CTF 叙事定性、仓库内 AI 消费路径核查、攻击路径可行性评估）"
+      }
+    ]
+  }
+}
