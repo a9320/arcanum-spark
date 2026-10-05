@@ -1,0 +1,1543 @@
+[
+ {
+  "challenge_id": "I Got Id",
+  "intended_class": "web",
+  "upstream_path": "development/2016/CSAW-Quals/web/I Got Id",
+  "intended_types": [
+   "PATH_TRAVERSAL",
+   "COMMAND_INJECTION",
+   "CODE_INJECTION",
+   "ARBITRARY_FILE_READ"
+  ],
+  "pipeline": {
+   "hypotheses": 3,
+   "verifications": 3,
+   "confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "挑战元数据中明文硬编码 flag",
+     "file_path": "challenge.json"
+    },
+    {
+     "id": "H2",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "仓库根目录 flag 文件明文泄露",
+     "file_path": "flag"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": false,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [],
+   "unclassifiable": [],
+   "fn": null,
+   "intended_status": {
+    "indeterminate": 1
+   },
+   "artifact_confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "挑战元数据中明文硬编码 flag",
+     "file_path": "challenge.json"
+    },
+    {
+     "id": "H2",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "仓库根目录 flag 文件明文泄露",
+     "file_path": "flag"
+    }
+   ],
+   "infra_fail": false,
+   "semantic": {
+    "tp": false,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [],
+    "fn": null,
+    "intended_status": {
+     "indeterminate": 1
+    }
+   }
+  },
+  "flag_present": true,
+  "flag_sha256_12": "5651b3b3cb3e"
+ },
+ {
+  "challenge_id": "nekocat",
+  "intended_class": "web",
+  "upstream_path": "removed/2018/CSAW-Finals/web/nekocat",
+  "intended_types": [
+   "DESERIALIZATION",
+   "COMMAND_INJECTION",
+   "SSTI",
+   "PATH_TRAVERSAL"
+  ],
+  "pipeline": {
+   "hypotheses": 5,
+   "verifications": 5,
+   "confirmed": [
+    {
+     "id": "H2",
+     "vuln_type": "XSS_STORED",
+     "verdict": "CONFIRMED",
+     "title": "Stored XSS via javascript: URI 在 post 链接渲染",
+     "file_path": "chal/templates/post.html"
+    },
+    {
+     "id": "H5",
+     "vuln_type": "HARDCODED_SECRET",
+     "verdict": "CONFIRMED",
+     "title": "硬编码 SECRET_KEY 在 Dockerfile 与源码中泄露",
+     "file_path": "Dockerfile"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": false,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H2",
+     "vuln_type": "XSS_STORED",
+     "verdict": "CONFIRMED",
+     "title": "Stored XSS via javascript: URI 在 post 链接渲染",
+     "file_path": "chal/templates/post.html"
+    },
+    {
+     "id": "H5",
+     "vuln_type": "HARDCODED_SECRET",
+     "verdict": "CONFIRMED",
+     "title": "硬编码 SECRET_KEY 在 Dockerfile 与源码中泄露",
+     "file_path": "Dockerfile"
+    }
+   ],
+   "unclassifiable": [],
+   "fn": true,
+   "intended_status": null,
+   "artifact_confirmed": [],
+   "infra_fail": false,
+   "semantic": {
+    "tp": false,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [
+     {
+      "id": "H2",
+      "vuln_type": "XSS_STORED",
+      "verdict": "CONFIRMED",
+      "title": "Stored XSS via javascript: URI 在 post 链接渲染",
+      "file_path": "chal/templates/post.html"
+     },
+     {
+      "id": "H5",
+      "vuln_type": "HARDCODED_SECRET",
+      "verdict": "CONFIRMED",
+      "title": "硬编码 SECRET_KEY 在 Dockerfile 与源码中泄露",
+      "file_path": "Dockerfile"
+     }
+    ],
+    "fn": null,
+    "intended_status": {
+     "indeterminate": 1
+    }
+   }
+  },
+  "flag_present": true,
+  "flag_sha256_12": "a4e301aa1e60"
+ },
+ {
+  "challenge_id": "raid_fat_fs_chal",
+  "intended_class": "web",
+  "upstream_path": "removed/2018/CSAW-Finals/web/raid_fat_fs_chal",
+  "intended_types": [
+   "PATH_TRAVERSAL",
+   "ARBITRARY_FILE_READ",
+   "LOGIC_ERROR"
+  ],
+  "pipeline": {
+   "hypotheses": 0,
+   "verifications": 0,
+   "confirmed": []
+  },
+  "judgment": {
+   "tp": false,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [],
+   "unclassifiable": [],
+   "fn": true,
+   "intended_status": null,
+   "artifact_confirmed": [],
+   "infra_fail": true,
+   "semantic": {
+    "tp": false,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [],
+    "fn": true,
+    "intended_status": null
+   }
+  },
+  "flag_present": false
+ },
+ {
+  "challenge_id": "very_SaaSy",
+  "intended_class": "web",
+  "upstream_path": "removed/2019/CSAW-Finals/web/very_SaaSy",
+  "intended_types": [
+   "SQL_INJECTION",
+   "BLIND_SQL_INJECTION",
+   "TIME_BASED_SQL_INJECTION"
+  ],
+  "pipeline": {
+   "hypotheses": 4,
+   "verifications": 4,
+   "confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "Source code disclosure via ?source parameter",
+     "file_path": "app/htdocs/index.php"
+    },
+    {
+     "id": "H2",
+     "vuln_type": "SQL_INJECTION",
+     "verdict": "CONFIRMED",
+     "title": "未受限的 SQL 执行 via hex 编码的 POST 参数到 multi_query",
+     "file_path": "app/htdocs/query.php"
+    },
+    {
+     "id": "H4",
+     "vuln_type": "HARDCODED_CREDENTIALS",
+     "verdict": "CONFIRMED",
+     "title": "数据库凭证硬编码并可被源码泄露获取",
+     "file_path": "app/htdocs/config.php"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": true,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "Source code disclosure via ?source parameter",
+     "file_path": "app/htdocs/index.php"
+    },
+    {
+     "id": "H4",
+     "vuln_type": "HARDCODED_CREDENTIALS",
+     "verdict": "CONFIRMED",
+     "title": "数据库凭证硬编码并可被源码泄露获取",
+     "file_path": "app/htdocs/config.php"
+    }
+   ],
+   "unclassifiable": [],
+   "fn": false,
+   "intended_status": null,
+   "artifact_confirmed": [],
+   "infra_fail": false,
+   "semantic": {
+    "tp": true,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [
+     {
+      "id": "H1",
+      "vuln_type": "INFORMATION_DISCLOSURE",
+      "verdict": "CONFIRMED",
+      "title": "Source code disclosure via ?source parameter",
+      "file_path": "app/htdocs/index.php"
+     },
+     {
+      "id": "H4",
+      "vuln_type": "HARDCODED_CREDENTIALS",
+      "verdict": "CONFIRMED",
+      "title": "数据库凭证硬编码并可被源码泄露获取",
+      "file_path": "app/htdocs/config.php"
+     }
+    ],
+    "fn": false,
+    "intended_status": null
+   }
+  },
+  "flag_present": false
+ },
+ {
+  "challenge_id": "saasy",
+  "intended_class": "web",
+  "upstream_path": "removed/2019/CSAW-Quals/web/saasy",
+  "intended_types": [
+   "SQL_INJECTION",
+   "BLIND_SQL_INJECTION",
+   "ARBITRARY_FILE_READ"
+  ],
+  "pipeline": {
+   "hypotheses": 6,
+   "verifications": 6,
+   "confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "SQL_INJECTION",
+     "verdict": "CONFIRMED",
+     "title": "任意 SQL 注入导致跨容器文件读取",
+     "file_path": "app/htdocs/index.php"
+    },
+    {
+     "id": "H2",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "源码泄露 via ?source 参数",
+     "file_path": "app/htdocs/index.php"
+    },
+    {
+     "id": "H3",
+     "vuln_type": "HARDCODED_CREDENTIALS",
+     "verdict": "CONFIRMED",
+     "title": "数据库凭证硬编码且可被源码泄露获取",
+     "file_path": "app/htdocs/config.php"
+    },
+    {
+     "id": "H4",
+     "vuln_type": "FILE_EXPOSURE",
+     "verdict": "CONFIRMED",
+     "title": "Dockerfile 将 flag 放置于 Web 容器可读路径",
+     "file_path": "app/Dockerfile"
+    },
+    {
+     "id": "H6",
+     "vuln_type": "PRIVILEGE_ESCALATION",
+     "verdict": "CONFIRMED",
+     "title": "MySQL 用户被授予创建临时表权限放大注入影响",
+     "file_path": "db/init.sql"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": true,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H2",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "源码泄露 via ?source 参数",
+     "file_path": "app/htdocs/index.php"
+    },
+    {
+     "id": "H3",
+     "vuln_type": "HARDCODED_CREDENTIALS",
+     "verdict": "CONFIRMED",
+     "title": "数据库凭证硬编码且可被源码泄露获取",
+     "file_path": "app/htdocs/config.php"
+    },
+    {
+     "id": "H4",
+     "vuln_type": "FILE_EXPOSURE",
+     "verdict": "CONFIRMED",
+     "title": "Dockerfile 将 flag 放置于 Web 容器可读路径",
+     "file_path": "app/Dockerfile"
+    },
+    {
+     "id": "H6",
+     "vuln_type": "PRIVILEGE_ESCALATION",
+     "verdict": "CONFIRMED",
+     "title": "MySQL 用户被授予创建临时表权限放大注入影响",
+     "file_path": "db/init.sql"
+    }
+   ],
+   "unclassifiable": [],
+   "fn": false,
+   "intended_status": null,
+   "artifact_confirmed": [],
+   "infra_fail": false,
+   "semantic": {
+    "tp": true,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [
+     {
+      "id": "H2",
+      "vuln_type": "INFORMATION_DISCLOSURE",
+      "verdict": "CONFIRMED",
+      "title": "源码泄露 via ?source 参数",
+      "file_path": "app/htdocs/index.php"
+     },
+     {
+      "id": "H3",
+      "vuln_type": "HARDCODED_CREDENTIALS",
+      "verdict": "CONFIRMED",
+      "title": "数据库凭证硬编码且可被源码泄露获取",
+      "file_path": "app/htdocs/config.php"
+     },
+     {
+      "id": "H4",
+      "vuln_type": "FILE_EXPOSURE",
+      "verdict": "CONFIRMED",
+      "title": "Dockerfile 将 flag 放置于 Web 容器可读路径",
+      "file_path": "app/Dockerfile"
+     },
+     {
+      "id": "H6",
+      "vuln_type": "PRIVILEGE_ESCALATION",
+      "verdict": "CONFIRMED",
+      "title": "MySQL 用户被授予创建临时表权限放大注入影响",
+      "file_path": "db/init.sql"
+     }
+    ],
+    "fn": false,
+    "intended_status": null
+   }
+  },
+  "flag_present": false
+ },
+ {
+  "challenge_id": "secure_file_store",
+  "intended_class": "web",
+  "upstream_path": "removed/2019/CSAW-Quals/web/secure_file_store",
+  "intended_types": [
+   "XSS",
+   "CROSS_SITE_SCRIPTING",
+   "UNRESTRICTED_FILE_UPLOAD",
+   "PATH_TRAVERSAL"
+  ],
+  "pipeline": {
+   "hypotheses": 5,
+   "verifications": 5,
+   "confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "PATH_TRAVERSAL",
+     "verdict": "CONFIRMED",
+     "title": "Symlink target path traversal enables arbitrary file write",
+     "file_path": "src/views/api.php"
+    },
+    {
+     "id": "H2",
+     "vuln_type": "PATH_TRAVERSAL",
+     "verdict": "CONFIRMED",
+     "title": "realrealpath does not resolve symlinks, bypassing prefix check",
+     "file_path": "src/helpers.php"
+    },
+    {
+     "id": "H3",
+     "vuln_type": "PRIVILEGE_ESCALATION",
+     "verdict": "CONFIRMED",
+     "title": "Docker socket mounted into container enables host escape",
+     "file_path": "docker-compose.yml"
+    },
+    {
+     "id": "H4",
+     "vuln_type": "CREDENTIAL_LEAKAGE",
+     "verdict": "CONFIRMED",
+     "title": "Hardcoded admin credentials leaked in repository",
+     "file_path": "README.md"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": true,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H3",
+     "vuln_type": "PRIVILEGE_ESCALATION",
+     "verdict": "CONFIRMED",
+     "title": "Docker socket mounted into container enables host escape",
+     "file_path": "docker-compose.yml"
+    },
+    {
+     "id": "H4",
+     "vuln_type": "CREDENTIAL_LEAKAGE",
+     "verdict": "CONFIRMED",
+     "title": "Hardcoded admin credentials leaked in repository",
+     "file_path": "README.md"
+    }
+   ],
+   "unclassifiable": [],
+   "fn": false,
+   "intended_status": null,
+   "artifact_confirmed": [],
+   "infra_fail": false,
+   "semantic": {
+    "tp": true,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [
+     {
+      "id": "H3",
+      "vuln_type": "PRIVILEGE_ESCALATION",
+      "verdict": "CONFIRMED",
+      "title": "Docker socket mounted into container enables host escape",
+      "file_path": "docker-compose.yml"
+     },
+     {
+      "id": "H4",
+      "vuln_type": "CREDENTIAL_LEAKAGE",
+      "verdict": "CONFIRMED",
+      "title": "Hardcoded admin credentials leaked in repository",
+      "file_path": "README.md"
+     }
+    ],
+    "fn": false,
+    "intended_status": null
+   }
+  },
+  "flag_present": true,
+  "flag_sha256_12": "06b4b6d75c4c"
+ },
+ {
+  "challenge_id": "unagi",
+  "intended_class": "web",
+  "upstream_path": "removed/2019/CSAW-Quals/web/unagi",
+  "intended_types": [
+   "DESERIALIZATION",
+   "LOCAL_FILE_INCLUSION",
+   "COMMAND_INJECTION",
+   "PHP_OBJECT_INJECTION"
+  ],
+  "pipeline": {
+   "hypotheses": 5,
+   "verifications": 5,
+   "confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "PRIVILEGE_ESCALATION",
+     "verdict": "CONFIRMED",
+     "title": "Docker socket volume mount enables container breakout",
+     "file_path": "docker-compose.yml"
+    },
+    {
+     "id": "H2",
+     "vuln_type": "XML_EXTERNAL_ENTITY_INJECTION",
+     "verdict": "CONFIRMED",
+     "title": "XXE via SimpleXML with LIBXML_NOENT and disabled entity loader",
+     "file_path": "src/upload.php"
+    },
+    {
+     "id": "H3",
+     "vuln_type": "INPUT_VALIDATION_BYPASS",
+     "verdict": "CONFIRMED",
+     "title": "WAF keyword bypass via UTF-16 encoding",
+     "file_path": "src/upload.php"
+    },
+    {
+     "id": "H4",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "Information disclosure of flag path in about page",
+     "file_path": "src/about.php"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": false,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "PRIVILEGE_ESCALATION",
+     "verdict": "CONFIRMED",
+     "title": "Docker socket volume mount enables container breakout",
+     "file_path": "docker-compose.yml"
+    },
+    {
+     "id": "H2",
+     "vuln_type": "XML_EXTERNAL_ENTITY_INJECTION",
+     "verdict": "CONFIRMED",
+     "title": "XXE via SimpleXML with LIBXML_NOENT and disabled entity loader",
+     "file_path": "src/upload.php"
+    },
+    {
+     "id": "H3",
+     "vuln_type": "INPUT_VALIDATION_BYPASS",
+     "verdict": "CONFIRMED",
+     "title": "WAF keyword bypass via UTF-16 encoding",
+     "file_path": "src/upload.php"
+    },
+    {
+     "id": "H4",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "Information disclosure of flag path in about page",
+     "file_path": "src/about.php"
+    }
+   ],
+   "unclassifiable": [],
+   "fn": true,
+   "intended_status": null,
+   "artifact_confirmed": [],
+   "infra_fail": false,
+   "semantic": {
+    "tp": false,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [
+     {
+      "id": "H1",
+      "vuln_type": "PRIVILEGE_ESCALATION",
+      "verdict": "CONFIRMED",
+      "title": "Docker socket volume mount enables container breakout",
+      "file_path": "docker-compose.yml"
+     },
+     {
+      "id": "H2",
+      "vuln_type": "XML_EXTERNAL_ENTITY_INJECTION",
+      "verdict": "CONFIRMED",
+      "title": "XXE via SimpleXML with LIBXML_NOENT and disabled entity loader",
+      "file_path": "src/upload.php"
+     },
+     {
+      "id": "H3",
+      "vuln_type": "INPUT_VALIDATION_BYPASS",
+      "verdict": "CONFIRMED",
+      "title": "WAF keyword bypass via UTF-16 encoding",
+      "file_path": "src/upload.php"
+     },
+     {
+      "id": "H4",
+      "vuln_type": "INFORMATION_DISCLOSURE",
+      "verdict": "CONFIRMED",
+      "title": "Information disclosure of flag path in about page",
+      "file_path": "src/about.php"
+     }
+    ],
+    "fn": true,
+    "intended_status": null
+   }
+  },
+  "flag_present": true,
+  "flag_sha256_12": "d041607c6f07"
+ },
+ {
+  "challenge_id": "flask_caching",
+  "intended_class": "web",
+  "upstream_path": "removed/2020/CSAW-Quals/web/flask_caching",
+  "intended_types": [
+   "DESERIALIZATION",
+   "SSTI",
+   "CACHE_POISONING",
+   "PICKLE_INSECURE_LOAD"
+  ],
+  "pipeline": {
+   "hypotheses": 4,
+   "verifications": 4,
+   "confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "Flag 明文泄露于文档与源码仓库",
+     "file_path": "README.md"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": false,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "Flag 明文泄露于文档与源码仓库",
+     "file_path": "README.md"
+    }
+   ],
+   "unclassifiable": [],
+   "fn": true,
+   "intended_status": null,
+   "artifact_confirmed": [],
+   "infra_fail": false,
+   "semantic": {
+    "tp": false,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [
+     {
+      "id": "H1",
+      "vuln_type": "INFORMATION_DISCLOSURE",
+      "verdict": "CONFIRMED",
+      "title": "Flag 明文泄露于文档与源码仓库",
+      "file_path": "README.md"
+     }
+    ],
+    "fn": null,
+    "intended_status": {
+     "indeterminate": 1
+    }
+   }
+  },
+  "flag_present": true,
+  "flag_sha256_12": "b5c2539677a5"
+ },
+ {
+  "challenge_id": "real-time-chat",
+  "intended_class": "web",
+  "upstream_path": "removed/2020/CSAW-Quals/web/real-time-chat",
+  "intended_types": [
+   "XSS",
+   "CROSS_SITE_SCRIPTING",
+   "COMMAND_INJECTION",
+   "PATH_TRAVERSAL"
+  ],
+  "pipeline": {
+   "hypotheses": 4,
+   "verifications": 4,
+   "confirmed": [
+    {
+     "id": "H2",
+     "vuln_type": "Remote Code Execution / Privilege Escalation",
+     "verdict": "CONFIRMED",
+     "title": "Unauthenticated Redis reachable via TURN leads to RCE and flag read",
+     "file_path": "app.py"
+    },
+    {
+     "id": "H3",
+     "vuln_type": "Data Poisoning / Unauthenticated Write",
+     "verdict": "CONFIRMED",
+     "title": "Unauthenticated /api/log_message allows arbitrary Redis list poisoning",
+     "file_path": "app.py"
+    },
+    {
+     "id": "H4",
+     "vuln_type": "Information Disclosure",
+     "verdict": "CONFIRMED",
+     "title": "Flag and deployment secrets disclosed in documentation",
+     "file_path": "README.md"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": false,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H2",
+     "vuln_type": "Remote Code Execution / Privilege Escalation",
+     "verdict": "CONFIRMED",
+     "title": "Unauthenticated Redis reachable via TURN leads to RCE and flag read",
+     "file_path": "app.py"
+    },
+    {
+     "id": "H3",
+     "vuln_type": "Data Poisoning / Unauthenticated Write",
+     "verdict": "CONFIRMED",
+     "title": "Unauthenticated /api/log_message allows arbitrary Redis list poisoning",
+     "file_path": "app.py"
+    },
+    {
+     "id": "H4",
+     "vuln_type": "Information Disclosure",
+     "verdict": "CONFIRMED",
+     "title": "Flag and deployment secrets disclosed in documentation",
+     "file_path": "README.md"
+    }
+   ],
+   "unclassifiable": [],
+   "fn": true,
+   "intended_status": null,
+   "artifact_confirmed": [],
+   "infra_fail": false,
+   "semantic": {
+    "tp": false,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [
+     {
+      "id": "H2",
+      "vuln_type": "Remote Code Execution / Privilege Escalation",
+      "verdict": "CONFIRMED",
+      "title": "Unauthenticated Redis reachable via TURN leads to RCE and flag read",
+      "file_path": "app.py"
+     },
+     {
+      "id": "H3",
+      "vuln_type": "Data Poisoning / Unauthenticated Write",
+      "verdict": "CONFIRMED",
+      "title": "Unauthenticated /api/log_message allows arbitrary Redis list poisoning",
+      "file_path": "app.py"
+     },
+     {
+      "id": "H4",
+      "vuln_type": "Information Disclosure",
+      "verdict": "CONFIRMED",
+      "title": "Flag and deployment secrets disclosed in documentation",
+      "file_path": "README.md"
+     }
+    ],
+    "fn": true,
+    "intended_status": null
+   }
+  },
+  "flag_present": true,
+  "flag_sha256_12": "96433bdcfe08"
+ },
+ {
+  "challenge_id": "whistleblow",
+  "intended_class": "web",
+  "upstream_path": "removed/2020/CSAW-Quals/web/whistleblow",
+  "intended_types": [
+   "XSS",
+   "SQL_INJECTION",
+   "COMMAND_INJECTION",
+   "CROSS_SITE_SCRIPTING"
+  ],
+  "pipeline": {
+   "hypotheses": 4,
+   "verifications": 4,
+   "confirmed": [
+    {
+     "id": "H2",
+     "vuln_type": "SECRET_EXPOSURE",
+     "verdict": "CONFIRMED",
+     "title": "AWS 长期凭证与预签名 URL 硬编码泄露",
+     "file_path": "SETUP.md"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": false,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H2",
+     "vuln_type": "SECRET_EXPOSURE",
+     "verdict": "CONFIRMED",
+     "title": "AWS 长期凭证与预签名 URL 硬编码泄露",
+     "file_path": "SETUP.md"
+    }
+   ],
+   "unclassifiable": [],
+   "fn": true,
+   "intended_status": null,
+   "artifact_confirmed": [],
+   "infra_fail": false,
+   "semantic": {
+    "tp": false,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [
+     {
+      "id": "H2",
+      "vuln_type": "SECRET_EXPOSURE",
+      "verdict": "CONFIRMED",
+      "title": "AWS 长期凭证与预签名 URL 硬编码泄露",
+      "file_path": "SETUP.md"
+     }
+    ],
+    "fn": true,
+    "intended_status": null
+   }
+  },
+  "flag_present": true,
+  "flag_sha256_12": "f23d896ce173"
+ },
+ {
+  "challenge_id": "United",
+  "intended_class": "web",
+  "upstream_path": "removed/2021/CSAW-Finals/web/United",
+  "intended_types": [
+   "SSTI",
+   "SERVER_SIDE_TEMPLATE_INJECTION",
+   "REMOTE_CODE_EXECUTION",
+   "CODE_INJECTION"
+  ],
+  "pipeline": {
+   "hypotheses": 0,
+   "verifications": 0,
+   "confirmed": []
+  },
+  "judgment": {
+   "tp": false,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [],
+   "unclassifiable": [],
+   "fn": true,
+   "intended_status": null,
+   "artifact_confirmed": [],
+   "infra_fail": true,
+   "semantic": {
+    "tp": false,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [],
+    "fn": true,
+    "intended_status": null
+   }
+  },
+  "flag_present": false
+ },
+ {
+  "challenge_id": "good_intentions",
+  "intended_class": "web",
+  "upstream_path": "removed/2022/CSAW-Quals/web/good_intentions",
+  "intended_types": [
+   "COMMAND_INJECTION",
+   "SSRF",
+   "LOGIC_ERROR"
+  ],
+  "pipeline": {
+   "hypotheses": 3,
+   "verifications": 3,
+   "confirmed": [
+    {
+     "id": "H2",
+     "vuln_type": "IDOR",
+     "verdict": "CONFIRMED",
+     "title": "Insecure Direct Object Reference in download_image allows cross-user file retrieval",
+     "file_path": "server/application/blueprints/routes.py"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": false,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H2",
+     "vuln_type": "IDOR",
+     "verdict": "CONFIRMED",
+     "title": "Insecure Direct Object Reference in download_image allows cross-user file retrieval",
+     "file_path": "server/application/blueprints/routes.py"
+    }
+   ],
+   "unclassifiable": [],
+   "fn": true,
+   "intended_status": null,
+   "artifact_confirmed": [],
+   "infra_fail": false,
+   "semantic": {
+    "tp": false,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [
+     {
+      "id": "H2",
+      "vuln_type": "IDOR",
+      "verdict": "CONFIRMED",
+      "title": "Insecure Direct Object Reference in download_image allows cross-user file retrieval",
+      "file_path": "server/application/blueprints/routes.py"
+     }
+    ],
+    "fn": true,
+    "intended_status": null
+   }
+  },
+  "flag_present": true,
+  "flag_sha256_12": "2e1103a6cbc3"
+ },
+ {
+  "challenge_id": "search_for_pi",
+  "intended_class": "web",
+  "upstream_path": "removed/2022/CSAW-Quals/web/search_for_pi",
+  "intended_types": [
+   "SQL_INJECTION",
+   "LIKE_INJECTION",
+   "XSS",
+   "SSTI"
+  ],
+  "pipeline": {
+   "hypotheses": 4,
+   "verifications": 4,
+   "confirmed": [
+    {
+     "id": "H2",
+     "vuln_type": "SESSION_MANAGEMENT",
+     "verdict": "CONFIRMED",
+     "title": "Cookie 设置为 httpOnly=false 且未签名，客户端可读取/篡改会话状态",
+     "file_path": "src/index.js"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": false,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H2",
+     "vuln_type": "SESSION_MANAGEMENT",
+     "verdict": "CONFIRMED",
+     "title": "Cookie 设置为 httpOnly=false 且未签名，客户端可读取/篡改会话状态",
+     "file_path": "src/index.js"
+    }
+   ],
+   "unclassifiable": [],
+   "fn": true,
+   "intended_status": null,
+   "artifact_confirmed": [],
+   "infra_fail": false,
+   "semantic": {
+    "tp": false,
+    "refuted_on_intended": [
+     {
+      "id": "H4",
+      "vuln_type": "TEMPLATE_INJECTION",
+      "verdict": "REFUTED",
+      "title": "EJS 渲染模板未在审计范围内，存在潜在模板/反射 XSS 风险",
+      "file_path": "src/index.js"
+     }
+    ],
+    "unplanned_confirmed": [
+     {
+      "id": "H2",
+      "vuln_type": "SESSION_MANAGEMENT",
+      "verdict": "CONFIRMED",
+      "title": "Cookie 设置为 httpOnly=false 且未签名，客户端可读取/篡改会话状态",
+      "file_path": "src/index.js"
+     }
+    ],
+    "fn": true,
+    "intended_status": {
+     "refuted": 1
+    }
+   }
+  },
+  "flag_present": false
+ },
+ {
+  "challenge_id": "nft-world",
+  "intended_class": "web",
+  "upstream_path": "removed/2023/CSAW-Finals/web/nft-world",
+  "intended_types": [
+   "AUTH_BYPASS",
+   "JWT_VULNERABILITY",
+   "SSRF",
+   "IDOR"
+  ],
+  "pipeline": {
+   "hypotheses": 4,
+   "verifications": 4,
+   "confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "Hardcoded flag in challenge.json",
+     "file_path": "challenge.json"
+    },
+    {
+     "id": "H2",
+     "vuln_type": "HARDCODED_SECRET",
+     "verdict": "CONFIRMED",
+     "title": "GPG decryption password leaked in README",
+     "file_path": "README.md"
+    },
+    {
+     "id": "H3",
+     "vuln_type": "PATH_TRAVERSAL",
+     "verdict": "CONFIRMED",
+     "title": "DEBUG cat allows unrestricted file read via weak regex",
+     "file_path": "server/http_handlers/http_handlers.go"
+    },
+    {
+     "id": "H4",
+     "vuln_type": "BROKEN_AUTHENTICATION",
+     "verdict": "CONFIRMED",
+     "title": "Public CreatedAt leakage enables signature forgery and user impersonation",
+     "file_path": "server/utils/auth.go"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": false,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H2",
+     "vuln_type": "HARDCODED_SECRET",
+     "verdict": "CONFIRMED",
+     "title": "GPG decryption password leaked in README",
+     "file_path": "README.md"
+    },
+    {
+     "id": "H3",
+     "vuln_type": "PATH_TRAVERSAL",
+     "verdict": "CONFIRMED",
+     "title": "DEBUG cat allows unrestricted file read via weak regex",
+     "file_path": "server/http_handlers/http_handlers.go"
+    },
+    {
+     "id": "H4",
+     "vuln_type": "BROKEN_AUTHENTICATION",
+     "verdict": "CONFIRMED",
+     "title": "Public CreatedAt leakage enables signature forgery and user impersonation",
+     "file_path": "server/utils/auth.go"
+    }
+   ],
+   "unclassifiable": [],
+   "fn": true,
+   "intended_status": null,
+   "artifact_confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "Hardcoded flag in challenge.json",
+     "file_path": "challenge.json"
+    }
+   ],
+   "infra_fail": false,
+   "semantic": {
+    "tp": true,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [
+     {
+      "id": "H2",
+      "vuln_type": "HARDCODED_SECRET",
+      "verdict": "CONFIRMED",
+      "title": "GPG decryption password leaked in README",
+      "file_path": "README.md"
+     },
+     {
+      "id": "H3",
+      "vuln_type": "PATH_TRAVERSAL",
+      "verdict": "CONFIRMED",
+      "title": "DEBUG cat allows unrestricted file read via weak regex",
+      "file_path": "server/http_handlers/http_handlers.go"
+     }
+    ],
+    "fn": false,
+    "intended_status": null
+   }
+  },
+  "flag_present": true,
+  "flag_sha256_12": "db6b54a616a6"
+ },
+ {
+  "challenge_id": "webhooktester",
+  "intended_class": "web",
+  "upstream_path": "removed/2023/CSAW-Finals/web/webhooktester",
+  "intended_types": [
+   "SSRF",
+   "SERVER_SIDE_REQUEST_FORGERY",
+   "COMMAND_INJECTION"
+  ],
+  "pipeline": {
+   "hypotheses": 4,
+   "verifications": 4,
+   "confirmed": [
+    {
+     "id": "H2",
+     "vuln_type": "PRIVILEGE_ESCALATION",
+     "verdict": "CONFIRMED",
+     "title": "Setuid getflag binary enables unauthorized flag read",
+     "file_path": "chal/Dockerfile"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": false,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H2",
+     "vuln_type": "PRIVILEGE_ESCALATION",
+     "verdict": "CONFIRMED",
+     "title": "Setuid getflag binary enables unauthorized flag read",
+     "file_path": "chal/Dockerfile"
+    }
+   ],
+   "unclassifiable": [],
+   "fn": null,
+   "intended_status": {
+    "indeterminate": 1
+   },
+   "artifact_confirmed": [],
+   "infra_fail": false,
+   "semantic": {
+    "tp": false,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [
+     {
+      "id": "H2",
+      "vuln_type": "PRIVILEGE_ESCALATION",
+      "verdict": "CONFIRMED",
+      "title": "Setuid getflag binary enables unauthorized flag read",
+      "file_path": "chal/Dockerfile"
+     }
+    ],
+    "fn": null,
+    "intended_status": {
+     "indeterminate": 1
+    }
+   }
+  },
+  "flag_present": false
+ },
+ {
+  "challenge_id": "notmycupofcoffe",
+  "intended_class": "web",
+  "upstream_path": "test/2017/CSAW-Quals/web/notmycupofcoffe",
+  "intended_types": [
+   "JAVA_DESERIALIZATION",
+   "DESERIALIZATION",
+   "PATH_TRAVERSAL"
+  ],
+  "pipeline": {
+   "hypotheses": 5,
+   "verifications": 5,
+   "confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "Flag plaintext in challenge.json",
+     "file_path": "challenge.json"
+    },
+    {
+     "id": "H2",
+     "vuln_type": "DESERIALIZATION",
+     "verdict": "CONFIRMED",
+     "title": "Untrusted Java deserialization in BeanBreeder.recvBean",
+     "file_path": "src/main/java/coffee/BeanBreeder.java"
+    },
+    {
+     "id": "H5",
+     "vuln_type": "LOGIC_BUG",
+     "verdict": "CONFIRMED",
+     "title": "Bean inheritance always selects parent1 due to Random.nextInt(1)",
+     "file_path": "src/main/java/coffee/Bean.java"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": true,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H5",
+     "vuln_type": "LOGIC_BUG",
+     "verdict": "CONFIRMED",
+     "title": "Bean inheritance always selects parent1 due to Random.nextInt(1)",
+     "file_path": "src/main/java/coffee/Bean.java"
+    }
+   ],
+   "unclassifiable": [],
+   "fn": false,
+   "intended_status": null,
+   "artifact_confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "Flag plaintext in challenge.json",
+     "file_path": "challenge.json"
+    }
+   ],
+   "infra_fail": false,
+   "semantic": {
+    "tp": true,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [
+     {
+      "id": "H5",
+      "vuln_type": "LOGIC_BUG",
+      "verdict": "CONFIRMED",
+      "title": "Bean inheritance always selects parent1 due to Random.nextInt(1)",
+      "file_path": "src/main/java/coffee/Bean.java"
+     }
+    ],
+    "fn": false,
+    "intended_status": null
+   }
+  },
+  "flag_present": true,
+  "flag_sha256_12": "0f817550f5ee"
+ },
+ {
+  "challenge_id": "nvs",
+  "intended_class": "web",
+  "upstream_path": "test/2018/CSAW-Quals/web/nvs",
+  "intended_types": [
+   "XSS",
+   "CROSS_SITE_SCRIPTING",
+   "SSRF",
+   "SERVER_SIDE_REQUEST_FORGERY",
+   "COMMAND_INJECTION"
+  ],
+  "pipeline": {
+   "hypotheses": 5,
+   "verifications": 5,
+   "confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "COMMAND_INJECTION",
+     "verdict": "CONFIRMED",
+     "title": "Command injection via ping destination parameter",
+     "file_path": "src/nvs_support/src/ping.php"
+    },
+    {
+     "id": "H4",
+     "vuln_type": "STORED_XSS",
+     "verdict": "CONFIRMED",
+     "title": "Stored XSS via unescaped contact description rendered in admin review",
+     "file_path": "src/nvs_admin/review.php"
+    },
+    {
+     "id": "H5",
+     "vuln_type": "HARDCODED_CREDENTIALS",
+     "verdict": "CONFIRMED",
+     "title": "Hardcoded database and admin credentials in source",
+     "file_path": "src/secrets.php"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": true,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H4",
+     "vuln_type": "STORED_XSS",
+     "verdict": "CONFIRMED",
+     "title": "Stored XSS via unescaped contact description rendered in admin review",
+     "file_path": "src/nvs_admin/review.php"
+    },
+    {
+     "id": "H5",
+     "vuln_type": "HARDCODED_CREDENTIALS",
+     "verdict": "CONFIRMED",
+     "title": "Hardcoded database and admin credentials in source",
+     "file_path": "src/secrets.php"
+    }
+   ],
+   "unclassifiable": [],
+   "fn": false,
+   "intended_status": null,
+   "artifact_confirmed": [],
+   "infra_fail": false,
+   "semantic": {
+    "tp": true,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [
+     {
+      "id": "H4",
+      "vuln_type": "STORED_XSS",
+      "verdict": "CONFIRMED",
+      "title": "Stored XSS via unescaped contact description rendered in admin review",
+      "file_path": "src/nvs_admin/review.php"
+     },
+     {
+      "id": "H5",
+      "vuln_type": "HARDCODED_CREDENTIALS",
+      "verdict": "CONFIRMED",
+      "title": "Hardcoded database and admin credentials in source",
+      "file_path": "src/secrets.php"
+     }
+    ],
+    "fn": false,
+    "intended_status": null
+   }
+  },
+  "flag_present": false
+ },
+ {
+  "challenge_id": "picgram",
+  "intended_class": "web",
+  "upstream_path": "test/2020/CSAW-Finals/web/picgram",
+  "intended_types": [
+   "SQL_INJECTION",
+   "IDOR",
+   "PATH_TRAVERSAL"
+  ],
+  "pipeline": {
+   "hypotheses": 3,
+   "verifications": 3,
+   "confirmed": []
+  },
+  "judgment": {
+   "tp": false,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [],
+   "unclassifiable": [],
+   "fn": null,
+   "intended_status": {
+    "indeterminate": 1
+   },
+   "artifact_confirmed": [],
+   "infra_fail": false,
+   "semantic": {
+    "tp": false,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [],
+    "fn": null,
+    "intended_status": {
+     "indeterminate": 1
+    }
+   }
+  },
+  "flag_present": true,
+  "flag_sha256_12": "b709dcaaac19"
+ },
+ {
+  "challenge_id": "gatekeeping",
+  "intended_class": "web",
+  "upstream_path": "test/2021/CSAW-Quals/web/gatekeeping",
+  "intended_types": [
+   "AUTH_BYPASS",
+   "JWT_VULNERABILITY",
+   "ACCESS_CONTROL",
+   "LOGIC_ERROR"
+  ],
+  "pipeline": {
+   "hypotheses": 6,
+   "verifications": 6,
+   "confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "PRIVILEGE_ESCALATION",
+     "verdict": "CONFIRMED",
+     "title": "Docker socket 挂载导致容器逃逸/权限提升",
+     "file_path": "docker-compose.yml"
+    },
+    {
+     "id": "H3",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "/admin/key 端点通过 SCRIPT_NAME 绕过泄露加密密钥",
+     "file_path": "server/server.py"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": false,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "PRIVILEGE_ESCALATION",
+     "verdict": "CONFIRMED",
+     "title": "Docker socket 挂载导致容器逃逸/权限提升",
+     "file_path": "docker-compose.yml"
+    },
+    {
+     "id": "H3",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "/admin/key 端点通过 SCRIPT_NAME 绕过泄露加密密钥",
+     "file_path": "server/server.py"
+    }
+   ],
+   "unclassifiable": [],
+   "fn": true,
+   "intended_status": null,
+   "artifact_confirmed": [],
+   "infra_fail": false,
+   "semantic": {
+    "tp": false,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [
+     {
+      "id": "H1",
+      "vuln_type": "PRIVILEGE_ESCALATION",
+      "verdict": "CONFIRMED",
+      "title": "Docker socket 挂载导致容器逃逸/权限提升",
+      "file_path": "docker-compose.yml"
+     },
+     {
+      "id": "H3",
+      "vuln_type": "INFORMATION_DISCLOSURE",
+      "verdict": "CONFIRMED",
+      "title": "/admin/key 端点通过 SCRIPT_NAME 绕过泄露加密密钥",
+      "file_path": "server/server.py"
+     }
+    ],
+    "fn": true,
+    "intended_status": null
+   }
+  },
+  "flag_present": true,
+  "flag_sha256_12": "726155e960c6"
+ },
+ {
+  "challenge_id": "poem-collection",
+  "intended_class": "web",
+  "upstream_path": "test/2021/CSAW-Quals/web/poem-collection",
+  "intended_types": [
+   "SQL_INJECTION",
+   "LOCAL_FILE_INCLUSION",
+   "XSS",
+   "COMMAND_INJECTION"
+  ],
+  "pipeline": {
+   "hypotheses": 4,
+   "verifications": 4,
+   "confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "PATH_TRAVERSAL",
+     "verdict": "CONFIRMED",
+     "title": "未过滤的 poem 参数导致本地文件包含",
+     "file_path": "src/poems/index.php"
+    },
+    {
+     "id": "H2",
+     "vuln_type": "PRIVILEGE_ESCALATION",
+     "verdict": "CONFIRMED",
+     "title": "docker-compose 挂载宿主机 Docker socket 导致容器逃逸",
+     "file_path": "docker-compose.yml"
+    },
+    {
+     "id": "H3",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "Flag 在文档与配置中明文泄露",
+     "file_path": "README.md"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": false,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "PATH_TRAVERSAL",
+     "verdict": "CONFIRMED",
+     "title": "未过滤的 poem 参数导致本地文件包含",
+     "file_path": "src/poems/index.php"
+    },
+    {
+     "id": "H2",
+     "vuln_type": "PRIVILEGE_ESCALATION",
+     "verdict": "CONFIRMED",
+     "title": "docker-compose 挂载宿主机 Docker socket 导致容器逃逸",
+     "file_path": "docker-compose.yml"
+    },
+    {
+     "id": "H3",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "Flag 在文档与配置中明文泄露",
+     "file_path": "README.md"
+    }
+   ],
+   "unclassifiable": [],
+   "fn": true,
+   "intended_status": null,
+   "artifact_confirmed": [],
+   "infra_fail": false,
+   "semantic": {
+    "tp": true,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [
+     {
+      "id": "H2",
+      "vuln_type": "PRIVILEGE_ESCALATION",
+      "verdict": "CONFIRMED",
+      "title": "docker-compose 挂载宿主机 Docker socket 导致容器逃逸",
+      "file_path": "docker-compose.yml"
+     },
+     {
+      "id": "H3",
+      "vuln_type": "INFORMATION_DISCLOSURE",
+      "verdict": "CONFIRMED",
+      "title": "Flag 在文档与配置中明文泄露",
+      "file_path": "README.md"
+     }
+    ],
+    "fn": false,
+    "intended_status": null
+   }
+  },
+  "flag_present": false
+ }
+]
