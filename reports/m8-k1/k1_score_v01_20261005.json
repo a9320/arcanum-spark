@@ -843,23 +843,131 @@
    "CODE_INJECTION"
   ],
   "pipeline": {
-   "hypotheses": 0,
-   "verifications": 0,
-   "confirmed": []
+   "hypotheses": 5,
+   "verifications": 5,
+   "confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "SQL_INJECTION",
+     "verdict": "CONFIRMED",
+     "title": "SQL 注入导致管理员表数据泄露",
+     "file_path": "routes/players.js"
+    },
+    {
+     "id": "H2",
+     "vuln_type": "HARDCODED_SECRET",
+     "verdict": "CONFIRMED",
+     "title": "会话密钥硬编码",
+     "file_path": "app.js"
+    },
+    {
+     "id": "H3",
+     "vuln_type": "CONTAINER_ESCAPE",
+     "verdict": "CONFIRMED",
+     "title": "Docker Socket 挂载导致容器逃逸",
+     "file_path": "docker-compose.yml"
+    },
+    {
+     "id": "H4",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "明文管理员种子凭据泄露",
+     "file_path": "secret/admin_seed.json"
+    },
+    {
+     "id": "H5",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "未授权管理员枚举接口",
+     "file_path": "routes/admins.js"
+    }
+   ]
   },
   "judgment": {
    "tp": false,
    "refuted_on_intended": [],
-   "unplanned_confirmed": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "SQL_INJECTION",
+     "verdict": "CONFIRMED",
+     "title": "SQL 注入导致管理员表数据泄露",
+     "file_path": "routes/players.js"
+    },
+    {
+     "id": "H2",
+     "vuln_type": "HARDCODED_SECRET",
+     "verdict": "CONFIRMED",
+     "title": "会话密钥硬编码",
+     "file_path": "app.js"
+    },
+    {
+     "id": "H3",
+     "vuln_type": "CONTAINER_ESCAPE",
+     "verdict": "CONFIRMED",
+     "title": "Docker Socket 挂载导致容器逃逸",
+     "file_path": "docker-compose.yml"
+    },
+    {
+     "id": "H4",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "明文管理员种子凭据泄露",
+     "file_path": "secret/admin_seed.json"
+    },
+    {
+     "id": "H5",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "未授权管理员枚举接口",
+     "file_path": "routes/admins.js"
+    }
+   ],
    "unclassifiable": [],
    "fn": true,
    "intended_status": null,
    "artifact_confirmed": [],
-   "infra_fail": true,
+   "infra_fail": false,
    "semantic": {
     "tp": false,
     "refuted_on_intended": [],
-    "unplanned_confirmed": [],
+    "unplanned_confirmed": [
+     {
+      "id": "H1",
+      "vuln_type": "SQL_INJECTION",
+      "verdict": "CONFIRMED",
+      "title": "SQL 注入导致管理员表数据泄露",
+      "file_path": "routes/players.js"
+     },
+     {
+      "id": "H2",
+      "vuln_type": "HARDCODED_SECRET",
+      "verdict": "CONFIRMED",
+      "title": "会话密钥硬编码",
+      "file_path": "app.js"
+     },
+     {
+      "id": "H3",
+      "vuln_type": "CONTAINER_ESCAPE",
+      "verdict": "CONFIRMED",
+      "title": "Docker Socket 挂载导致容器逃逸",
+      "file_path": "docker-compose.yml"
+     },
+     {
+      "id": "H4",
+      "vuln_type": "INFORMATION_DISCLOSURE",
+      "verdict": "CONFIRMED",
+      "title": "明文管理员种子凭据泄露",
+      "file_path": "secret/admin_seed.json"
+     },
+     {
+      "id": "H5",
+      "vuln_type": "INFORMATION_DISCLOSURE",
+      "verdict": "CONFIRMED",
+      "title": "未授权管理员枚举接口",
+      "file_path": "routes/admins.js"
+     }
+    ],
     "fn": true,
     "intended_status": null
    }
