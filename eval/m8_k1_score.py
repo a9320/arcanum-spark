@@ -42,6 +42,9 @@ ARTIFACT_PATHS = frozenset(
     {"challenge.json", "flag", "flag.txt", "chal.flag", "metadata.json"}
 )
 
+# v0.2 语义等价类：v0.1 基础上新增凭证泄露族（K2 重判分实证：同一 AWS 凭证发现
+# 被 K1 Muse 版打标 SECRET_EXPOSURE、混合臂版打标 HARDCODED_SECRET/EXPOSED_CREDENTIAL
+# ——标签跨 Scout 代不稳定，凭证明文暴露同族强等价；whistleblow 案 docs/K2-INTENDED-REVIEW.md）。
 # v0.1 语义等价类：仅收强/中映射（K1-min 20 题实跑复盘定稿）；弱映射不采用——
 # RCE 族不进 COMMAND_INJECTION 类、fileConfig RCE 不进任何类（good_intentions 案）。
 # 协议升版 docs/M8-CTF-TRUTH.md v0.1 待记。
@@ -55,6 +58,8 @@ EQUIV_CLASSES: tuple[tuple[str, ...], ...] = (
     ("SQL_INJECTION", "BLIND_SQL_INJECTION", "TIME_BASED_SQL_INJECTION",
      "LIKE_INJECTION"),
     ("SSRF", "SERVER_SIDE_REQUEST_FORGERY"),
+    ("EXPOSED_CREDENTIAL", "AWS_CREDENTIALS_EXPOSURE", "HARDCODED_SECRET",
+     "SECRET_EXPOSURE"),
 )
 _VT_CLASS: dict[str, int] = {
     vt: i for i, cls in enumerate(EQUIV_CLASSES) for vt in cls

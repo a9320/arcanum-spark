@@ -164,6 +164,21 @@ def test_weak_mapping_not_adopted():
     assert out["judgment"]["semantic"]["tp"] is False
 
 
+def test_semantic_credential_family_v02():
+    # v0.2 凭证泄露族：whistleblow 案——同一 AWS 凭证发现被 K1 Muse 版打标
+    # SECRET_EXPOSURE、混合臂版打标 HARDCODED_SECRET/EXPOSED_CREDENTIAL，
+    # 标签跨 Scout 代不稳定 → 凭证明文暴露同族强等价（docs/K2-INTENDED-REVIEW.md）
+    report = _report([("H1", "SECRET_EXPOSURE", "CONFIRMED")])
+    entry = dict(_ENTRY, intended_types=["EXPOSED_CREDENTIAL"])
+    out = m8.judge_question(entry, report, None)
+    assert out["judgment"]["tp"] is False             # 机制口径：词面不等
+    assert out["judgment"]["semantic"]["tp"] is True  # 语义口径：凭证族等价类
+    report2 = _report([("H1", "HARDCODED_SECRET", "CONFIRMED")])
+    entry2 = dict(_ENTRY, intended_types=["SECRET_EXPOSURE"])
+    out2 = m8.judge_question(entry2, report2, None)
+    assert out2["judgment"]["semantic"]["tp"] is True  # 反向同族
+
+
 def test_semantic_null_when_intended_missing():
     entry = dict(_ENTRY, intended_types=None)
     out = m8.judge_question(entry, _report([("H1", "DESERIALIZATION_RCE", "CONFIRMED")]), None)
