@@ -119,12 +119,12 @@
   "category": "web",
   "flag_present": true,
   "intended_types": [
-   "XSS",
-   "SQL_INJECTION",
-   "COMMAND_INJECTION",
-   "CROSS_SITE_SCRIPTING"
+   "S3_MISCONFIGURATION",
+   "AWS_CREDENTIALS_EXPOSURE",
+   "EXPOSED_CREDENTIAL",
+   "HARDCODED_SECRET"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "K2定稿2026-10-06: 源码复核实锤原草案[XSS,SQLI,CMDI]为writeup串题; 官方解=S3 bucket配置缺陷链(init_bucket.py 200对象藏匿bucket/AK/Signature四元数据→跨region访问secret bucket, README自述'Various flaws in AWS S3 bucket configurations'); 依据docs/K2-INTENDED-REVIEW.md; K1判分用草案版本"
  },
  {
   "challenge_id": "United",
@@ -132,12 +132,11 @@
   "category": "web",
   "flag_present": true,
   "intended_types": [
-   "SSTI",
-   "SERVER_SIDE_TEMPLATE_INJECTION",
-   "REMOTE_CODE_EXECUTION",
-   "CODE_INJECTION"
+   "SQL_INJECTION",
+   "UNION_SQL_INJECTION",
+   "WEAK_CREDENTIALS"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "K2定稿2026-10-06: 官方README Overview+players.js:12模板字符串拼接实锤=SQLi Union链(SQLi泄admin表→SHA-1弱口令破解→未链接admin页登录); 原SSTI草案系writeup记忆偏差(EJS仅渲染locals无模板注入面); 依据docs/K2-INTENDED-REVIEW.md; K1判分用草案版本"
  },
  {
   "challenge_id": "good_intentions",
@@ -233,12 +232,12 @@
   "category": "web",
   "flag_present": true,
   "intended_types": [
-   "AUTH_BYPASS",
-   "JWT_VULNERABILITY",
+   "ACCESS_CONTROL_BYPASS",
    "ACCESS_CONTROL",
-   "LOGIC_ERROR"
+   "AUTH_BYPASS",
+   "INFORMATION_DISCLOSURE"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "K2定稿2026-10-06: readme spoiler+solve.py实锤=gunicorn从请求头加载SCRIPT_NAME走私绕过nginx /admin前缀检查→无认证/admin/key泄AES密钥→解密flag; JWT_VULNERABILITY删除(server.py零JWT证据); INFORMATION_DISCLOSURE收入(密钥泄露=官方链交付物); 依据docs/K2-INTENDED-REVIEW.md; K1判分用草案版本"
  },
  {
   "challenge_id": "poem-collection",
