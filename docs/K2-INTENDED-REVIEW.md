@@ -63,6 +63,14 @@
 2. "先修 intended 再烧 token"策略本批验证成功：三题失分中 2.5-3 题系 intended 错位而非模型能力——剩余 11 失分题的 intended 草案质量同样存疑（同批 draft）。
 3. **建议下一批 K2 复核候选**（均为本地零成本）：search_for_pi（test_solver 在本地 nyu_smoke，报告已疑"intended 与真实解双双偏航"+2 次 REFUTED 正确性未审）、nft-world（报告 §3 已标"intended 复核候选"）、real-time-chat/good_intentions（官方解未实锤题）。复核完成后再决定混合臂剩余题清单，避免按错位词表烧 StepFun token。
 
+## 重判分实测（2026-10-06 DSW，k1_score_k2.json / hybrid_score_k2.json）
+
+- **aggregate**：tp 5→7（United H1 SQL_INJECTION@routes/players.js + gatekeeping H3 INFORMATION_DISCLOSURE@server/server.py 字面翻正）、fn 12→10、unplanned 38→36（恰好挪出 2 条）、ind/refuted/infra_fail/artifact 逐位不动（17 题零波及=判分器确定性再实证）；**semantic 7/8/5/1 → 9/6/5/1**。
+- **预期 10/5 差 1 定位**：whistleblow K1 版 H2 与混合臂版是同一发现（AWS 凭证+预签名 URL 硬编码），但 K1 Muse 版类型标签为 **SECRET_EXPOSURE**——词面不在定稿词表且 v0.1 等价类无 SECRET_EXPOSURE↔EXPOSED_CREDENTIAL 映射，两口径均未翻。人工对账裁定=语义 TP（同一发现混合臂版打标 HARDCODED_SECRET/EXPOSED_CREDENTIAL 字面命中翻正已实证）→ **真值语义 10/5，9/6 为 v0.1 判分器官方数**。
+- **混合臂双题全翻**（judged=2→tp=2）：whistleblow H1 HARDCODED_SECRET@init_bucket.py（源码级，深于 K1 版的 SETUP.md 文档级）+H2 EXPOSED_CREDENTIAL@SETUP.md；gatekeeping H3 INFORMATION_DISCLOSURE@server/server.py。gatekeeping 混合臂 H4 SECRET_EXPOSURE（flag 入仓）维持 unplanned（EXPOSED_CREDENTIAL 不在其词表，全局映射无副作用实证）。
+- **v0.2 队列（判分器等价类一行+测试）**：SECRET_EXPOSURE→EXPOSED_CREDENTIAL/AWS_CREDENTIALS_EXPOSURE（强-中强度）——下会话与 K2 第二批同批落；落后重判分语义口径应为 10/5。
+- 9/6 版快照与判分件保险副本=/mnt/workspace/runs/（DSW 持久区）。
+
 ## 纪律备注
 
 - manifest 三题 notes 已标注"K1 判分用草案版本"——已发布的 k1_score.json / EVAL-LEDGER 数字不被追溯改写，重判分另立文件名，双版本可对账。
