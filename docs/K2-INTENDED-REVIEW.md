@@ -71,6 +71,32 @@
 - **v0.2 队列（判分器等价类一行+测试）**：SECRET_EXPOSURE→EXPOSED_CREDENTIAL/AWS_CREDENTIALS_EXPOSURE（强-中强度）——下会话与 K2 第二批同批落；落后重判分语义口径应为 10/5。
 - 9/6 版快照与判分件保险副本=/mnt/workspace/runs/（DSW 持久区）。
 
+## K2 第二批复核（2026-10-06，search_for_pi + nft-world）
+
+| 题 | 原草案 intended | 源码实锤官方解 | 判定 | 定稿 intended_types |
+|---|---|---|---|---|
+| #12 search_for_pi | SQL_INJECTION, LIKE_INJECTION, XSS, SSTI | 词链追踪 logic-puzzle | **整体错误（题目类型错配）** | LOGIC_CHAIN_CHALLENGE |
+| #13 nft-world | AUTH_BYPASS, JWT_VULNERABILITY, SSRF, IDOR | 弱密码学签名→伪造 admin→DEBUG cat 任意读→flag.gpg | **部分正确（JWT/SSRF/IDOR 删）** | AUTH_BYPASS, BROKEN_AUTHENTICATION, ARBITRARY_FILE_READ, WEAK_CRYPTOGRAPHY |
+
+### #12 search_for_pi（removed/2022/CSAW-Quals/web/search_for_pi，又名 Word Wide Web）
+
+1. `sol.py`（官方解脚本）：从 `/stuff` 起逐页解析 `a href` 追踪 100 步随机词链，链尾读 flag——纯逻辑链挑战。
+2. `src/index.js` 全文：无数据库/无 SQL 面、EJS 仅渲染 locals 无模板注入面、无 XSS sink 构成解链环节——草案四型全部无源码对应。
+3. **两次 REFUTED 审毕均正确**（K1 报告待查项关闭）：H1 AUTH_BYPASS REFUTED 0.78——伪造 solChain cookie 需先知晓整条随机链（`checkChain` 前缀校验+每局随机词），信息论上等价于正常游玩；H4 TEMPLATE_INJECTION REFUTED 0.7——EJS 渲染 locals，模板源码无用户输入路径。Verify 无过严问题。
+4. 定性：logic-puzzle 非漏洞题，管线射程外——该题 FN 记"类型错配"不记"检测失败"，**不值得烧混合臂 token**。
+5. 附带红利：草案删 SSTI 后该题 H4 REFUTED 不再计入 refuted_on_intended_semantic——修复旧语义口径总和 21>20 的双计怪账（该题此前同时贡献 fn_sem 与 refuted_sem 各 1）。
+
+### #13 nft-world（removed/2023/CSAW-Finals/web/nft-world）
+
+1. `solution.py`+`README.md`（自带解链）+`server/utils/auth.go`：签名密钥=账户 CreatedAt 时间戳（`deriveKey` 零盐 100 轮 PBKDF2+全零 IV+MD5 密文尾自造 MAC）→ 伪造 admin 消息（userId=0x00000000）打 `/cmd` 的 DEBUG(0xfe) 命令 → `exec.Command("cat", …)` 任意读（http_handlers.go:100）→ 拖 flag.txt.gpg → GPG 密码藏 "the_password" NFT 图（README 明文 `X.Ai.A12.Archangel`）。flag=`maYB3_W3_5H0ulD_HAV3_U53d_PA22W0rD2` 自嘲认证缺陷。
+2. JWT_VULNERABILITY 删除（自制 MAC 非 JWT）；SSRF/IDOR 删除（链内零证据）。
+3. BROKEN_AUTHENTICATION（管线 H4 CONFIRMED 0.9）+ ARBITRARY_FILE_READ（管线 DEBUG cat 发现，与 0xfe 原语逐字对应）→ **机制口径 FN→TP（字面双命中）**；语义口径维持 TP（v0.1 既有 BROKEN_AUTHENTICATION→AUTH_BYPASS 中强度映射）。
+
+### 判分器 v0.2（凭证泄露族等价类）
+
+- 新增 `("EXPOSED_CREDENTIAL", "AWS_CREDENTIALS_EXPOSURE", "HARDCODED_SECRET", "SECRET_EXPOSURE")`——whistleblow K1 版 H2 SECRET_EXPOSURE 翻语义 TP；副作用推演=United HARDCODED_SECRET（session secret，非官方链）其词表无凭证词不虚翻、gatekeeping H4 同理；`tests/test_m8_k1_score.py::test_semantic_credential_family_v02` 双向锁定；289 passed。
+- **重判分预期（k1_score_v02.json）**：机制 tp 7→8（nft-world 保底）/fn→9/unplanned 36→34~35；语义 **10/5/5/0**（总账修复 21→20）。
+
 ## 纪律备注
 
 - manifest 三题 notes 已标注"K1 判分用草案版本"——已发布的 k1_score.json / EVAL-LEDGER 数字不被追溯改写，重判分另立文件名，双版本可对账。

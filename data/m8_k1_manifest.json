@@ -156,12 +156,9 @@
   "category": "web",
   "flag_present": true,
   "intended_types": [
-   "SQL_INJECTION",
-   "LIKE_INJECTION",
-   "XSS",
-   "SSTI"
+   "LOGIC_CHAIN_CHALLENGE"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "K2定稿2026-10-06(第二批): 源码复核实锤原草案[SQLI,LIKE,XSS,SSTI]整体错误——src/index.js 无SQL面/无模板注入面, 官方解sol.py=从/stuff逐页追踪100步随机词链的logic-puzzle, 非漏洞题; 管线射程外, FN记类型错配不记检测失败; H1 AUTH_BYPASS REFUTED(伪造cookie需先知整条随机链=信息论等价正常游玩)与H4 SSTI REFUTED(EJS仅渲染locals)均审为驳回正确; 依据docs/K2-INTENDED-REVIEW.md; K1判分用草案版本"
  },
  {
   "challenge_id": "nft-world",
@@ -170,11 +167,11 @@
   "flag_present": true,
   "intended_types": [
    "AUTH_BYPASS",
-   "JWT_VULNERABILITY",
-   "SSRF",
-   "IDOR"
+   "BROKEN_AUTHENTICATION",
+   "ARBITRARY_FILE_READ",
+   "WEAK_CRYPTOGRAPHY"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "K2定稿2026-10-06(第二批): solution.py+README实锤官方链=签名密钥为账户CreatedAt时间戳(auth.go deriveKey零盐+零IV+MD5尾自造MAC)→伪造admin消息打/cmd的DEBUG(0xfe)命令→exec cat任意读→拖flag.txt.gpg→GPG密码藏NFT图(X.Ai.A12.Archangel); JWT_VULNERABILITY删(自制MAC非JWT)/SSRF删/IDOR删(链内零证据); BROKEN_AUTHENTICATION+ARBITRARY_FILE_READ为管线K1 CONFIRMED字面命中; 依据docs/K2-INTENDED-REVIEW.md; K1判分用草案版本"
  },
  {
   "challenge_id": "webhooktester",
