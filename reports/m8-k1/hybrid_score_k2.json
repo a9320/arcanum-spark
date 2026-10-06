@@ -1,0 +1,417 @@
+[
+ {
+  "challenge_id": "I Got Id",
+  "intended_class": "web",
+  "upstream_path": "development/2016/CSAW-Quals/web/I Got Id",
+  "intended_types": [
+   "PATH_TRAVERSAL",
+   "COMMAND_INJECTION",
+   "CODE_INJECTION",
+   "ARBITRARY_FILE_READ"
+  ],
+  "pipeline": null,
+  "judgment": null,
+  "flag_present": true,
+  "flag_sha256_12": "5651b3b3cb3e"
+ },
+ {
+  "challenge_id": "nekocat",
+  "intended_class": "web",
+  "upstream_path": "removed/2018/CSAW-Finals/web/nekocat",
+  "intended_types": [
+   "DESERIALIZATION",
+   "COMMAND_INJECTION",
+   "SSTI",
+   "PATH_TRAVERSAL"
+  ],
+  "pipeline": null,
+  "judgment": null,
+  "flag_present": true,
+  "flag_sha256_12": "a4e301aa1e60"
+ },
+ {
+  "challenge_id": "raid_fat_fs_chal",
+  "intended_class": "web",
+  "upstream_path": "removed/2018/CSAW-Finals/web/raid_fat_fs_chal",
+  "intended_types": [
+   "PATH_TRAVERSAL",
+   "ARBITRARY_FILE_READ",
+   "LOGIC_ERROR"
+  ],
+  "pipeline": null,
+  "judgment": null,
+  "flag_present": false
+ },
+ {
+  "challenge_id": "very_SaaSy",
+  "intended_class": "web",
+  "upstream_path": "removed/2019/CSAW-Finals/web/very_SaaSy",
+  "intended_types": [
+   "SQL_INJECTION",
+   "BLIND_SQL_INJECTION",
+   "TIME_BASED_SQL_INJECTION"
+  ],
+  "pipeline": null,
+  "judgment": null,
+  "flag_present": false
+ },
+ {
+  "challenge_id": "saasy",
+  "intended_class": "web",
+  "upstream_path": "removed/2019/CSAW-Quals/web/saasy",
+  "intended_types": [
+   "SQL_INJECTION",
+   "BLIND_SQL_INJECTION",
+   "ARBITRARY_FILE_READ"
+  ],
+  "pipeline": null,
+  "judgment": null,
+  "flag_present": false
+ },
+ {
+  "challenge_id": "secure_file_store",
+  "intended_class": "web",
+  "upstream_path": "removed/2019/CSAW-Quals/web/secure_file_store",
+  "intended_types": [
+   "XSS",
+   "CROSS_SITE_SCRIPTING",
+   "UNRESTRICTED_FILE_UPLOAD",
+   "PATH_TRAVERSAL"
+  ],
+  "pipeline": null,
+  "judgment": null,
+  "flag_present": true,
+  "flag_sha256_12": "06b4b6d75c4c"
+ },
+ {
+  "challenge_id": "unagi",
+  "intended_class": "web",
+  "upstream_path": "removed/2019/CSAW-Quals/web/unagi",
+  "intended_types": [
+   "DESERIALIZATION",
+   "LOCAL_FILE_INCLUSION",
+   "COMMAND_INJECTION",
+   "PHP_OBJECT_INJECTION"
+  ],
+  "pipeline": null,
+  "judgment": null,
+  "flag_present": true,
+  "flag_sha256_12": "d041607c6f07"
+ },
+ {
+  "challenge_id": "flask_caching",
+  "intended_class": "web",
+  "upstream_path": "removed/2020/CSAW-Quals/web/flask_caching",
+  "intended_types": [
+   "DESERIALIZATION",
+   "SSTI",
+   "CACHE_POISONING",
+   "PICKLE_INSECURE_LOAD"
+  ],
+  "pipeline": null,
+  "judgment": null,
+  "flag_present": true,
+  "flag_sha256_12": "b5c2539677a5"
+ },
+ {
+  "challenge_id": "real-time-chat",
+  "intended_class": "web",
+  "upstream_path": "removed/2020/CSAW-Quals/web/real-time-chat",
+  "intended_types": [
+   "XSS",
+   "CROSS_SITE_SCRIPTING",
+   "COMMAND_INJECTION",
+   "PATH_TRAVERSAL"
+  ],
+  "pipeline": null,
+  "judgment": null,
+  "flag_present": true,
+  "flag_sha256_12": "96433bdcfe08"
+ },
+ {
+  "challenge_id": "whistleblow",
+  "intended_class": "web",
+  "upstream_path": "removed/2020/CSAW-Quals/web/whistleblow",
+  "intended_types": [
+   "S3_MISCONFIGURATION",
+   "AWS_CREDENTIALS_EXPOSURE",
+   "EXPOSED_CREDENTIAL",
+   "HARDCODED_SECRET"
+  ],
+  "pipeline": {
+   "hypotheses": 4,
+   "verifications": 4,
+   "confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "HARDCODED_SECRET",
+     "verdict": "CONFIRMED",
+     "title": "源代码中硬编码 AWS Access Key 泄露",
+     "file_path": "init_bucket.py"
+    },
+    {
+     "id": "H2",
+     "vuln_type": "EXPOSED_CREDENTIAL",
+     "verdict": "CONFIRMED",
+     "title": "预签名 URL 及签名组件在文档中明文暴露",
+     "file_path": "SETUP.md"
+    },
+    {
+     "id": "H3",
+     "vuln_type": "CROSS_FILE_INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "跨文件凭证分散与重构链：首桶 authenticated-read 对象泄露第二桶访问要素",
+     "file_path": "solve.txt"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": true,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H3",
+     "vuln_type": "CROSS_FILE_INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "跨文件凭证分散与重构链：首桶 authenticated-read 对象泄露第二桶访问要素",
+     "file_path": "solve.txt"
+    }
+   ],
+   "unclassifiable": [],
+   "fn": false,
+   "intended_status": null,
+   "artifact_confirmed": [],
+   "infra_fail": false,
+   "semantic": {
+    "tp": true,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [
+     {
+      "id": "H3",
+      "vuln_type": "CROSS_FILE_INFORMATION_DISCLOSURE",
+      "verdict": "CONFIRMED",
+      "title": "跨文件凭证分散与重构链：首桶 authenticated-read 对象泄露第二桶访问要素",
+      "file_path": "solve.txt"
+     }
+    ],
+    "fn": false,
+    "intended_status": null
+   }
+  },
+  "flag_present": true,
+  "flag_sha256_12": "f23d896ce173"
+ },
+ {
+  "challenge_id": "United",
+  "intended_class": "web",
+  "upstream_path": "removed/2021/CSAW-Finals/web/United",
+  "intended_types": [
+   "SQL_INJECTION",
+   "UNION_SQL_INJECTION",
+   "WEAK_CREDENTIALS"
+  ],
+  "pipeline": null,
+  "judgment": null,
+  "flag_present": false
+ },
+ {
+  "challenge_id": "good_intentions",
+  "intended_class": "web",
+  "upstream_path": "removed/2022/CSAW-Quals/web/good_intentions",
+  "intended_types": [
+   "COMMAND_INJECTION",
+   "SSRF",
+   "LOGIC_ERROR"
+  ],
+  "pipeline": null,
+  "judgment": null,
+  "flag_present": true,
+  "flag_sha256_12": "2e1103a6cbc3"
+ },
+ {
+  "challenge_id": "search_for_pi",
+  "intended_class": "web",
+  "upstream_path": "removed/2022/CSAW-Quals/web/search_for_pi",
+  "intended_types": [
+   "SQL_INJECTION",
+   "LIKE_INJECTION",
+   "XSS",
+   "SSTI"
+  ],
+  "pipeline": null,
+  "judgment": null,
+  "flag_present": false
+ },
+ {
+  "challenge_id": "nft-world",
+  "intended_class": "web",
+  "upstream_path": "removed/2023/CSAW-Finals/web/nft-world",
+  "intended_types": [
+   "AUTH_BYPASS",
+   "JWT_VULNERABILITY",
+   "SSRF",
+   "IDOR"
+  ],
+  "pipeline": null,
+  "judgment": null,
+  "flag_present": true,
+  "flag_sha256_12": "db6b54a616a6"
+ },
+ {
+  "challenge_id": "webhooktester",
+  "intended_class": "web",
+  "upstream_path": "removed/2023/CSAW-Finals/web/webhooktester",
+  "intended_types": [
+   "SSRF",
+   "SERVER_SIDE_REQUEST_FORGERY",
+   "COMMAND_INJECTION"
+  ],
+  "pipeline": null,
+  "judgment": null,
+  "flag_present": false
+ },
+ {
+  "challenge_id": "notmycupofcoffe",
+  "intended_class": "web",
+  "upstream_path": "test/2017/CSAW-Quals/web/notmycupofcoffe",
+  "intended_types": [
+   "JAVA_DESERIALIZATION",
+   "DESERIALIZATION",
+   "PATH_TRAVERSAL"
+  ],
+  "pipeline": null,
+  "judgment": null,
+  "flag_present": true,
+  "flag_sha256_12": "0f817550f5ee"
+ },
+ {
+  "challenge_id": "nvs",
+  "intended_class": "web",
+  "upstream_path": "test/2018/CSAW-Quals/web/nvs",
+  "intended_types": [
+   "XSS",
+   "CROSS_SITE_SCRIPTING",
+   "SSRF",
+   "SERVER_SIDE_REQUEST_FORGERY",
+   "COMMAND_INJECTION"
+  ],
+  "pipeline": null,
+  "judgment": null,
+  "flag_present": false
+ },
+ {
+  "challenge_id": "picgram",
+  "intended_class": "web",
+  "upstream_path": "test/2020/CSAW-Finals/web/picgram",
+  "intended_types": [
+   "SQL_INJECTION",
+   "IDOR",
+   "PATH_TRAVERSAL"
+  ],
+  "pipeline": null,
+  "judgment": null,
+  "flag_present": true,
+  "flag_sha256_12": "b709dcaaac19"
+ },
+ {
+  "challenge_id": "gatekeeping",
+  "intended_class": "web",
+  "upstream_path": "test/2021/CSAW-Quals/web/gatekeeping",
+  "intended_types": [
+   "ACCESS_CONTROL_BYPASS",
+   "ACCESS_CONTROL",
+   "AUTH_BYPASS",
+   "INFORMATION_DISCLOSURE"
+  ],
+  "pipeline": {
+   "hypotheses": 5,
+   "verifications": 5,
+   "confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "PRIVILEGE_ESCALATION",
+     "verdict": "CONFIRMED",
+     "title": "Docker socket 挂载导致容器逃逸/主机权限提升",
+     "file_path": "docker-compose.yml"
+    },
+    {
+     "id": "H3",
+     "vuln_type": "INFORMATION_DISCLOSURE",
+     "verdict": "CONFIRMED",
+     "title": "受限的 /admin/key 接口泄露加密密钥",
+     "file_path": "server/server.py"
+    },
+    {
+     "id": "H4",
+     "vuln_type": "SECRET_EXPOSURE",
+     "verdict": "CONFIRMED",
+     "title": "Flag 与敏感材料直接提交到仓库",
+     "file_path": "flag.txt"
+    }
+   ]
+  },
+  "judgment": {
+   "tp": true,
+   "refuted_on_intended": [],
+   "unplanned_confirmed": [
+    {
+     "id": "H1",
+     "vuln_type": "PRIVILEGE_ESCALATION",
+     "verdict": "CONFIRMED",
+     "title": "Docker socket 挂载导致容器逃逸/主机权限提升",
+     "file_path": "docker-compose.yml"
+    },
+    {
+     "id": "H4",
+     "vuln_type": "SECRET_EXPOSURE",
+     "verdict": "CONFIRMED",
+     "title": "Flag 与敏感材料直接提交到仓库",
+     "file_path": "flag.txt"
+    }
+   ],
+   "unclassifiable": [],
+   "fn": false,
+   "intended_status": null,
+   "artifact_confirmed": [],
+   "infra_fail": false,
+   "semantic": {
+    "tp": true,
+    "refuted_on_intended": [],
+    "unplanned_confirmed": [
+     {
+      "id": "H1",
+      "vuln_type": "PRIVILEGE_ESCALATION",
+      "verdict": "CONFIRMED",
+      "title": "Docker socket 挂载导致容器逃逸/主机权限提升",
+      "file_path": "docker-compose.yml"
+     },
+     {
+      "id": "H4",
+      "vuln_type": "SECRET_EXPOSURE",
+      "verdict": "CONFIRMED",
+      "title": "Flag 与敏感材料直接提交到仓库",
+      "file_path": "flag.txt"
+     }
+    ],
+    "fn": false,
+    "intended_status": null
+   }
+  },
+  "flag_present": true,
+  "flag_sha256_12": "726155e960c6"
+ },
+ {
+  "challenge_id": "poem-collection",
+  "intended_class": "web",
+  "upstream_path": "test/2021/CSAW-Quals/web/poem-collection",
+  "intended_types": [
+   "SQL_INJECTION",
+   "LOCAL_FILE_INCLUSION",
+   "XSS",
+   "COMMAND_INJECTION"
+  ],
+  "pipeline": null,
+  "judgment": null,
+  "flag_present": false
+ }
+]
