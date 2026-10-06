@@ -1,0 +1,4 @@
+tool_name=<HypothesisSet>, raw_input=<{"coverage_notes": "PITAX deterministic scan returned an EMPTY report (no rule hits) for the bound file set, so every hypothesis below is semantic/heuristic and unverified. The <agent0-baseline-findin> | failed to parse tool input json, defaulting to empty dict
+exception=<APIError> | event loop cycle failed
+tool_name=<StructuredOutputTool>, available_tools=<['pitax_scan', 'static_scan', 'taint_flow', 'dep_scan']> | tool not found in registry
+exception=<APIError> | event loop cycle failed

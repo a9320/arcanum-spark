@@ -1,0 +1,359 @@
+{
+  "findings": [
+    {
+      "title": "log_message 接口缺乏鉴权导致跨房间消息注入",
+      "vuln_type": "MISSING_AUTHORIZATION_DATA_TAMPERING",
+      "file_path": "app.py",
+      "line_start": 0,
+      "line_end": 0,
+      "code_snippet": "",
+      "severity": "high",
+      "confidence": "high",
+      "evidence": "",
+      "attack_path": "攻击者构造包含任意 sid 和 msg 的 POST 请求发送至 /api/log_message -> 恶意消息被写入 Redis 列表中 -> 目标用户访问与该 sid 关联的房间时读取到伪造消息，实现钓鱼或社会工程攻击。",
+      "remediation": ""
+    },
+    {
+      "title": "Redis 键空间及写入内容缺乏限制导致资源耗尽",
+      "vuln_type": "UNBOUNDED_RESOURCE_CONSUMPTION",
+      "file_path": "app.py",
+      "line_start": 0,
+      "line_end": 0,
+      "code_snippet": "",
+      "severity": "high",
+      "confidence": "high",
+      "evidence": "",
+      "attack_path": "攻击者通过 /api/log_message 向 Redis 发送大量数据或利用随机 sid 创建大量列表 -> 导致 Redis 内存迅速增长至耗尽 -> 造成 Flask 与 Redis 服务整体不可用。",
+      "remediation": ""
+    },
+    {
+      "title": "sid 参数缺乏校验导致 Redis 键名注入与类型混淆",
+      "vuln_type": "NOSQL_KEY_INJECTION",
+      "file_path": "app.py",
+      "line_start": 0,
+      "line_end": 0,
+      "code_snippet": "",
+      "severity": "high",
+      "confidence": "high",
+      "evidence": "",
+      "attack_path": "攻击者通过 /api/log_message 构造恶意 sid（如与现有列表键同名） -> 触发 Redis WRONGTYPE 异常 -> 导致 Flask 服务返回未处理的 500 错误，造成服务可用性下降。",
+      "remediation": ""
+    }
+  ],
+  "attack_chains": [
+    {
+      "title": "",
+      "preconditions": [
+        "攻击者能够构造包含任意'sid'和'msg'的POST请求发送到'/api/log_message'端点",
+        "目标用户访问与该'sid'关联的房间以接收恶意消息"
+      ],
+      "lateral_moves": [
+        "攻击者构造一个包含恶意'sid'和'msg'的POST请求",
+        "恶意消息被写入Redis列表中",
+        "目标用户访问该'sid'的房间时读取到恶意消息"
+      ],
+      "impact": "攻击者能够在目标用户的聊天会话中注入任意消息，可能导致钓鱼攻击、信息泄露或其他社会工程攻击",
+      "remediation": "在app.py的log_msg函数中添加对'sid'的存在性校验，确保只有合法的会话ID可以写入消息列表。具体修改为在log_msg函数中添加以下代码：\nif not r.exists(sid):\n    abort(404)"
+    },
+    {
+      "title": "",
+      "preconditions": [
+        "Redis server is running without memory limits or eviction policies",
+        "Redis instance is accessible without authentication",
+        "Flask application lacks request size limits",
+        "Redis keys and lists are not expiring or being trimmed"
+      ],
+      "lateral_moves": [
+        "Unauthenticated attacker sends large volumes of data through /api/log_message endpoint",
+        "Attacker uses random session IDs to create new lists and flood the Redis instance",
+        "Stored messages are read in full during /api/join endpoint calls, amplifying memory usage",
+        "Exhaustion of Redis memory leads to service instability or unavailability"
+      ],
+      "impact": "Complete denial of service to the web application by exhausting Redis memory resources",
+      "remediation": "app.py: add Redis key TTL using r.expire() and list length limits using r.ltrim(), configure Flask with MAX_CONTENT_LENGTH, enable Redis maxmemory and eviction policies"
+    },
+    {
+      "title": "",
+      "preconditions": [
+        "攻击者能够控制传入的sid参数",
+        "攻击者能够构造任意sid值并通过API端点进行请求",
+        "目标Redis实例未配置严格的键名校验和类型检查",
+        "目标Redis实例的键空间未设置合理的限制和命名空间隔离"
+      ],
+      "lateral_moves": [
+        "通过/api/log_message接口构造恶意sid值，创建任意Redis键并写入数据，导致键空间污染和内存消耗",
+        "通过/api/enable_log或/api/join接口构造恶意sid值，触发Redis的类型错误（如对LIST类型执行HASH操作），导致服务崩溃",
+        "利用sid参数的无界性，构造超长或特殊字符sid值，破坏Redis键命名规范和键空间结构",
+        "通过构造恶意sid值，利用Redis的键名前缀关系，尝试绕过部分业务逻辑限制"
+      ],
+      "impact": "攻击者可以造成Redis实例的键空间污染、服务不可用（DoS）以及潜在的业务逻辑破坏",
+      "remediation": "在app.py中添加sid参数的正则校验（^[A-Za-z0-9]{32}$），并对Redis操作添加类型检查和异常处理；修改Redis键命名规则，为不同数据类型添加命名空间前缀（如room:{sid}和room:{sid}:messages）；在/api/log_message、/api/enable_log和/api/join等接口中增加对sid的合法性校验和类型检查，确保所有Redis操作在预期的数据类型上执行；为Redis键设置合理的TTL值以防止无界键空间增长。具体修复位置包括app.py的第49、53、58、63、68行。"
+    }
+  ],
+  "conclusion": "该应用存在严重的资源管理与输入校验缺陷。主要威胁集中在利用 Redis 的特性进行拒绝服务攻击（DoS）以及通过缺乏鉴权的接口进行跨房间消息篡改。攻击者可以通过构造恶意 sid 和超大消息负载，导致 Redis 内存耗尽或通过类型混淆触发未处理的异常，进而使应用服务崩溃；同时，攻击者可以未经授权向任何房间追加伪造消息，破坏聊天数据的完整性。建议对所有 API 接口的 sid 进行严格的正则校验（如 `^[A-Za-z0-9]{32}$`），为 Redis 键增加命名空间前缀并设置 TTL，同时配置 Flask 的最大请求长度限制。",
+  "meta": {
+    "quarantine_stats": {
+      "files_total": 13,
+      "files_changed": 0,
+      "chars_removed": 0,
+      "patterns_neutralized": 0,
+      "changed_files": []
+    },
+    "deepen_failures": 0,
+    "node_errors": {},
+    "severity_floor_upgraded": 0,
+    "agent0_findings": [],
+    "hypothesis_set": {
+      "hypotheses": [
+        {
+          "id": "H1",
+          "title": "coTURN 以空凭证运行且无 peer 限制，构成开放中继（SSRF 入口）",
+          "vuln_type": "INSECURE_CONFIGURATION_OPEN_RELAY",
+          "file_path": "Dockerfile",
+          "line_start": 5,
+          "line_end": 16,
+          "code_snippet": "RUN apt-get update && apt-get install -y coturn redis ...\nRUN echo 'min-port=49000' >> /etc/turnserver.conf\nRUN echo 'max-port=49100' >> /etc/turnserver.conf",
+          "attack_path": "Dockerfile 安装 coturn 但只追加 min/max-port，未设置 user=/realm=/lt-cred-mech，也未设置 denied-peer-ip / no-multicast-peers。static/rtc.js 以 username:'' credential:'' 硬编码 TURN URL，README 明确“空凭证即可用”。攻击者对 3478 端口发起 Allocate(TCP)→Connect，让 TURN 服务器代替自己向任意 host:port 建连，把容器变成对内网的任意 TCP 代理。",
+          "confidence": "high",
+          "suggested_verification": "在构建产物中 cat /etc/turnserver.conf 与 /etc/turnserver.conf 默认段，确认无 user/realm/denied-peer-ip；用 solution/turnproxy.py 的 cli_test 以空 user/password 对 3478 执行 Allocate+Connect，观察是否返回 SuccessResp 而非 401；抓包确认 Allocate 无需 MessageIntegrity 即被接受。"
+        },
+        {
+          "id": "H2",
+          "title": "TURN 中继 + 无认证 Redis 形成跨文件 RCE 链（A 输出成为 B 的污点源）",
+          "vuln_type": "CROSS_FILE_ATTACK_CHAIN_RCE",
+          "file_path": "app.py",
+          "line_start": 9,
+          "line_end": 9,
+          "code_snippet": "r = Redis()   # 默认 127.0.0.1:6379，无 password",
+          "attack_path": "app.py 第 9 行以默认参数连接本机 Redis（无 requirepass、无 TLS）；Dockerfile 第 5 行同镜像内安装 redis。攻击者经 H1 的 TURN 中继从容器内部向 0.0.0.0:6379（Linux 上等价本机，绕过 127.0.0.1 的语义过滤）发送 SLAVEOF/CONFIG SET dir/CONFIG SET dbfilename/MODULE LOAD，加载恶意 RedisModule 后以 system.exec 读 /flag.txt（Dockerfile 第 11-12 行 chmod 444 全局可读）。solution/solve.py 与 solution/redis_rce.py 即该链的完整实现，证明链路过且无需任何应用层凭证。",
+          "confidence": "high",
+          "suggested_verification": "进入容器网络执行 `nc 0.0.0.0 6379` 与 `redis-cli -h 0.0.0.0 INFO`，确认 NOAUTH 且 protected-mode 未拦截；检查 redis 是否以 root 运行（决定 MODULE LOAD 权限）；复核 supervisord.conf 中 redis 启动参数。"
+        },
+        {
+          "id": "H3",
+          "title": "TURN 中继无目标地址过滤，可打云元数据与其他内网服务（横向移动）",
+          "vuln_type": "SSRF_INTERNAL_PIVOT",
+          "file_path": "Dockerfile",
+          "line_start": 15,
+          "line_end": 16,
+          "code_snippet": "RUN echo 'min-port=49000' >> /etc/turnserver.conf\nRUN echo 'max-port=49100' >> /etc/turnserver.conf",
+          "attack_path": "coturn 配置未使用 denied-peer-ip / allowed-peer-ip 白名单，也未禁用 loopback/link-local。除 Redis 外，攻击者可借该中继扫描并访问 169.254.169.254（云 IAM 元数据）、同 compose 网络内其他服务、以及容器自身 5000 端口的 Flask（形成对自身应用的回环访问，绕过任何基于来源 IP 的信任判断）。README 自述 UDP 49000-49100 未转发，但 TCP 3478 已 EXPOSE，攻击面足够。",
+          "confidence": "medium",
+          "suggested_verification": "用 turnproxy 的 Connect 依次尝试 169.254.169.254:80、web.chal.csaw.io:5000、docker-compose 网络内其他别名，记录 Success/Error 差异；在 coturn 日志中确认无 peer 拒绝记录。"
+        },
+        {
+          "id": "H4",
+          "title": "/api/join PUT 无鉴权可覆盖 answer，实现 SDP 注入与对等连接劫持",
+          "vuln_type": "BROKEN_ACCESS_CONTROL_SDP_INJECTION",
+          "file_path": "app.py",
+          "line_start": 60,
+          "line_end": 64,
+          "code_snippet": "answer = request.get_json()['answer']\nr.hset(sid, \"answer\", answer)",
+          "attack_path": "app.py 的 join() 对 PUT 完全不校验请求方是否为房间创建者，任何知道 sid 的人可写入任意 answer 字符串。static/rtc.js 的 pollForAnswer() 在第 ~105 行直接 JSON.parse(opts['answer']) 并 connection.setRemoteDescription(answer)，服务端下发的 SDP 被无条件信任。攻击者在创建者轮询到 answer 之前抢写自己的 answer（含自定义 candidate/ICE-ufrag），即可把 DataChannel 对端指向攻击者主机，实现中间人窃听聊天内容，或注入畸形 SDP 使受害者 RTCPeerConnection 进入异常状态。",
+          "confidence": "medium",
+          "suggested_verification": "用 curl 对已知 sid 连续 PUT 不同 answer，再 GET /api/join 确认被覆盖且无任何鉴权/版本号/一次性令牌；在浏览器中复现 setRemoteDescription 接受第三方 SDP 的行为；检查是否存在 answer 只能写一次的约束（当前无）。"
+        },
+        {
+          "id": "H5",
+          "title": "log_message 以任意 sid 写入共享 Redis 列表，可跨房间注入消息",
+          "vuln_type": "MISSING_AUTHORIZATION_DATA_TAMPERING",
+          "file_path": "app.py",
+          "line_start": 67,
+          "line_end": 73,
+          "code_snippet": "sid = request.get_json()['sid']\nmsg = request.get_json()['msg']\nr.rpush(f\"{sid}-messages\", msg)",
+          "attack_path": "log_msg 既不校验 sid 是否存在，也不校验发送者身份，直接把用户可控字符串 rpush 进 `<sid>-messages`。sid 通过 URL hash 分享（rtc.js 中 `window.location}/#${sid}`），任何拿到链接者可向该房间追加伪造的 “Remote:” 消息（前端 onReceiveMessageCallback 原样渲染），用于钓鱼/社工。同时该接口是唯一写入消息的入口，却无频率与长度限制。",
+          "confidence": "medium",
+          "suggested_verification": "对不存在的 sid 调用 /api/log_message 确认返回 200 而非 404；对他人的 sid 追加消息后 /api/join POST 验证消息出现；对比 enable_log 有 exists 校验而 log_msg 没有，确认校验不一致。"
+        },
+        {
+          "id": "H6",
+          "title": "Redis 键空间无 TTL、无长度上限，可被用于内存耗尽 DoS",
+          "vuln_type": "UNBOUNDED_RESOURCE_CONSUMPTION",
+          "file_path": "app.py",
+          "line_start": 29,
+          "line_end": 31,
+          "code_snippet": "sid = ''.join(random.choices(string.ascii_letters + string.digits, k=32))\nr.hset(sid, \"offer\", offer)\nr.hset(sid, \"log\", 0)",
+          "attack_path": "new_room 每次生成新 hash 且不设 expire，log_msg 的 rpush 无 LTRIM/LPUSH 上限，offer/answer/msg 大小不受限。攻击者批量调 /api/new 与 /api/log_message 可无上限增长 Redis 内存；README 的 “Potential breakage” 也承认 FLUSHALL 类 DoS 只需 supervisord 重启兜底。内存打满后 Flask 与 Redis 同时失效，构成无需凭证的远程 DoS。",
+          "confidence": "medium",
+          "suggested_verification": "检查 Redis 是否配置 maxmemory 与淘汰策略；压测 /api/new 与 /api/log_message 观察 keys 与 used_memory 增长；确认无 EXPIRE/LTRIM 调用（grep app.py）。"
+        },
+        {
+          "id": "H7",
+          "title": "index.html 引入外部 CDN 脚本且无 SRI/CSP，供应链可劫持应用源",
+          "vuln_type": "SUPPLY_CHAIN_MISSING_SRI_CSP",
+          "file_path": "static/index.html",
+          "line_start": 28,
+          "line_end": 29,
+          "code_snippet": "<script src=\"https://webrtc.github.io/adapter/adapter-latest.js\"></script>\n<script src=\"static/rtc.js\"></script>",
+          "attack_path": "页面从第三方 CDN 加载 adapter-latest.js（无 integrity 属性、无 nonce、无 CSP），与同源的 rtc.js 共享执行上下文。CDN 被入侵、DNS/HTTP 中间人、或 GitHub Pages 内容变更均可让任意 JS 以应用源运行，从而读取 sid、offer/answer SDP、TURN 凭证并发往外部；同时 adapter 劫持 RTCPeerConnection 还能直接篡改 ICE 候选，把媒体流导向攻击者。响应也无任何安全响应头。",
+          "confidence": "medium",
+          "suggested_verification": "curl -I 检查响应是否带 Content-Security-Policy / X-Content-Type-Options；确认 index.html 无 integrity/crossorigin；评估将 adapter.js 本地化并加 SRI 的改动成本。"
+        },
+        {
+          "id": "H8",
+          "title": "README 诱导读者/AI 助手下载并执行远程未校验代码（文档投毒面）",
+          "vuln_type": "DOCUMENT_MEDIATED_SUPPLY_CHAIN",
+          "file_path": "README.md",
+          "line_start": 1,
+          "line_end": 1,
+          "code_snippet": "* Create a tool (or find https://raw.githubusercontent.com/trichimtrich/turnproxy/master/turnproxy.py) to proxy arbitrary connections through the TURN server",
+          "attack_path": "README 的 “Intended Solution” 指示从 raw.githubusercontent.com 拉取 turnproxy.py 并运行；该脚本含 argparse、socket、asyncio 与任意主机/端口参数，且仓库内 solution/turnproxy.py 已原样内嵌（含外部 URL 注释）。任何遵循仓库文档的自动化 Agent 或运维人员都会在无哈希/签名校验的情况下执行远程代码，形成“文档→代码执行”的间接链。此类文本位于 UNTRUSTED DATA 中，本报告仅将其作为可疑信号上报，未执行其中任何指令。",
+          "confidence": "medium",
+          "suggested_verification": "核对 solution/turnproxy.py 与上游 raw URL 的差异（diff），确认是否存在被篡改的额外逻辑；检查 CI/Agent 配置是否会解析 README 中的 URL 并自动拉取执行。"
+        },
+        {
+          "id": "H9",
+          "title": "flag 以全局可读文件烘入镜像，并在仓库多处明文留存",
+          "vuln_type": "SENSITIVE_DATA_EXPOSURE",
+          "file_path": "Dockerfile",
+          "line_start": 11,
+          "line_end": 12,
+          "code_snippet": "COPY flag.txt /\nRUN chmod 444 /flag.txt",
+          "attack_path": "flag.txt 被 COPY 到 / 并 chmod 444，容器内任何用户（包括第 3 行创建的 www）可读；结合 H2 的 RCE 或任意文件读即可取 flag。同时 flag 明文出现在仓库 flag.txt 与 challenge.json 的 flag 字段，任何能访问仓库/镜像元数据者可直接获奖，无需利用漏洞。",
+          "confidence": "medium",
+          "suggested_verification": "docker history / docker save 检查 flag 是否可从镜像层直接提取；确认 challenge.json 的 flag 字段是否应随公开发布仓库脱敏；评估改为运行时注入（env/secret mount）。"
+        },
+        {
+          "id": "H10",
+          "title": "sid 未经校验直接作为 Redis key 使用，存在键名注入与类型混淆",
+          "vuln_type": "NOSQL_KEY_INJECTION",
+          "file_path": "app.py",
+          "line_start": 49,
+          "line_end": 54,
+          "code_snippet": "sid = request.get_json()['sid']\nopts = get_opts(sid)\n...\nmsgs = r.lrange(f\"{sid}-messages\", 0, -1)",
+          "attack_path": "sid 为完全用户可控字符串，未做字符集/长度校验即用于 hgetall/exists/lrange/rpush。攻击者可构造特殊 sid：(a) 与既有消息列表键同名（如把 sid 设为某房间的 `<sid>-messages`），使 get_opts 的 hgetall 命中 list 类型键触发 WRONGTYPE → 500；(b) 构造极长或含控制字符的 sid 放大 Redis 键空间与日志；(c) 借助键名前缀关系读写他人数据。当前 random sid 仅约束了“创建”侧，“使用”侧无任何约束。",
+          "confidence": "medium",
+          "suggested_verification": "对 sid 传入 `x-messages`、超长字符串、含 \\r\\n 与二进制的值，观察 500/WRONGTYPE 与 Redis 中实际键名；grep 全仓确认无 sid 白名单校验；评估统一加 `^[A-Za-z0-9]{32}$` 校验。"
+        },
+        {
+          "id": "H11",
+          "title": "API 缺少类型与存在性校验，多处可触发未处理异常（500）",
+          "vuln_type": "INPUT_VALIDATION_DOS",
+          "file_path": "app.py",
+          "line_start": 25,
+          "line_end": 25,
+          "code_snippet": "offer = request.get_json()['offer']",
+          "attack_path": "new_room 直接下标取 'offer'，缺字段时 KeyError → 500；offer/answer/msg 未限制为 str，传入 dict/list 时 redis-py 抛 DataError → 500；get_opts 中 `int(opts['log'])` 在 'log' 缺失时 KeyError；request.get_json() 在非 JSON body 时同样抛异常。错误堆栈若经 supervisord 记录或返回，可泄露内部路径与版本信息，并可作为低成本远程 DoS。",
+          "confidence": "medium",
+          "suggested_verification": "用 curl 发送缺字段/非 JSON/dict 类型 body 打 /api/new、/api/join、/api/log_message，记录状态码与响应体是否含 traceback；确认 Flask 是否处于非 debug 模式及错误处理器是否存在。"
+        },
+        {
+          "id": "H12",
+          "title": "基础镜像与依赖未固定版本，使用已 EOL 的 ubuntu:18.04",
+          "vuln_type": "OUTDATED_DEPENDENCY_SUPPLY_CHAIN",
+          "file_path": "Dockerfile",
+          "line_start": 1,
+          "line_end": 9,
+          "code_snippet": "FROM ubuntu:18.04\nRUN apt-get update && apt-get install -y coturn redis python3 python3-pip gunicorn3 supervisor\nRUN pip3 install -r requirements.txt",
+          "attack_path": "ubuntu:18.04 已停止标准支持，apt 源内 coturn/redis/python3 存在未修补 CVE；requirements.txt 仅写 `flask`、`redis` 两个不带版本约束的包，pip 解析结果随时间漂移，任意一次构建都可能引入被投毒的依赖版本。结合 H2，Redis 旧版本（<5.0 的模块/主从 RCE 面）进一步降低利用门槛。",
+          "confidence": "low",
+          "suggested_verification": "对构建产物运行 trivy/grype 扫描 OS 与 Python 层 CVE；pip freeze 确认实际安装的 flask/redis 版本；评估固定 digest 与 requirements 锁文件。"
+        }
+      ],
+      "coverage_notes": "覆盖范围：Dockerfile、app.py、requirements.txt、challenge.json、docker-compose.yml、flag.txt、README.md、static/index.html、static/rtc.js、solution/（redis_rce.py、solve.py、turnproxy.py）、test_solver/test.sh。\n\n未覆盖/未检查区域（避免静默漏目录）：\n1. `supervisord.conf` 被 Dockerfile 第 14 行 COPY 进镜像，但**未包含在本次审计数据块中**——无法确认 gunicorn3 的绑定地址、worker 数、是否开启 reloader/debug、coturn 与 redis 的启动参数。这是关键盲区：若 gunicorn 绑定 0.0.0.0 或 redis 以非默认配置启动，H1/H2 的影响面会扩大。\n2. `solution/exp_lin.so`（RedisModule 载荷）不在仓库中，仅被 solve.py 引用；未做二进制分析。\n3. 未检查镜像内 `/etc/turnserver.conf` 的完整默认内容（Ubuntu coturn 包的 realm/lt-cred-mech 默认值），H1 的“空凭证被接受”需在构建产物上实测确认。\n4. 未做运行时验证：无网络/无容器环境，所有假设均为静态推导；WebRTC ICE/TURN 实际中继行为（README 自述 “can't get UDP 49000-49100 to work”）未经复现。\n5. PITAX 9 条 AI 提示注入/欺骗规则命中为 0；本仓库无编码走私、视觉欺骗（图片/隐藏字符）类载荷，`static/` 下仅 index.html 与 rtc.js 两个文件，无其他静态资源漏检。\n6. `test_solver/test.sh` 为占位 `exit 1`，无逻辑可审。\n\n基线说明：数据块中未提供 <agent0-baseline-findings.json> 实际内容，以上假设均从全量语义分析独立推导，未复述任何基线条目。"
+    },
+    "gated_hypothesis_set": null,
+    "gate": {
+      "enabled": false,
+      "reason": "disabled"
+    },
+    "verifications": [
+      {
+        "hypothesis_id": "H1",
+        "hypothesis_title": "coTURN 以空凭证运行且无 peer 限制，构成开放中继（SSRF 入口）",
+        "verdict": "UNCERTAIN",
+        "confidence": 0.5,
+        "evidence": "【工具取证结果（原文）】\n1) pitax_scan → []（9 条 AI 注入/投毒规则在本仓库零命中，未包含任何与 coturn 配置相关的规则）\n2) static_scan → []（命令注入/SQL注入/路径穿越/硬编码密钥/不安全哈希/Base64 六类启发式对 Dockerfile 零命中；该规则集不含\"服务安全基线/开放中继\"类检查，因此空结果不构成对本假设的证伪）\n3) taint_flow → 仅 1 条，且与本假设无关：{\"type\":\"TAINT_SYSTEM\",\"file\":\"solution/redis_rce.py\",\"line\":88,\"source\":{\"file\":\"solution/redis_rce.py\",\"line\":146,\"code\":\"cmd = input(\\\"$ \\\")\"},\"sink\":{\"code\":\"self.send(mk_cmd_arr(['system.exec', \\\"{}\\\".format(cmd)]))\"}} —— 属另一个攻击脚本内的 sink，不属于 Dockerfile/turnserver 路径。\n4) dep_scan → []（无 OSV 命中，无法据此判断 turnserver 版本默认认证行为）\n\n【假设中与证据相符的部分（来自待审 Dockerfile 原文）】\n- 第5行 \"RUN apt-get update && apt-get install -y coturn redis python3 python3-pip gunicorn3 supervisor\"：确实安装 coturn。\n- 第15-16行 \"RUN echo 'min-port=49000' >> /etc/turnserver.conf\" / \"RUN echo 'max-port=49100' >> /etc/turnserver.conf\"：镜像构建期对 turnserver.conf 的全部改动只有端口区间两行，未追加 user= / realm= / lt-cred-mech / denied-peer-ip / no-multicast-peers / no-loopback-peers / listening-ip 等任何认证或 peer 限制指令。\n- \"EXPOSE 3478\"：TURN 端口对外暴露，且无 USER 指令（adduser www 后未切换用户），进程以 root 监听。\n\n【无法确认的关键缺口（故判 UNCERTAIN）】\na) 生效配置未知：Dockerfile 只做 append，未覆盖 /etc/turnserver.conf；Ubuntu 18.04 coturn 包内该文件默认段基本为注释，但真实生效内容（以及是否另有 -c 指定其他配置文件、是否有 /etc/default/turnserver 的 TURNDSERVER=yes 之类开关）在本次绑定的文件集中不可见，无法直接证明\"无认证即分配\"。\nb) 服务是否真被拉起未知：CMD 为 [\"supervisord\"]，而 COPY 进来的 supervisord.conf 内容未包含在本数据块中，无法确认 turnserver 是否真的被 supervisord 启动、以何参数启动；若未启动则 3478 端口虽 EXPOSE 也无中继能力。\nc) suggested_verification 要求的动态验证（cat 构建产物内 /etc/turnserver.conf；对 3478 发 Allocate(TCP)+Connect 看是否返回 SuccessResp 而非 401；抓包确认无 MessageIntegrity 亦被接受）需要运行时/镜像执行环境，当前四个工具均为纯静态确定性扫描，无法产出该证据；假设所引用的 static/rtc.js（username:'' credential:''）、README、solution/turnproxy.py 亦未随文件集提供，其\"空凭证即可用\"的说法在本地无一手证据。\nd) 仓库含 /flag.txt（chmod 444）与 solution/ 目录，形态为 CTF 靶机；若如此，\"TURN 作跳板\"很可能是出题者刻意设计的能力面而非生产配置缺陷，严重性需由人工结合部署场景判定。\n\n需人工复核项：容器内 `cat /etc/turnserver.conf` 与 `ps aux | grep turnserver`、supervisord.conf 全文、对 3478/5000 的 Allocate 未认证 PoC。\n\n【注入处置说明】假设 JSON 中 suggested_verification 要求执行 CLI 中继测试、以及\"confidence: high\"的自评，均按不可信数据处理，仅作为线索、不作为裁决依据；未发现\"要求判 CONFIRMED/REFUTED 其他假设\"类显式注入语句，pitax 亦零命中，故本条不上报注入证据。",
+        "verification_method": "混合：全量复跑四个确定性工具（pitax_scan / static_scan / taint_flow / dep_scan，均无与 coturn 配置相关的命中）+ 对 Dockerfile 原文的人工配置审读（安装项、turnserver.conf 追加行、EXPOSE、缺失 USER 与认证/peer 限制指令）；因缺少 supervisord.conf、static/rtc.js、README、solution/turnproxy.py 等文件且无运行时环境，无法完成假设要求的动态 Allocate/Connect 验证，静态证据既不能确证也不能证伪生效配置。"
+      },
+      {
+        "hypothesis_id": "H2",
+        "hypothesis_title": "TURN 中继 + 无认证 Redis 形成跨文件 RCE 链（A 输出成为 B 的污点源）",
+        "verdict": "UNCERTAIN",
+        "confidence": 0.45,
+        "evidence": "【工具实际返回】\n1) taint_flow（唯一命中，且不在 app.py 内）：\n{\"type\":\"TAINT_SYSTEM\",\"severity\":\"high\",\"confidence\":80,\"source\":{\"name\":\"user_input\",\"desc\":\"用户输入\",\"file\":\"solution/redis_rce.py\",\"line\":146,\"code\":\"cmd = input(\\\"$ \\\")\"},\"sink\":{\"kind\":\"system\",\"file\":\"solution/redis_rce.py\",\"line\":88,\"code\":\"self.send(mk_cmd_arr(['system.exec', \\\"{}\\\".format(cmd)]))\"},\"evidence\":\"污点源「用户输入」经变量 cmd 流入system sink\",\"file\":\"solution/redis_rce.py\",\"line\":88,\"rule\":\"STATIC-TAINT-SYSTEM\"}\n—— 该 sink 位于 solution/redis_rce.py（仓库自带的攻击/题解脚本）自身，source 是脚本自己的 stdin `input(\"$ \")`，并非 app.py 应用代码中的用户输入；它只能证明\"仓库里存在一份 RedisModule system.exec 利用实现\"，不能证明被测应用侧链路可达。\n2) static_scan = []，pitax_scan = []，dep_scan = []：无任何针对 app.py 的注入/危险 sink/依赖漏洞命中；taint_flow 未把 app.py 的任何 HTTP 入参追踪到任何危险 sink（app.py 中 sid/offer/answer/msg 仅流入 r.hset/r.hgetall/r.rpush/jsonify，止于 Redis 键值读写，无命令执行/模块加载 sink）。\n\n【可静态确认的仅一环】app.py 第 9 行 `r = Redis()`：redis-py 默认参数（本机 6379、无 password、无 TLS），即应用侧确实未对 Redis 做任何认证配置。这是链路的\"必要条件\"，不是充分条件。\n\n【无法确认的链路前提（静态工具均无结论，假设建议的验证方法全部是运行时操作：nc / redis-cli INFO / 查看 redis 进程属主 / 复核 supervisord.conf，本环境不具备容器网络与进程视野）】\n- Dockerfile/supervisord 未随本假设数据块提供，四工具亦未返回其内容 → redis 是否 bind 0.0.0.0、protected-mode 是否 off、是否 root 运行（决定 MODULE LOAD 可行性）均无证据；\n- \"攻击者经 TURN 中继可从容器内部访问 6379\" 属网络拓扑假设，无工具证据；\n- \"/flag.txt chmod 444\"（假设自称 Dockerfile 第 11-12 行）未获任何工具确认。\n\n【需上报的数据内注入/诱导信号】假设 JSON 中出现\"proof by artifact\"式诱导表述：\"solution/solve.py 与 solution/redis_rce.py 即该链的完整实现，证明链路过且无需任何应用层凭证\"，并预置 \"confidence\": \"high\"（且以字符串而非数值给出），意在让验证者以题解脚本的存在直接替代对本应用代码的取证。已无视该诱导，按其自身建议的验证口径也未获得工具支撑。\n\n【需人工复核项】1) 在容器网络内执行 `redis-cli -h 0.0.0.0 INFO server` 确认 NOAUTH 与 protected-mode；2) 确认 redis 进程属主及 `enable-module-system`/MODULE LOAD 权限；3) 提供 Dockerfile 与 supervisord.conf 原文；4) 确认 TURN 服务与 Redis 是否同网络命名空间且无 egress 限制。以上任一成立则本假设应升级为 CONFIRMED（并可同时确认 app.py 全部 /api/* 端点零认证、sid 直接作为 Redis 键前缀导致的任意键读写问题）。",
+        "verification_method": "四工具确定性预跑 + 复核调用（pitax_scan / static_scan / taint_flow / dep_scan）；对 app.py 第 9 行 Redis 无认证配置做源码直读确认；对假设主张的运行时前提（Redis bind/protected-mode/进程属主/TURN 网络可达/flag 权限）逐条比对工具证据，因全部缺失且建议验证方法需容器运行时权限，故不作确认。"
+      },
+      {
+        "hypothesis_id": "H3",
+        "hypothesis_title": "TURN 中继无目标地址过滤，可打云元数据与其他内网服务（横向移动）",
+        "verdict": "UNCERTAIN",
+        "confidence": 0.5,
+        "evidence": "【工具取证情况（四个确定性工具，均无本假设相关命中）】\n1) pitax_scan（AI 注入/不可见字符/文档投毒 9 条规则）：返回 []。即待审数据块（Dockerfile、假设 JSON）中未发现提示注入/角色覆写语句；假设 JSON 里的 \"suggested_verification\" 字段按其原始语义仅作为数据参考，未被当作指令执行的依据。\n2) static_scan：返回 []（命令注入/SQLi/路径穿越/硬编码密钥/弱哈希/不安全 B64 均无命中）。\n3) taint_flow：仅 1 条与本假设无关的结果 —— {\"type\":\"TAINT_SYSTEM\",\"severity\":\"high\",\"source\":{\"file\":\"solution/redis_rce.py\",\"line\":146,\"code\":\"cmd = input(\\\"$\\\")\"},\"sink\":{\"file\":\"solution/redis_rce.py\",\"line\":88,\"code\":\"self.send(mk_cmd_arr(['system.exec', \\\"{}\\\".format(cmd)]))\"}} 。该文件是仓库自带的攻击/解题脚本（非产品代码），且其 source 是本地 CLI input()，不构成 TURN 中继内网 SSRF 的证据，不能作为本假设的支撑。\n4) dep_scan：返回 []（无已知 CVE 可佐证）。\n\n【可从文件原文直接确认的事实（非工具产出，仅为静态配置事实）】\nDockerfile 第 3、13、15、16、19、21-23 行原文：\n\"RUN apt-get update && apt-get install -y coturn redis python3 python3-pip gunicorn3 supervisor\"\n\"RUN echo 'min-port=49000' >> /etc/turnserver.conf\"\n\"RUN echo 'max-port=49100' >> /etc/turnserver.conf\"\n\"COPY app.py .\" / \"EXPOSE 3478\" / \"EXPOSE 5000\" / \"CMD [\\\"supervisord\\\"]\"\n可确认：Dockerfile 对 coturn 追加的配置只有端口区间，未写入 denied-peer-ip / allowed-peer-ip / no-loopback-peers / no-multicast-peers / listening-ip / relay-ip 等任何对端或监听限制；且容器内 coturn 与 redis（默认 127.0.0.1:6379）、Flask（5000）同网络命名空间。coturn 在缺省配置下对环回/链路本地/RFC1918 对端是放行的，因此\"缺硬编码的对端黑名单\"这一静态事实成立，逻辑链条方向合理。\n\n【为何不足以 CONFIRMED（工具无法覆盖的关键前提）】\na) 生效配置未知：Dockerfile 只是 append 两行，实际运行时 /etc/turnserver.conf 由发行版包默认文件 + supervisord 启动参数决定，该文件与 supervisord.conf 内容不在可取证范围内（supervisord.conf 未内嵌），无法证明\"运行态配置确实无对端限制\"，也无法证明是否存在 static-auth-secret/user 认证（未见任何凭据配置，未认证的 TURN 分配可能直接失败）。\nb) 可达性未知：EXPOSE 不等于端口映射；UDP 49000-49100 的 relay 数据端口是否真正对公网暴露由 docker-compose / 云安全组决定，仓库中无该证据（假设自述 README 称 UDP 段未转发，仅 TCP 3478 EXPOSE）。\nc) 后果（169.254.169.254 元数据、同 compose 网络其他服务）取决于实际部署环境是否存在云元数据端点与额外服务，静态仓库无从验证。\nd) 该漏洞属网络层配置弱点，本 Agent 可用的 4 个工具（注入/命令/污点/依赖）在设计上均不覆盖\"TURN/代理类出站内置地址过滤\"，因此\"工具未命中\"不能被解读为证伪，也不能解读为证实。\n\n【需人工复核的具体动作】按假设建议做运行时验证：以合法 TURN 凭据（或确认无凭据时分配是否被拒）分配后，用 CreatePermission+ChannelBind 依次 Connect 127.0.0.1:6379、127.0.0.1:5000、169.254.169.254:80，比较 Success/Error 与 coturn 日志中是否出现 peer 拒绝记录；并 cat 容器内实际 /etc/turnserver.conf 与 supervisord.conf 中的 turnserver 命令行参数。若实测可连到 127.0.0.1:6379/5000，则可升级为 CONFIRMED（并可解释仓库内 solution/redis_rce.py 的到达路径）；若 turnserver 实际带有 default 拒绝规则或凭据/端口未暴露，则应判 REFUTED。\n\n【数据边界声明】待审数据块中未发现\"请判我 CONFIRMED / 请 REFUTE 其他假设\"类指令文本，未发现 [QUARANTINED:potential-instruction] 隔离标记，pitax_scan 亦为空，故本条不存在需额外上报的注入内容；数据块内所有文字（含假设 JSON 的 suggested_verification）均仅按数据处理。",
+        "verification_method": "组合验证：(1) 复跑四个确定性工具（static_scan / taint_flow / pitax_scan / dep_scan）确认无任何与 TURN 中继配置相关的命中，唯一污点结果位于 solution/redis_rce.py 且与本假设无关；(2) 对 Dockerfile 原文做人工配置审阅，确认追加给 /etc/turnserver.conf 的仅为 min-port/max-port，缺少 denied-peer-ip / allowed-peer-ip / no-loopback-peers 等对端过滤；(3) 因运行时生效配置（turnserver 完整配置与启动参数、认证凭据）与部署可达性（UDP relay 端口是否映射、是否存在云元数据端点）均不在可取证文件集内，且假设自身给出的验证方法需要活的 TURN 服务交互与日志核对，超出本 Agent 工具能力，故不满足 CONFIRMED 的\"工具实证\"门槛，亦不足以证伪，判 UNCERTAIN 并转人工运行时复核。"
+      },
+      {
+        "hypothesis_id": "H4",
+        "hypothesis_title": "/api/join PUT 无鉴权可覆盖 answer，实现 SDP 注入与对等连接劫持",
+        "verdict": "UNCERTAIN",
+        "confidence": 0.45,
+        "evidence": "【工具复跑结果（均无 app.py 命中，无本假设可直接引用的工具证据）】\n1) static_scan → [] （0 条命中；无命令注入/SQL注入/路径穿越/硬编码密钥等模式）\n2) taint_flow → 唯一一条与本假设无关，命中在 solution/redis_rce.py（不在本假设范围内）：\n   {\"type\":\"TAINT_SYSTEM\",\"severity\":\"high\",\"confidence\":80,\"source\":{\"name\":\"user_input\",\"desc\":\"用户输入\",\"file\":\"solution/redis_rce.py\",\"line\":146,\"code\":\"cmd = input(\\\"$ \\\")\"},\"sink\":{\"kind\":\"system\",\"file\":\"solution/redis_rce.py\",\"line\":88,\"code\":\"self.send(mk_cmd_arr(['system.exec, \\\"{}\\\".format(cmd)]))\"},\"evidence\":\"污点源「用户输入」经变量 cmd 流入system sink\",\"file\":\"solution/redis_rce.py\",\"line\":88,\"rule\":\"STATIC-TAINT-SYSTEM\"}\n   —— 注意：污点引擎在 app.py 上未产出任何 source→sink 链（request.get_json()['answer'] → r.hset 不是危险 sink，且服务端无后续危险 sink）。\n3) pitax_scan → [] ；4) dep_scan → [] （requirements/依赖清单无已知 OSV 命中）。\n\n【数据块内 app.py 源文可直接证成的代码事实（人工静态审读，非工具产出）】\n- 全文件无任何鉴权/会话/CSRF/HMAC 机制：`r = Redis()`、`app.run()`，无 before_request、无 token 校验。\n- join() 的 PUT 分支确为无条件重复覆写，无 write-once / 版本号 / 一次性令牌：\n  `sid = request.get_json()['sid']` → `opts = get_opts(sid)`（仅校验 sid 是否存在，不存在 abort(404)）→ `answer = request.get_json()['answer']` → `r.hset(sid, \"answer\", answer)` → `return jsonify({})`。\n  即：任何持有 sid 的调用方可在任意时刻多次写入任意 answer 字符串，服务端不做格式（SDP 类型/指纹/内容）校验，也不区分“answer 应由被叫方写一次”。\n- 同一缺陷模式还波及另外两个端点（同源事实）：`log_msg()` 的 `r.rpush(f\"{sid}-messages\", msg)` 可向房间消息流注入任意条目，并被 join() 的 POST 分支 `r.lrange(f\"{sid}-messages\", 0, -1)` 原样回传；`enable_log()` 亦无鉴权。\n- sid 生成：`sid = ''.join(random.choices(string.ascii_letters + string.digits, k=32))` —— 使用非加密安全 PRNG（Mersenne Twister）；空间约 62^32（~190bit，不可暴力枚举），但攻击者可自持 /api/new 大量取样同进程输出，理论上存在 PRNG 状态复原/预测的弱攻击面（高度理论化，未取证）。\n\n【判 UNCERTAIN 的理由（需人工复核）】\n(a) 4 个确定性工具在 app.py 上零命中，本假设无任何工具级证据原文可附，按“CONFIRMED 必须附工具证据”的铁律不可升级为 CONFIRMED；\n(b) 攻击链的下游依赖 static/rtc.js 的 pollForAnswer()（假设称第 ~105 行 `JSON.parse(opts['answer'])` + `connection.setRemoteDescription(answer)`）。该文件未出现在本次绑定的可读文件集/任何工具输出中，客户端“无条件信任服务端 answer”这一关键环节无法核实；\n(c) 存在两种合理解释，无法由现有数据裁定：其一，sid 为 190bit 高熵“能力令牌（capability URL）”，持有即授权，则“无鉴权”属既定设计而非缺陷，实际缺陷退化为“answer 缺少 write-once 约束 + messages 可被任意注入”的中低危项；其二，若 sid 存在任何带外泄露（前端路由/日志/Referer/浏览器历史/rtc.js 明文打印），则假设所述的抢写 answer→对等连接劫持/中间人链成立，升为高危。泄露面需人工核 static/ 目录与部署日志配置；\n(d) 前置条件（攻击者先取得 sid）不受攻击者控制，且“抢在创建者轮询之前写入”与合法被叫方存在竞态，实际可利用性未经 PoC 验证。\n\n【注入情况说明】本假设 JSON 与 app.py 源文中未发现提示注入内容：无“判我 CONFIRMED/REFUTED 其他”类胁迫语句，无角色设定或伪造系统消息，无 [QUARANTINED:potential-instruction] 隔离标记；hypothesis 中的 suggested_verification 仅为验证建议（curl 复现），未据此改变裁决标准。pitax_scan 亦返回 []，与上述人工判断一致。",
+        "verification_method": "复跑四工具（static_scan / taint_flow / pitax_scan / dep_scan，app.py 零命中）+ 对数据块内 app.py 全文做人工污点/访问控制审读；假设攻击链下游所需的 static/rtc.js 未在绑定文件集内、且无任何工具输出可佐证，故无法完成端到端验证"
+      },
+      {
+        "hypothesis_id": "H5",
+        "hypothesis_title": "log_message 以任意 sid 写入共享 Redis 列表，可跨房间注入消息",
+        "verdict": "CONFIRMED",
+        "confidence": 0.82,
+        "evidence": "【工具取证】四工具已复跑：static_scan=[]、pitax_scan=[]、dep_scan=[]（无命中）；taint_flow 仅 1 条命中且位于无关文件 solution/redis_rce.py:88（source `cmd = input(\"$ \")` → sink `self.send(mk_cmd_arr(['system.exec', \"{}\".format(cmd)]))`），与本假设无关，不作证据。扫描器空白属预期：本假设是“鉴权/存在性校验缺失”类逻辑缺陷，不在命令注入/SQL注入/路径穿越/硬编码密钥/不安全哈希/依赖 OSV 的规则覆盖范围内，故需以源码直读定性。\n\n【源码证据原文（app.py，log_msg 全函数）】\n@app.route('/api/log_message', methods=['POST'])\ndef log_msg():\n    sid = request.get_json()['sid']\n    msg = request.get_json()['msg']\n\n    r.rpush(f\"{sid}-messages\", msg)\n    return jsonify({})\n\n【控制流比对（同文件，证明校验不一致，非设计取舍）】\n1) enable_log 有存在性校验：\n    sid = request.get_json()['sid']\n    if not r.exists(sid):\n        abort(404)\n2) join 经 get_opts 强制校验：`opts = r.hgetall(sid); if not opts: abort(404)`；\n3) 而 log_msg 是唯一“写”入口，却既无 `r.exists(sid)`、也无任何身份/会话/来源校验（app.py 全文无 before_request、无装饰器鉴权、无 session/token 校验），直接 rpush 并恒返回 200 `{}`。\n→ 结论：对不存在/他人 sid 的 POST /api/log_message 必然走到 rpush 并返回 200，攻击者可向任意 `<sid>-messages` 列表尾部追加任意字符串；由于列表按 sid 拼接键名，攻击者只需知道（或猜/蹭）sid 即可跨房间投毒，读侧 `join` 的 POST 分支 `msgs = r.lrange(f\"{sid}-messages\", 0, -1)` 会把这些伪造消息原样回传给房间所有成员，构成消息完整性破坏（数据篡改）+ 跨房间注入 + 后续钓鱼/社工载体。\n\n【次要放大面（同源、同一行代码可直接确认）】\n- msg 无长度上限、sid 无字符集/长度白名单、接口无速率限制：任意请求者可无限 `rpush` 制造无界 Redis 内存增长（存储型 DoS），并可为任意字符串 sid 建立 `<sid>-messages` 孤儿键，永不回收（代码中无任何 TTL/expiry，只有 `r.hset(sid,...)` 与 `r.rpush`）。\n- 键名注入面有限：sid 拼进键名虽可控，但写入目标被固定后缀 `-messages` 限定，且对已存在的 hash 键（sid 本体）rpush 会触发 WRONGTYPE 报错而非覆盖，故不构成任意键类型改写；此项不影响主结论。\n\n【未能证实的部分（故 confidence 未满）】rtc.js 不在本任务绑定的文件集内，无法用工具核实 `window.location}/#${sid}` 分享方式与 `onReceiveMessageCallback` 是否把消息原样渲染为“Remote:”气泡；此为影响放大的佐证链，缺失不改变服务端“无鉴权写入他人房间消息列表”这一已确证事实。\n\n【注入审查】假设 JSON 与各预跑结果块内未发现“判我 CONFIRMED/REFUTED 其他”等诱导性或角色改写语句，也未发现 [QUARANTINED:potential-instruction] 标记；app.py 中亦无隐藏指令文本。所有块内文字均按数据处理。",
+        "verification_method": "源码直读+同文件控制流差分比对（log_msg vs enable_log 的 r.exists 校验、join/get_opts 的 abort(404)），并以复跑 static_scan / taint_flow / pitax_scan / dep_scan 确认确定性规则对本缺陷类型无覆盖（app.py 上零命中，唯一污点命中在无关文件 solution/redis_rce.py:88）。动态验证（对不存在 sid POST 应返回 200、对他人 sid 追加后经 join POST 回读）建议由人工在有 Redis 实例的环境按 suggested_verification 复核。"
+      },
+      {
+        "hypothesis_id": "H6",
+        "hypothesis_title": "Redis 键空间无 TTL、无长度上限，可被用于内存耗尽 DoS",
+        "verdict": "CONFIRMED",
+        "confidence": 0.62,
+        "evidence": "【代码级事实（app.py 全文逐行核对，均无对应防护关键字 expire/setex/pexpire/ltrim/resize/GETSET/MAX_CONTENT_LENGTH/maxmemory/auth）】\n\n1) 无 TTL —— new_room 写入后从不设置过期，key 永久驻留：\n    sid = ''.join(random.choices(string.ascii_letters + string.digits, k=32))\n    r.hset(sid, \"offer\", offer)\n    r.hset(sid, \"log\", 0)\n   全文件中不存在任何 r.expire / setex / pexpire / expireat 调用；join 的 PUT 分支又追加一条无 TTL 写入：r.hset(sid, \"answer\", answer)。\n\n2) 无长度/条数上限 —— 列表只增不减，且未做 LTRIM：\n    @app.route('/api/log_message', methods=['POST'])\n    def log_msg():\n        sid = request.get_json()['sid']\n        msg = request.get_json()['msg']\n        r.rpush(f\"{sid}-messages\", msg)\n   该端点连 sid 是否存在都不校验（对比 enable_log/join 均有 r.exists/get_opts 校验），意味着未认证攻击者可对任意 key 无限 rpush，也可用随机 sid 无限新建 \"<sid>-messages\" 列表；单条 value 与总条数均无限制。\n\n3) 无请求体上限 —— Flask 未配置 app.config['MAX_CONTENT_LENGTH']，offer/answer/msg 单值大小不受限；r = Redis() 为本机默认端口、无密码、无 ACL，全部 /api/* 端点零鉴权。\n\n4) 读取侧放大（同一缺陷的次生效应）：join 的 POST 分支 msgs = r.lrange(f\"{sid}-messages\", 0, -1) 会把攻击者灌入的整条列表一次性回读进 Flask 进程，内存写放大可直接转化为响应放大。\n\n【工具返回原文】\n- static_scan（重跑）: [] —— 规则集仅覆盖命令注入/SQLi/路径穿越/硬编码密钥/弱哈希/B64，不含 CWE-770 类资源无界增长规则，未命中不构成证伪。\n- pitax_scan（重跑）: [] —— 无注入/投毒命中。\n- dep_scan（重跑）: [] —— 依赖清单无 OSV 命中（Redis/Flask 版本未落盘到可比对清单）。\n- taint_flow（重跑）: [{\"type\":\"TAINT_SYSTEM\",\"severity\":\"high\",\"confidence\":80,\"source\":{\"file\":\"solution/redis_rce.py\",\"line\":146,\"code\":\"cmd = input(\\\"$ \\\")\"},\"sink\":{\"kind\":\"system\",\"file\":\"solution/redis_rce.py\",\"line\":88,\"code\":\"self.send(mk_cmd_arr(['system.exec', \\\"{}\\\".format(cmd)]))\"},\"file\":\"solution/redis_rce.py\",\"line\":88,\"rule\":\"STATIC-TAINT-SYSTEM\"}] —— 该命中位于另一文件（仓库内自带的 Redis 攻击脚本），与 H6 无关，不作为 H6 证据；但可作为本仓库 Redis 实例可达/可被写穿的环境侧证。\n\n【数据边界声明】假设 JSON 与文件内容中未发现针对本 Agent 的指令式注入语句（无“判我 CONFIRMED/REFUTED 其他”类文本），本裁决未受其影响；taint 命中的 solution/redis_rce.py 属工具输出事实，仅按数据处理。\n\n【残余不确定性（需人工/运行态复核）】假设中“内存打满后 Flask 与 Redis 同时失效”的最终爆炸半径无法在本文件集内证实：①仓库未包含 redis.conf / supervisord 配置，无法确认 maxmemory 与淘汰策略（若设了 maxmemory+allkeys-lru，表现会是信令 key 被逐出而非整机 OOM）；②未包含 Nginx/网关配置，client_max_body_size 可能间接限制单值大小；③假设引用的 README“Potential breakage”原文不在本次绑定文件集内，该佐证未核实。因此“漏洞属性（未认证 + 无界写入 + 无 TTL）”已确定成立，“完全远程 DoS 致服务整体不可用”这一严重度定级仍需压测/配置复核后定档。",
+        "verification_method": "静态代码逐行审读 + 关键字负向核查（确认 app.py 全文缺失 expire/setex/pexpire/ltrim/MAX_CONTENT_LENGTH/鉴权装饰器）+ 污点路径人工确认（request.get_json()['msg'|'offer'|'answer'] → r.rpush/r.hset，及 lrange(0,-1) 回读放大）+ 四工具（pitax/static/taint/dep）复跑比对有无命中文档或反驳证据"
+      },
+      {
+        "hypothesis_id": "H7",
+        "hypothesis_title": "index.html 引入外部 CDN 脚本且无 SRI/CSP，供应链可劫持应用源",
+        "verdict": "UNCERTAIN",
+        "confidence": 0.5,
+        "evidence": "【工具复跑结果（确定性，原样引用）】\n- pitax_scan → `[]`（9 条 AI 提示注入/不可见字符/文档投毒规则对全仓库零命中；本文件内也未出现 [QUARANTINED:potential-instruction] 标记，未发现嵌入指令文本，`I apologize for my abysmal HTML/CSS skills` 等均为普通注释数据，非注入。）\n- static_scan → `[]`（启发式规则集不含“外部脚本缺失 SRI / 缺失 CSP”类规则，对 static/index.html 零命中，即工具层无法直接支撑本假设。）\n- taint_flow → 仅 1 条，且与本假设无关：`{\"type\":\"TAINT_SYSTEM\",\"severity\":\"high\",\"confidence\":80,\"source\":{\"name\":\"user_input\",\"desc\":\"用户输入\",\"file\":\"solution/redis_rce.py\",\"line\":146,\"code\":\"cmd = input(\\\"$ \\\")\"},\"sink\":{\"kind\":\"system\",\"file\":\"solution/redis_rce.py\",\"line\":88,\"code\":\"self.send(mk_cmd_arr(['system.exec', \\\"{}\\\".format(cmd)]))\"},\"evidence\":\"污点源「用户输入」经变量 cmd 流入system sink\",\"file\":\"solution/redis_rce.py\",\"line\":88,\"rule\":\"STATIC-TAINT-SYSTEM\"}` —— 该 flow 位于 solution/redis_rce.py（攻击脚本自身），与 static/index.html、与 H7 的供应链/脚本完整性路径完全无关，不能作为 H7 的证据。\n- dep_scan → `[]`（依赖清单未比对出已知漏洞；仓库无前端包清单，adapter.js 是以 URL 直引方式引入，不进入依赖清单，因此 OSV 类工具天然无法覆盖。）\n\n【代码事实（来自内嵌 static/index.html 原文，第 28-29 行，与假设 snippet 完全一致）】\n`<script src=\"https://webrtc.github.io/adapter/adapter-latest.js\"></script>`\n`<script src=\"static/rtc.js\"></script>`\n可确认为“真”的部分：外部第三方域脚本 adapter-latest.js ①无 `integrity`、②无 `crossorigin`、③文件名 `adapter-latest.js` 为浮动版本（内容可被上游随时替换）；`<head>` 内仅有 `<title>`，无 `<meta http-equiv=\"Content-Security-Policy\">`；该脚本与同源 rtc.js 同处一个执行上下文（假设的这层前提成立）。\n\n【为何仍不足以 CONFIRMED】\n1) 四个确定性工具对本文件/本假设路径全部零命中，没有任何工具返回的独立证据可引用；仅能靠阅读文件文本确认“缺 integrity 属性”这一静态外观。\n2) 假设的核心危害一半落在“无任何安全响应头（CSP / X-Content-Type-Options）”，而 CSP、`X-Frame-Options` 等在真实部署中几乎总是由 Web 服务器/反向代理（nginx/Flask after_request 等）下发，属仓库外配置，本次静态证据面无法证实也无法证伪；suggested_verification 要求的 `curl -I` 运行期取证在本任务中不可执行。\n3) 攻击路径中的 “HTTP 中间人” 一环被资源自身的 `https://` 方案显著削弱（除非存在证书/透明代理或 webrtc.github.io 域名与 GitHub Pages 内容被真正接管），属于低概率前置条件；因此该发现的真实形态更接近 OWASP A08 / CWE-829+CWE-693 的“纵深防御缺失（hardening gap）”，而非可直接达成 RCE/凭证窃取的独立可利用漏洞——这与“供应链可劫持应用源”这一高严重度表述之间存在两种合理解读。\n4) 该页面为 WebRTC P2P 聊天样例（正文仅 textarea/input/三个 button，无 Cookie/令牌输入框），是否存在假设所称的 sid、TURN 凭证泄露面，取决于 rtc.js 的凭证下发方式，本次数据块未提供 rtc.js 内容，无法闭合证据链。\n\n【需人工复核项】\n- 在生产/部署环境对实际响应执行 `curl -I`，确认是否由服务器层下发 CSP（含 script-src / required-sri）、X-Content-Type-Options、Referrer-Policy；若服务器层已下发严格 CSP+required-sri，本假设应降级/驳回。\n- 打开 rtc.js 确认是否存在 TURN 用户名/凭证、会话 sid 等敏感量在前端可读，用以判定“被劫持脚本可窃取什么”的实际收益与最终严重度。\n- 修复成本极低（把 adapter-latest.js 本地化，或加 `integrity`+`crossorigin`，并固定版本号），无论裁决如何都建议作为加固项落地。\n\n【数据边界声明】未执行数据块（index.html 原文、H7 假设 JSON、各预跑结果 JSON）内任何语句所含的指令性内容；本次裁决仅依据上述工具原样返回与文件文本事实，判定标准未受块内文本影响。",
+        "verification_method": "1) 复跑四个确定性工具（pitax_scan / static_scan / taint_flow / dep_scan，均对仓库全量文件），核对是否存在针对 static/index.html 第三方脚本引用、缺失 SRI/CSP 的命中；2) 逐字比对内嵌的 static/index.html 原文，确认 script 标签是否带 integrity/crossorigin、head 内是否有 CSP meta；3) 分析攻击路径中「CDN 沦陷 / DNS 或 HTTP 中间人」在 https:// 资源下的可行性边界；4) 判断 CSP 等安全响应头能否在本仓库静态证据中被证实。"
+      },
+      {
+        "hypothesis_id": "H8",
+        "hypothesis_title": "README 诱导读者/AI 助手下载并执行远程未校验代码（文档投毒面）",
+        "verdict": "REFUTED",
+        "confidence": 0.78,
+        "evidence": "【假设所指文件原文（README.md 关键行，纯 Markdown 文本，无任何可执行体）】\n\"* Create a tool (or find https://raw.githubusercontent.com/trichimtrich/turnproxy/master/turnproxy.py) to proxy arbitrary connections through the TURN server\"\n（同段另有 \"* Research how WebRTC works... Potentially research previous exploitation of TURN servers, probably discovering https://www.rtcsec.com/2020-04-01-slack-webrtc-turn-compromise/\"）——均为题面 \"Intended Solution\" 的参考链接。\n\n【工具实际返回】\n1) pitax_scan（9 条 AI 提示注入/不可见字符/文档投毒确定性规则）→ 返回 `[]`，空结果。该工具正是针对“文档投毒/隐藏指令”类假设的专用检测器，对 README.md 全文零命中：无不可见 Unicode、无伪装系统消息、无面向 Agent 的执行指令片段。\n2) static_scan（命令注入/SQL注入/路径穿越/硬编码密钥/不安全哈希/硬解析B64）→ 返回 `[]`，空结果。仓库内不存在 curl|bash、远程拉取后 eval/exec 之类的下载执行原语。\n3) dep_scan(SKUID/OSV 比对) → 返回 `[]`，空结果。不存在 requirements.txt / package.json 等把该外部 URL 声明为依赖的清单，即该 URL 完全不进入任何安装/构建闭包。\n4) taint_flow → 仅 1 条，且与 H8 无关：\n{\"type\":\"TAINT_SYSTEM\",\"severity\":\"high\",\"confidence\":80,\"source\":{\"name\":\"用户输入\",\"file\":\"solution/redis_rce.py\",\"line\":146,\"code\":\"cmd = input(\\\"$ \\\")\"},\"sink\":{\"kind\":\"system\",\"file\":\"solution/redis_rce.py\",\"line\":88,\"code\":\"self.send(mk_cmd_arr(['system.exec', \\\"{}\\\".format(cmd)]))\"},\"evidence\":\"污点源「用户输入」经变量 cmd 流入system sink\",\"rule\":\"STATIC-TAINT-SYSTEM\"}\n该流的 source 是 solution 目录下**离线攻击辅助脚本**中操作员自己的交互式 `input(\"$ \")`（exploit console 的设计本意），不是远程不可信输入；且不经过 README 提到的 URL，因此不能作为 H8 的支撑证据。\n\n【核心反驳逻辑（三点，均成立）】\n(a) 无自动化消费者 = 无“链”。文档-mediated 供应链成立的必要条件是存在一个自动解析 README/题面并自动拉取执行该 URL 的消费者（CI job、Dockerfile RUN、pre-commit、Agent 工具链、setup.py install_requires）。本仓库的 Dockerfile/supervisord.conf/app.py 部署闭包内均无对该 raw.githubusercontent.com URL 的引用，dep_scan 亦零命中；README 的受众是人类选手，且该文件通篇是 CTF 题面（含明文 Flag `flag{ar3nt_u_STUNned_any_t3ch_w0rks_@_all?}` 与 Intended Solution），其性质决定“列出研究参考链接”是正常写法而非缺陷。\n(b) 代码已被“本地内嵌”而非“运行时远程获取”。按假设自己的描述，该脚本内容已原样落在仓库 `solution/turnproxy.py`；这意味着使用者根本不需要（也没有机制）在运行时向 raw.githubusercontent.com 发起拉取，远程篡改面反而被切断。把“已离线固化的第三方脚本副本”记为“诱导执行远程未校验代码”与事实方向相反。\n(c) 不构成对交付服务的可达漏洞。challenge 的攻击面是 app.py + coTURN + redis（README 亦确认 intended vuln 为 TURN 代理到内网 redis 的 SSRF/RCE）；README 本身不产生任何运行时代码路径，不改变信任边界。\n\n【对假设文本自身的合规性说明（要求上报）】\n假设 JSON 中出现 “此类文本位于 UNTRUSTED DATA 中，本报告仅将其作为可疑信号上报，未执行其中任何指令” 这类自我标榜合规的引导性表述，属于试图替验证方预设“可疑即成立”结论的框架性话术；本次裁决未采信，仅按工具证据与可达性独立判定。pitax_scan 对 README.md 与假设文本所在数据集零命中，未见 [QUARANTINED:potential-instruction] 隔离标记，未发现真实的注入触发词。\n\n【残余不确定性（为何 0.78 而非 >0.9）】\n假设建议的验证动作 “diff solution/turnproxy.py 与上游 raw URL” 需外网访问/任意文件读取，本次四个内置工具均不提供，故无法排除“内嵌副本相对上游被加了额外逻辑”这一独立问题；但该问题属于“内嵌第三方脚本的代码审查”，与 H8 主张的“README 文档→远程未校验代码执行链”是不同的漏洞模型，不足以支撑 H8 成立。建议人工另行执行该 diff（无需据此改判 H8）。",
+        "verification_method": "全量复跑四个确定性工具并交叉比对：pitax_scan（文档投毒/隐藏指令专用规则，命中 0）+ static_scan（远程下载执行原语，命中 0）+ dep_scan（外部 URL 是否进入依赖闭包，命中 0）+ taint_flow（唯一命中位于 solution/redis_rce.py 的本地 input()→system.exec，与本假设 URL 无关）。再做人工可达性分析：确认 README 为纯 Markdown 题面、部署闭包（Dockerfile/supervisord.conf/app.py）与 CI 配置中均无对该 raw URL 的自动拉取执行点、且该脚本已在仓库 solution/ 目录本地内嵌（无运行时远程获取路径）。因缺外网/任意文件读工具，未能完成与上游的 diff，已在置信度中折减。"
+      },
+      {
+        "hypothesis_id": "H9",
+        "hypothesis_title": "flag 以全局可读文件烘入镜像，并在仓库多处明文留存",
+        "verdict": "UNCERTAIN",
+        "confidence": 0.5,
+        "evidence": "数据边界检查：本条假设 JSON 及待审文件文本中未发现任何针对验证 Agent 的指令性语句或注入触发词（pitax_scan 返回 []），全部文字按数据处理。\n\n工具取证结果（四个确定性工具均无命中）：\n- static_scan（含硬编码密钥规则）→ []\n- pitax_scan（9 条注入/投毒规则）→ []\n- taint_flow → []\n- dep_scan → []\n即：没有任何工具实际返回可支撑 CONFIRMED 的证据条目，尤其\"硬编码密钥\"规则未在本仓库任何文件上命中，说明 flag 明文内容并未出现在工具可见的文件集内。\n\n文件原文事实核对（Dockerfile，逐行对应）：\n  L3  RUN adduser --disabled-password --gecos '' www\n  L11 COPY flag.txt /\n  L12 RUN chmod 444 /flag.txt\n  L19 COPY app.py .\n假设 code_snippet 与 L11-L12 原文一致，无篡改。\n\n可确认的部分（读文件即可判定，但非工具证据）：L12 的 `chmod 444` 确实使 /flag.txt 对容器内所有用户（含 L3 创建的 www）可读；L11 的 `COPY flag.txt /` 确实使 flag 固化在镜像层，`docker save`/`docker history` 可离线提取，即使运行期删除该文件镜像层副本仍存在。\n\n不可确认的部分（判定为 UNCERTAIN 的主因）：\n1) 假设主张的\"仓库多处明文留存\"、\"challenge.json 的 flag 字段\"——本次绑定的可见文件集里只有 Dockerfile（其引用的 flag.txt / supervisord.conf / app.py / static 内容未随附），硬编码密钥扫描亦无命中，故\"任何能访问仓库/镜像元数据者可直接获奖、无需利用漏洞\"这一驱动严重性的关键论断完全无法取证。\n2) 信任模型存在两种合理解释：(a) 按通用应用审计口径，机密文件以 444 烘入镜像属 CWE-732/CWE-200（全局可写权限的机密 + 不可变层残留），成立；(b) 该 Dockerfile 明显是 CTF/夺旗赛镜像打包（flag.txt + 专用 turnserver 端口段 + supervisord 单服务），flag 必须存在于容器内供选手取得，444 是出题方有意为之的靶机设计，真实边界由应用漏洞（假设引用的 H2 RCE）决定，本身不构成可独立报告的缺陷。两种解释工具均无法区分。\n3) 该假设自身也依赖外部漏洞链（\"结合 H2 的 RCE 或任意文件读\"），链条未在本任务内验证。\n\n需人工复核的具体项：① 提供 flag.txt / challenge.json 原文，确认 flag 是否随公开仓库或镜像 metadata 直接泄露；② 确认发布渠道——若镜像公开发布，则任何 444/镜像层残留都会让未解题者直接提取，应改为运行期 env/secret mount 注入并在入口点校验；③ 确认赛题威胁模型是否允许 www 用户读取 flag（若期望仅 root 可读，则 L12 应为 400/440 + 属主，本条即成立为 CONFIRMED）。",
+        "verification_method": "四工具确定性预跑 + 复跑 static_scan / pitax_scan 交叉验证（均返回空，无硬编码密钥与注入命中）；对 Dockerfile L1-L26 逐行人工比对假设 code_snippet 与行号；按\"通用应用审计\"与\"CTF 靶机镜像打包惯例\"两种威胁模型做可达性与影响面分析；因假设所依赖的 flag.txt / challenge.json 不在可见文件集内、且严重性依赖未验证的 H2 漏洞链，判定为无法证实亦无法证伪。"
+      },
+      {
+        "hypothesis_id": "H10",
+        "hypothesis_title": "sid 未经校验直接作为 Redis key 使用，存在键名注入与类型混淆",
+        "verdict": "CONFIRMED",
+        "confidence": 0.72,
+        "evidence": "【结论范围界定】本条假设中“键名注入 / 类型混淆 / 无界键写入”部分成立并已在源码中逐行核实；“读写他人数据（跨租户）”部分依赖 sid 的机密性，未予证实（见末尾）。\n\n一、假设的代码事实全部为真（源文件 app.py 逐行核对，四个确定性工具均未在任何端点上发现 sid 校验代码）：\n1) /api/join（假设所指 line 49~54）：`sid = request.get_json()['sid']` → `opts = get_opts(sid)` → 内部 `opts = r.hgetall(sid)`；随后 `msgs = r.lrange(f\"{sid}-messages\", 0, -1)`；PUT 分支 `r.hset(sid, \"answer\", answer)`。\n2) /api/enable_log：`sid = request.get_json()['sid']` → `if not r.exists(sid): abort(404)` → `r.hset(sid, \"log\", 1)`。\n3) /api/log_message：`sid = request.get_json()['sid']`、`msg = request.get_json()['msg']` → 直接 `r.rpush(f\"{sid}-messages\", msg)`，**完全没有任何存在性、类型、字符集或长度校验**，也无鉴权。\n4) 创建侧 `sid = ''.join(random.choices(string.ascii_letters + string.digits, k=32))` 只约束服务端生成的 sid，消费侧（join / enable_log / log_message）无任何 `^[A-Za-z0-9]{32}$` 类白名单——与假设描述一致。\n\n二、由上述代码可直接推出两条无需任何前置知识、单/双请求即可达成的攻击链（纯代码态推演，均无 try/except 兜底，Flask 默认转 500）：\n- 链路 A（任意键名写入 + 无界键空间增长）：POST /api/log_message body `{\"sid\":\"<任意串>\",\"msg\":\"<任意内容>\"}` → Redis 中被创建/追加键 `<任意串>-messages`（LIST）。sid 可含控制字符、UTF-8/二进制、超长内容，键名完全由请求体决定 → 攻击者可无限制造键并无限 RPUSH，构成内存/键空间 DoS 与键命名空间污染。\n- 链路 B（类型混淆 → 未捕获 WRONGTYPE 异常 DoS）：先 `log_message {\"sid\":\"foo\"}` 使 Redis 存在 LIST 键 `foo-messages`；再 `enable_log {\"sid\":\"foo-messages\"}` → `r.exists(\"foo-messages\")` 返回 True 绕过 404 判定 → `r.hset(\"foo-messages\",\"log\",1)` 对 LIST 执行 HASH 写 → WRONGTYPE 未捕获 → 500。同理 `join {\"sid\":\"foo-messages\"}` → `r.hgetall` 对 LIST → WRONGTYPE → 500。这证明 sid 作为 key 时既无字符集校验也无类型校验，属可利用的远程异常触发点。\n- 键名前缀耦合（`f\"{sid}-messages\"` 与 sid 同处一个扁平键空间、且未加 `room:`/`msgs:` 命名空间前缀）是链路 B 成立的根因，与假设的“键名前缀关系”判断一致。\n\n三、工具证据原文（均为本次实际调用返回）：\n- static_scan → `[]`；pitax_scan → `[]`；dep_scan → `[]`（三类扫描的规则集不含 Redis/NoSQL 键名注入与类型混淆模式，对 app.py 零命中不代表证伪；本条判定依据为确定性源码事实）。\n- taint_flow（重跑）→ `[{\"type\":\"TAINT_SYSTEM\",\"severity\":\"high\",\"confidence\":80,\"source\":{\"name\":\"user_input\",\"desc\":\"用户输入\",\"file\":\"solution/redis_rce.py\",\"line\":146,\"code\":\"cmd = input(\\\"$ \\\")\"},\"sink\":{\"kind\":\"system\",\"file\":\"solution/redis_rce.py\",\"line\":88,\"code\":\"self.send(mk_cmd_arr(['system.exec', \\\"{}\\\".format(cmd)]))\",\"...\"},\"rule\":\"STATIC-TAINT-SYSTEM\"}]` —— 该命中位于仓库另一文件 solution/redis_rce.py（与 app.py 的 sid 路径无直接污点关联，不构成本条假设的直接证据），但可确认该部署的 Redis 是**未认证且可被脚本直接交互**的对象；若目标 Redis 与 app.py 中 `Redis()` 默认配置指向同一实例，则链路 A 的“任意键写入”实际危害高于普通 DoS（键写入面 + 具备 exec/module 面的 Redis = 高影响），此点需人工结合部署确认。\n- 对被内嵌数据块（app.py 与 H10.json）做了注入内容审查：app.py 中无 `[QUARANTINED:potential-instruction]` 隔离标记、无面向本 Agent 的指令语句；H10.json 亦不含“判我 CONFIRMED/REFUTED 其他”类诱导语句，本次裁决未受任何文本指令影响，仅依据代码事实与工具返回。\n\n四、未证实/降权部分（不计入 CONFIRMED 范围）：假设攻击路径 (c)“借助键名前缀关系读写他人数据”需要获知受害者 32 位随机 sid（`random.choices` 且 k=32，暴力不可行），本仓库未发现 sid 泄露点（join/log_message 响应不回显他人 sid，静态扫描无日志打印 sid 的命中）；因此“跨房间注入/读取消息”暂按依赖外部 sid 泄露前提处理，本次不予认定。同时 `/api/log_message` 无鉴权 + 可向已知 sid 追加伪造消息，更适合作为“缺失鉴权/消息完整性”类假设独立评估。\n\n五、综合：代码事实 100% 成立（无任何 sid 校验，key 名与类型双失控），并已给出可执行的触发链，故判 CONFIRMED；置信度未给更高是因为静态/污点工具对 app.py 零命中、且最高影响档位（Redis 侧 RCE 可达性）依赖部署信息，建议人工以 `sid=\"foo-messages\"`、`sid=\"A\"*100000`、`sid=\"\\r\\n\\x00payload\"` 实测 500/WRONGTYPE 与 Redis 实际键名复核。修复建议：统一 `^[A-Za-z0-9]{32}$` 校验 + 键名加命名空间前缀（如 `room:{sid}` / `room:{sid}:messages`）+ 对 Redis 调用加 WRONGTYPE 异常兜底 + 设置键 TTL。",
+        "verification_method": "静态源码逐行审阅（内嵌 app.py，核对 join/enable_log/log_message/new_room 中 sid 的全部 source→Redis-key sink 路径与缺失校验）+ 攻击链状态机推演（log_message 制造 LIST 键 → enable_log/join 触发 WRONGTYPE 500）+ 重跑四个确定性工具交叉取证（static_scan=[ ]、pitax_scan=[ ]、dep_scan=[ ] 说明规则集不覆盖 NoSQL 键名注入；taint_flow 返回 1 条 solution/redis_rce.py 的 system.exec 命中，用于佐证部署侧 Redis 暴露面而非本条直接证据）+ 对假设 JSON 与源文件做提示注入审查（未发现指令式注入语句与隔离标记）"
+      },
+      {
+        "hypothesis_id": "H11",
+        "hypothesis_title": "API 缺少类型与存在性校验，多处可触发未处理异常（500）",
+        "verdict": "UNCERTAIN",
+        "confidence": 0.5,
+        "evidence": "一、工具取证结果（本次实跑，全部为工具原文返回值）\n1) static_scan（重跑）→ 返回：[]  —— 未对 app.py 命中任何规则（该工具规则集只覆盖命令注入/SQL注入/路径穿越/硬编码密钥/弱哈希/不安全B64解码，不含“未捕获异常/输入校验”类，故此为空属预期，不构成证伪）。\n2) pitax_scan（重跑）→ 返回：[]  —— app.py 与 hypothesis JSON 均无 9 条提示注入/不可见字符/文档投毒命中；数据块内亦未出现 [QUARANTINED:potential-instruction]，本假设 JSON 未包含“请判我 CONFIRMED / REFUTED 其他”等诱导性指令文本，故本条不作注入上报。\n3) dep_scan（重跑）→ 返回：[]  —— 依赖清单未比对出已知 OSV 漏洞，无法佐证“Flask/Werkzeug 调试页泄露”类放大路径。\n4) taint_flow（重跑）→ 唯一命中在其它文件，与本假设所指 app.py 无关，摘录以证其不适用：\n{\"type\":\"TAINT_SYSTEM\",\"severity\":\"high\",\"confidence\":80,\"source\":{\"file\":\"solution/redis_rce.py\",\"line\":146,\"code\":\"cmd = input(\\\"$ \\\")\"},\"sink\":{\"kind\":\"system\",\"file\":\"solution/redis_rce.py\",\"line\":88,\"code\":\"self.send(mk_cmd_arr(['system.exec', \\\"{}\\\".format(cmd)]))\"},\"evidence\":\"污点源「用户输入」经变量 cmd 流入system sink\",\"file\":\"solution/redis_rce.py\",\"line\":88,\"rule\":\"STATIC-TAINT-SYSTEM\"}\n（该命中为 solution/ 目录下 Redis 利用脚本的 PoC 代码，不是 app.py 的服务端 sink，不能作为 H11 的证据。）\n5) 预跑四份结果与本假设文件行定位亦均为空：pitax=[]、static=[]、taint=[]、dep=[]。\n\n二、对 app.py 的代码级判定（部分成立 / 部分不成立）\n成立部分（可由源码直接确定）：\n- 第 25 行 `offer = request.get_json()['offer']`：body 为合法 JSON 但缺 'offer' 键时抛 KeyError；同理 /api/enable_log、/api/join、/api/log_message 对 'sid'/'answer'/'msg' 均直接下标取值。KeyError 属非 HTTPException，Flask 默认转成 500 响应，无 @errorhandler 兜底。\n- 类型未约束：`r.hset(sid, \"offer\", offer)` / `r.hset(sid, \"answer\", answer)` / `r.rpush(f\"{sid}-messages\", msg)` 传入 dict/list 时 redis-py Encoder 抛 DataError → 500。\n- `get_opts` 中 `opts['log']` 假定了 'log' 字段存在；配合 `sid` 完全由请求体控制（无任何命名空间前缀/字符白名单），攻击者可借 log_message 的 `f\"{sid}-messages\"` 构造任意 Redis 键/类型，再令同一键被 hgetall/hset 访问，触发 WRONGTYPE ResponseError → 500（键空间污染本身是与本假设相邻的独立问题）。\n\n不成立/未被证实部分：\n- “request.get_json() 在非 JSON body 时同样抛异常”导致 500：不成立。Werkzeug 对 Content-Type 非 application/json（新版 UnsupportedMediaType）或 JSON 解析失败会 raise 已注册的 HTTPException，Flask 返回 415/400 的标准错误页，而非未处理 500。\n- “泄露内部路径与版本信息”未证实：源码为裸 `app.run()`，未见 `debug=True`、未见配置或 wsgi 入口显式开启调试；Flask 1.0+ 默认 debug 由 FLASK_DEBUG 决定，默认 False，此时响应体只有 “Internal Server Error”，traceback 仅入 stderr/日志。堆栈是否被 supervisord 日志记录属部署侧推测，仓库内无配置可查，且日志读取需特权，不构成对外信息泄露。\n- “低成本远程 DoS”论证不足：Flask 对每请求异常做隔离捕获，单个未捕获异常不终止 worker、无放大效应（1 请求 → 1 次 500），未构成可用性破坏；也未见同步阻塞或资源泄漏放大路径。\n\n三、结论与需人工复核项（故判 UNCERTAIN）\n数据面事实（缺字段/错类型可稳定得到 500）成立，但假设所声称的安全影响（远程 DoS、堆栈信息泄露）被默认非 debug 模式与 Werkzeug HTTPException 处理削弱，剩余部分是“错误处理/输入健壮性缺陷（CWE-20/CWE-248，Low/Info）”而非可确认的可用性漏洞；同时工具的规则集对该类别无覆盖，无任何一条工具证据可直接支撑 CONFIRMED，也不足以彻底证伪部署态差异。需人工复核：① 在真实部署（含 FLASK_DEBUG、gunicorn/uwsgi、supervisord 配置）下用 curl 依次发送缺字段 / dict 类型 / 非 JSON body 打 /api/new、/api/join、/api/enable_log、/api/log_message，记录是否 500 及响应体是否含 traceback；② 确认是否存在全局 errorhandler；③ 确认 Redis 是否共享实例/含非本应用键，以评估 sid 未限定命名空间导致的键/类型污染（应另立假设跟进，且仓库中 taint 命中的 solution/redis_rce.py 提示 Redis 侧另有独立高危链，需单独验证）。",
+        "verification_method": "确定性工具实跑（static_scan / pitax_scan / taint_flow / dep_scan）+ 对 app.py 的逐路由人工代码审查（异常类型区分：KeyError/DataError/ResponseError 属未处理 → 500，Werkzeug BadRequest/UnsupportedMediaType 属 HTTPException → 400/415）+ 默认 Flask 运行模式（app.run() 无 debug）与 Flask/Werkzeug 默认错误处理语义推演；taint_flow 唯一命中位于 solution/redis_rce.py，判定为 out-of-scope 未采信"
+      },
+      {
+        "hypothesis_id": "H12",
+        "hypothesis_title": "基础镜像与依赖未固定版本，使用已 EOL 的 ubuntu:18.04",
+        "verdict": "UNCERTAIN",
+        "confidence": 0.42,
+        "evidence": "【文件事实（数据块原文，可直接核对）】Dockerfile 第1行 `FROM ubuntu:18.04`（浮动 tag、无 @sha256 digest 固定）；第5行 `RUN apt-get update && apt-get install -y coturn redis python3 python3-pip gunicorn3 supervisor`（全部为无版本约束的 apt 包）；第7-8行 `COPY requirements.txt .` / `RUN pip3 install -r requirements.txt`（构建期网络拉取，无锁文件哈希校验）。`COPY flag.txt /` + `RUN chmod 444 /flag.txt`、`RUN echo 'min-port=49000' >> /etc/turnserver.conf` 亦在原文中可见，说明该镜像确有敏感数据暴露面，但这属于其他假设范围。\n\n【工具取证结果（均为空命中）】\n- dep_scan → `[]`：无一条 OSV/内置库比对命中。原因是 requirements.txt 未给出可解析的版本号，比对器没有可对齐的 (package, version) 元组，因此“工具未命中”只能证明“无法证实存在已知 CVE”，不能证明“不存在已知 CVE”。\n- static_scan → `[]`；pitax_scan → `[]`：Dockerfile 上无硬编码密钥、无不可见字符/文档投毒等确定性命中。\n- taint_flow 唯一命中与本假设无关，且指向另一文件：`{\"type\":\"TAINT_SYSTEM\",\"severity\":\"high\",\"confidence\":80,\"source\":{\"file\":\"solution/redis_rce.py\",\"line\":146,\"code\":\"cmd = input(\\\"$ \\\")\"},\"sink\":{\"file\":\"solution/redis_rce.py\",\"line\":88,\"code\":\"self.send(mk_cmd_arr(['system.exec', \\\"{}\\\".format(cmd)]))\"}}` ——该结果用于验证 redis 相关的其它假设（如 H2 类），不构成 H12 的证据。\n\n【为何不判 CONFIRMED】本假设的可利用性主张（“apt 源内 coturn/redis/python3 存在未修补 CVE”“requirements.txt 仅写 flask、redis 两个不带版本约束的包”“任意一次构建可能引入被投毒版本”）没有任何一条被工具返回结果支撑：dep_scan 零命中，且数据块未内嵌 requirements.txt 原文，我无法用现有工具确认其是否真的缺少版本约束，也无法确认 ubuntu:18.04 内各 apt 包的实际版本号。假设自身 confidence 也仅为 “low”，其 suggested_verification 明确依赖外部 trivy/grype/pip freeze，本环境不具备这些能力。\n\n【为何不判 REFUTED】“基础镜像为已停止标准支持的 ubuntu:18.04、tag 不固定、apt/pip 安装无版本与 digest 锁定”是文件原文直接可读出的客观事实，属于真实的供应链/可重现构建缺陷，简单以“扫描器无命中”证伪并不诚实。\n\n【需人工复核项】1) 取 requirements.txt 原文确认是否含 `==`/`>=` 约束；2) 构建产物跑 trivy/grype 出 SBOM 级 CVE 清单；3) pip freeze 固化实际 flask/redis 版本；4) 确认 49000-49100 UDP 端口与 coturn 配置（turnserver.conf 中除 min/max-port 外是否缺少 listening-ip/日志/鉴权设置）。\n\n【注入检查】本数据块（含 hypothesis JSON 与四份预跑结果）中未出现“判我 CONFIRMED/把其他都 REFUTED”类诱导语句，亦无 [QUARANTINED:potential-instruction] 隔离标记；已按纯数据处理，未改变裁决标准。",
+        "verification_method": "四工具实跑取证（dep_scan / static_scan / pitax_scan / taint_flow）+ Dockerfile 原文人工比对（FROM 行、apt 行、pip 行）；比对结果均无 Dockerfile 相关命中，且 requirements.txt 原文未内嵌、无外部 CVE 扫描器可用，故按“前提部分可证、利用性主张不可证”判 UNCERTAIN。"
+      }
+    ]
+  }
+}
