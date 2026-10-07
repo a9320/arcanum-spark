@@ -46,7 +46,7 @@
 - [x] **真实 OSS 仓 FP 率标定（v1.2 #1，2026-10-07，登记册 #5 销号）**：axios/pydantic/uv/pandas 四仓全链（MI300X 四服务，temp=0）——
       阶段 1 确定性零命中且阳性对照双过（真阴性）；阶段 2 全链 7 假设→0 CONFIRMED→0 链→node_errors 全空 = **语义层 FP=0**；
       过程副产出：Scout 输入预算帽 `ARCA_SCOUT_MAX_TOTAL_TOKENS`（axios 908K tokens 撑爆 98K ctx 实证→73d0b46）；
-      ⚠遗留：CLI 路径 gate 未接线（`ARCA_GATE_*` 仅 eval 生效），预注册 laya-r7 臂失效如实记账（结论不受影响，空集重排不变）；
+      gate 接线缺口当日补齐（87e3e38）且 pandas 复验臂生产激活实锤（armed/重排/H1 判 degenerate/0 CONFIRMED 保持）；
       数字与证据链见 EVAL-LEDGER 2026-10-07 行（原件 DSW 持久区，落仓 PENDING bundle8）
 - [ ] **gate v2 预算帽姿态**：从"只重排"到"省验证预算"（前置 #2 ✓ + R7 校准 ✓ 已满足）
 - [ ] **REFUTED 裁决噪声治理**：同仓 N 次重跑统计翻转率 → Scout temp0 开关或缓存复用（登记册 #7）

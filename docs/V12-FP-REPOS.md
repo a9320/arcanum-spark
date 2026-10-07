@@ -79,7 +79,7 @@
 | pandas | 0 命中 | 49 | 1 | 0 | 0 | {} |
 
 - **阳性对照**（防"零命中=仪器瞎"）：vuln-demo 12 hits PASS（check_report 全覆盖无降级）+ variant-23 findings 7/chains 14 与历史锚一致；
-- **gate 臂注记**：预注册 laya-r7 臂未激活——CLI 路径未装配 hypothesis_gate（`pipeline.py:96` 需调用方注入，`ARCA_GATE_*` 仅 eval/run_gate_e2e 生效）。验证层 0/3/3/1 全量执行、无预算裁剪，重排对空 CONFIRMED 集无影响 → FP=0 结论不变；CLI 接线列为 v1.2 遗留项；
+- **gate 臂注记（当日两段更新）**：首轮四仓 gate 未激活（CLI 未装配 hypothesis_gate）→ 87e3e38 补齐接线 → pandas 复验臂生产激活实锤：armed laya-r7、enabled=True、重排 [H2,H3,H1] 且 H1 判 degenerate 沉底、CONFIRMED=0 保持。FP=0 结论两口径（nogate 复核数据 + gate 复验臂）一致；
 - **过程发现**：axios 首跑 Scout 全量注入 908,615 tokens 撑爆 98,304 ctx（400 降级，90 秒空卷）→ 修复=总量预算帽 `ARCA_SCOUT_MAX_TOTAL_TOKENS`（默认 60000，AI 配置优先+小文件优先确定性装填+超预算整文件跳过披露，73d0b46，回归锚 5 测试）；重跑 199 files/~59,891 tokens、247 skipped；
 - **假设质量注记**：pydantic 首假设=".github/zizmor.yml 显式禁用密钥泄露检测规则"（CONFIG_MISCONFIGURATION）——真实安全卫生观察，验证层未升级为 CONFIRMED（禁用扫描规则≠漏洞，判得克制）；
-- 原件：DSW `/mnt/workspace/runs/20261007-v12-fp/`（BATCH3_DONE 14:18）；台账=EVAL-LEDGER 2026-10-07 行；落仓 PENDING（bundle8）。
+- 原件：**IN-REPO** `reports/v12-fp/`（bundle8=d145ba6，22 件）+ DSW `/mnt/workspace/runs/20261007-v12-fp/` 持久区副本；台账=EVAL-LEDGER 2026-10-07 行。
