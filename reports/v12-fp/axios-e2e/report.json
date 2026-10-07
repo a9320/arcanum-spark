@@ -1,0 +1,28 @@
+{
+  "findings": [],
+  "attack_chains": [],
+  "conclusion": "经对侦察假设、验证裁决及攻击链推演三源数据的合议，本次审计未发现任何 CONFIRMED 的漏洞条目。侦察阶段未发现命中假设，验证阶段未产生确认结果，攻击链推演阶段无有效路径，仓库整体风险处于预期基线水平。",
+  "meta": {
+    "quarantine_stats": {
+      "files_total": 199,
+      "files_changed": 0,
+      "chars_removed": 0,
+      "patterns_neutralized": 0,
+      "changed_files": []
+    },
+    "deepen_failures": 0,
+    "node_errors": {},
+    "severity_floor_upgraded": 0,
+    "agent0_findings": [],
+    "hypothesis_set": {
+      "hypotheses": [],
+      "coverage_notes": "PITAX 确定性检测已执行，返回 0 条命中。语义增量审查覆盖范围包括：.github/copilot-instructions.md、AGENTS.md、.github/ISSUE_TEMPLATE.md、.github/CODEOWNERS、.github/workflows/*、lib/core/*、lib/helpers/*、lib/adapters/*、lib/platform/*、docs/*、examples/*、tests/* 等仓库文件。审查重点为文档/配置文件投毒意图、跨文件指令权威漂移、AI 上下文加载链路及新型注入面。未发现超出 PITAX 基线的新型提示注入/欺骗模式；AGENTS.md 与 .github/copilot-instructions.md 的相互引用为合法贡献者指南同步机制，.github/ISSUE_TEMPLATE.md 中对 LLM 的注释为模板说明而非可执行渗出指令。未检查区域：未提供二进制资产、未打包的 dist/ 输出及运行时动态生成文件。"
+    },
+    "gated_hypothesis_set": null,
+    "gate": {
+      "enabled": false,
+      "reason": "disabled"
+    },
+    "verifications": []
+  }
+}

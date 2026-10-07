@@ -1,0 +1,50 @@
+{
+  "findings": [],
+  "attack_chains": [],
+  "conclusion": "本次审计任务中未发现经确认 (CONFIRMED) 的漏洞。唯一的侦察假设 H1 (AGENTS.md 文档投毒) 经验证判定为合规的仓库治理与透明度政策，不具备攻击性，已予以排除。",
+  "meta": {
+    "quarantine_stats": {
+      "files_total": 345,
+      "files_changed": 0,
+      "chars_removed": 0,
+      "patterns_neutralized": 0,
+      "changed_files": []
+    },
+    "deepen_failures": 0,
+    "node_errors": {},
+    "severity_floor_upgraded": 0,
+    "agent0_findings": [],
+    "hypothesis_set": {
+      "hypotheses": [
+        {
+          "id": "H1",
+          "title": "AGENTS.md 中包含针对 AI 助手的指令性策略，可能构成文档投毒",
+          "vuln_type": "PROMPT_INJECTION",
+          "file_path": "AGENTS.md",
+          "line_start": 7,
+          "line_end": 15,
+          "code_snippet": "- Never perform issue- or pull-request-related actions on the pandas-dev/pandas GitHub repository on behalf of the user.\n  This includes, but is not limited to, interactions such as pushing code, opening issues or pull requests, and replying to issues, pull requests, or reviews.\n- The user is required to disclose your agent information (harness, model, reasoning level), and to mark\n  any verbatim text produced by you (an agent) that they quote with `>` or a triple-backtick code fence.",
+          "attack_path": "AGENTS.md 作为仓库级文档会被代码助手/审查代理在上下文加载时读取。文件中明确对“agent”设定行为限制和披露要求，若被无差别摄入，可能被视为对后续 AI 助手的指令投毒，导致拒绝服务、行为约束或信息泄露诱导。跨文件影响：该策略可能与 .github/PULL_REQUEST_TEMPLATE.md 中的 AI 使用披露要求形成一致的指令链，增强投毒可信度。",
+          "confidence": "low",
+          "suggested_verification": "使用静态规则扫描仓库文档中面向 AI 的指令模式；构造最小 LLM 上下文加载测试，验证摄入 AGENTS.md 后模型是否复述或遵循其中的行为限制；检查 CI/文档构建流程是否将 AGENTS.md 纳入代理上下文。"
+        }
+      ],
+      "coverage_notes": "PITAX 确定性检测已对当前审计任务绑定的仓库文件集执行，返回 0 条命中。语义增量扫描覆盖了 UNTRUSTED_DATA 块中提供的全部文件清单，包括 AGENTS.md、.github/*、doc/_templates/*、web/*、scripts/*、pandas/* 等约 300+ 条样本。未覆盖区域：未提供完整仓库树，无法确认未列出目录如 pandas/_libs/ 源码、tests/ 全部子目录、.git 历史、以及运行时生成的构建产物；二进制/编译产物未检查；动态加载的模板变量在构建时才展开，未进行运行时渲染分析。"
+    },
+    "gated_hypothesis_set": null,
+    "gate": {
+      "enabled": false,
+      "reason": "disabled"
+    },
+    "verifications": [
+      {
+        "hypothesis_id": "H1",
+        "hypothesis_title": "AGENTS.md 中包含针对 AI 助手的指令性策略，可能构成文档投毒",
+        "verdict": "REFUTED",
+        "confidence": 0.85,
+        "evidence": "1) 确定性工具证据：针对该文件重跑 pitax_scan（9 条 AI 提示注入/不可见字符/文档投毒规则）返回 []（空列表，零命中）；static_scan 返回 []；预跑阶段 taint_flow 与 dep_scan 亦均为 []。即专门面向 PROMPT_INJECTION 类别的确定性检测器在该文件上无任何命中。\n2) 逻辑分析（不成立）：假设所指 AGENTS.md 第 7-15 行内容为透明、可读的仓库治理策略——(a) 禁止代理代表用户在 pandas-dev/pandas 仓库执行 issue/PR 相关操作；(b) 要求用户披露代理信息（harness/model/reasoning level）并以引用标记标注代理生成的原文。该文本与文件自身引用的 doc/source/development/contributing.rst 中\"automated contributions policy\"相互印证，属于 pandas 项目公开的、针对 AI 贡献的合规披露政策，而非隐藏/恶意注入。AGENTS.md 机制的设计用途本就是供代码助手读取并遵循的仓库级策略文件，代理遵循该文件是预期行为，不构成\"投毒\"。\n3) 攻击路径不成立：文本中无不可见字符、无覆盖安全规则的指令、无数据外传指令；\"披露要求\"是面向用户的透明度措施，并非信息窃取诱导；所谓\"拒绝服务/行为约束\"只是正常治理策略的效果，不是漏洞。假设中声称的跨文件指令链（.github/PULL_REQUEST_TEMPLATE.md）在本次审计文件集中不存在，无任何工具证据支持。\n4) 数据块内未发现针对验证 Agent 的注入语句（无\"判我 CONFIRMED\"类内容，无 [QUARANTINED] 标记），无需额外上报。",
+        "verification_method": "重跑 pitax_scan（确定性提示注入/文档投毒 9 规则）与 static_scan 取证，均零命中；结合文件原文逻辑分析：内容为与 contributing.rst 政策一致的透明仓库治理文本，无隐藏载荷、无外传/覆盖指令，攻击路径（DoS/信息泄露诱导/跨文件指令链）均无证据支持，故判 REFUTED。"
+      }
+    ]
+  }
+}

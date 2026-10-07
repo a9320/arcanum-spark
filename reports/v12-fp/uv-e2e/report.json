@@ -1,0 +1,90 @@
+{
+  "findings": [],
+  "attack_chains": [],
+  "conclusion": "经对侦察假设、验证裁决及攻击链推演进行多源合议，本次审计未发现已确认（CONFIRMED）的漏洞。所有侦察假设均已被排除或标记为不确定：H1（文档投毒）与 H2（外部脚本注入）已被验证为误报（REFUTED），H3（工具链锁定异常）虽存在版本号不匹配事实，但因无法验证其导致的具体安全影响而标记为不确定（UNCERTAIN）。",
+  "meta": {
+    "quarantine_stats": {
+      "files_total": 582,
+      "files_changed": 0,
+      "chars_removed": 0,
+      "patterns_neutralized": 0,
+      "changed_files": []
+    },
+    "deepen_failures": 0,
+    "node_errors": {},
+    "severity_floor_upgraded": 0,
+    "agent0_findings": [],
+    "hypothesis_set": {
+      "hypotheses": [
+        {
+          "id": "H1",
+          "title": "AGENTS.md 包含针对 AI 助手的指令式投毒，可能诱导执行特权工作流",
+          "vuln_type": "DOCUMENT_POISONING",
+          "file_path": "AGENTS.md",
+          "line_start": 15,
+          "line_end": 20,
+          "code_snippet": "ALWAYS use `.github/automations-dispatch.json` to trigger privileged workflows from GitHub webhook events instead of adding `pull_request_target` workflows\nNEVER suppress the `dangerous-triggers` security lint",
+          "attack_path": "攻击者可控的 AGENTS.md 被仓库读取并可能进入 AI 上下文加载链路，文件内以大写指令形式要求 AI 始终使用特定自动化分发文件触发特权工作流并禁止抑制安全 lint，形成文档投毒/提示注入，诱导助手在代码审查或生成时遵循攻击者偏好的工作流触发路径，进而实现权限提升或绕过安全检查。",
+          "confidence": "medium",
+          "suggested_verification": "检查 AGENTS.md 的来源与变更历史，确认该文件是否被 AI 代理的上下文加载机制读取；通过沙箱测试验证当文件存在时 AI 是否会采纳其中的 ALWAYS/NEVER 指令；审计 .github/automations-dispatch.json 的实际权限与触发条件。"
+        },
+        {
+          "id": "H2",
+          "title": "文档中嵌入外部分析脚本，存在供应链/脚本注入面",
+          "vuln_type": "EXTERNAL_SCRIPT_INJECTION",
+          "file_path": "docs/.overrides/partials/integrations/analytics/fathom.html",
+          "line_start": 1,
+          "line_end": 6,
+          "code_snippet": "<script\n  src=\"https://cdn.usefathom.com/script.js\"\n  data-site=\"ESKBRHGN\"\n  defer\n></script>",
+          "attack_path": "文档构建时该 HTML 片段会被渲染，若文档站点允许执行脚本，则加载第三方 CDN 脚本。攻击者若能劫持或替换 CDN 内容，或通过站点配置将该片段注入到受信任的文档页面，可实现脚本投毒、信息泄露或进一步的 AI 上下文污染。",
+          "confidence": "low",
+          "suggested_verification": "审查文档构建流水线是否对 .overrides 下的 HTML 进行内容安全策略限制；验证 fathom 脚本来源的完整性与子资源完整性；检查该文件是否可被未授权提交修改并进入发布。"
+        },
+        {
+          "id": "H3",
+          "title": "rust-toolchain.toml 锁定不存在的 Rust 通道，可能导致工具链回退或劫持",
+          "vuln_type": "TOOLCHAIN_PINNING",
+          "file_path": "rust-toolchain.toml",
+          "line_start": 1,
+          "line_end": 3,
+          "code_snippet": "[toolchain]\nchannel = \"1.99.0\"",
+          "attack_path": "仓库根及 crates/uv-build 下的 rust-toolchain.toml 将通道固定为 1.99.0，该版本目前不存在。构建系统在无法解析时可能回退到默认/可被环境控制的工具链，或被攻击者提供的本地工具链镜像劫持，导致编译环境可控、供应链污染。",
+          "confidence": "low",
+          "suggested_verification": "在隔离环境中运行 `rustup toolchain list` 与 `cargo --version` 验证该 pin 是否导致回退；检查 CI 是否允许覆盖工具链；审计 crates/uv-build/rust-toolchain.toml 与根文件的一致性及变更历史。"
+        }
+      ],
+      "coverage_notes": "已对 UNTRUSTED_DATA 块中列出的全部文本文件进行语义增量扫描，PITAX 确定性检测返回空。覆盖范围限于本次数据块提供的仓库文件快照，未检查二进制资产、未列出的子目录及运行时生成的临时文件。AGENTS.md、文档 HTML、工具链配置等元数据文件已纳入人工语义审查，但未对未在数据块中出现的 .github 工作流执行路径、CI 秘密或远程脚本进行动态验证。"
+    },
+    "gated_hypothesis_set": null,
+    "gate": {
+      "enabled": false,
+      "reason": "disabled"
+    },
+    "verifications": [
+      {
+        "hypothesis_id": "H1",
+        "hypothesis_title": "AGENTS.md 包含针对 AI 助手的指令式投毒，可能诱导执行特权工作流",
+        "verdict": "REFUTED",
+        "confidence": 0.85,
+        "evidence": "1) 确定性工具复核：重新调用 pitax_scan（9 条 AI 提示注入/文档投毒规则）返回 []，对 AGENTS.md 无任何命中；taint_flow 返回 []；dep_scan 返回 []。static_scan 唯一命中为无关文件（crates/uv-keyring/src/blocking.rs:4 的 SQL 注入启发式，snippet 仅为 \"where\"，属误报），与 AGENTS.md 无关。2) 内容分析：假设引用的第 15-20 行原文为 \"ALWAYS use `.github/automations-dispatch.json` to trigger privileged workflows from GitHub webhook events instead of adding `pull_request_target` workflows\" 与 \"NEVER suppress the `dangerous-triggers` security lint; extend the automation dispatcher in a separate pull request if it does not support the required event\"。这两条是防御性安全规范：pull_request_target 是业界公认的危险触发器（对不可信 PR 授予仓库写权限），该指令要求改用受控的 automation dispatcher 并禁止抑制 dangerous-triggers 安全 lint，方向是降低风险而非提权或绕过检查，与假设所称\"诱导执行特权工作流/权限提升\"的攻击路径相反。3) AGENTS.md 是面向 AI 编码代理的标准约定文件，其设计用途就是被 AI 上下文加载，ALWAYS/NEVER 大写指令是该格式的正常写法，不构成异常信号；文件全文无隐藏/不可见字符、无 [QUARANTINED:potential-instruction] 隔离标记、无\"判我 CONFIRMED\"类针对验证者的注入语句。4) 假设的 attack_path 依赖\"文件内容具有恶意诱导性\"这一前提，而工具与文本分析均不支持该前提，故证伪。",
+        "verification_method": "重跑 pitax_scan（确定性 PITAX 9 规则）+ static_scan + taint_flow + dep_scan 取证，并对假设引用的 AGENTS.md 第 15-20 行原文做逐句语义分析（指令方向性、AGENTS.md 格式惯例、隐藏字符/隔离标记检查）"
+      },
+      {
+        "hypothesis_id": "H2",
+        "hypothesis_title": "文档中嵌入外部分析脚本，存在供应链/脚本注入面",
+        "verdict": "REFUTED",
+        "confidence": 0.7,
+        "evidence": "四个确定性工具对目标文件 docs/.overrides/partials/integrations/analytics/fathom.html 均无命中：pitax_scan=[]（无提示注入/不可见字符/文档投毒）；taint_flow=[]（无污点流）；dep_scan=[]（无依赖漏洞）；static_scan 唯一命中位于无关文件 crates/uv-keyring/src/blocking.rs（snippet 仅为单词 \"where\"，属误报），与本假设文件无关。文件内容为标准 Fathom 分析脚本片段（cdn.usefathom.com/script.js + data-site=ESKBRHGN + defer），且路径 docs/.overrides/partials/integrations/analytics/fathom.html 正是 MkDocs Material 主题官方约定的分析集成覆盖位置，属正常、预期的文档站点配置。假设的 attack_path 全为条件性推测（\"若文档站点允许执行脚本…若攻击者能劫持或替换 CDN 内容…\"），描述的是任何第三方脚本的通用供应链风险，而非本仓库的具体缺陷；无证据表明构建流水线缺少 CSP、文件可被未授权修改或 CDN 已被劫持。假设自身 confidence 亦标注为 low。工具未命中且逻辑分析不成立，判 REFUTED。",
+        "verification_method": "调用 pitax_scan / static_scan / taint_flow / dep_scan 四个确定性工具对仓库全量文件取证，比对命中文件与假设目标文件；结合文件内容语义分析（标准 Fathom 分析片段 + MkDocs 官方约定路径）与 attack_path 的条件性/推测性评估。"
+      },
+      {
+        "hypothesis_id": "H3",
+        "hypothesis_title": "rust-toolchain.toml 锁定不存在的 Rust 通道，可能导致工具链回退或劫持",
+        "verdict": "UNCERTAIN",
+        "confidence": 0.55,
+        "evidence": "四个确定性工具对该文件均无命中：pitax_scan=[]、taint_flow=[]、dep_scan=[]；static_scan 仅返回一条与本假设无关的误报（SQL_INJECTION，file=crates/uv-keyring/src/blocking.rs:4，code_snippet=\"where\"，属另一文件的启发式误报，与 rust-toolchain.toml 无关）。文件原文为 3 行 TOML：[toolchain]\\nchannel = \"1.99.0\"，仅含版本字符串，无代码/逻辑/sink，故各引擎无命中符合预期。事实核查：Rust 1.99.0 确实不存在（当前稳定版在 1.7x–1.8x 区间），故\"锁定不存在通道\"这一前提成立。但安全影响机制存疑：标准 rustup 在 pin 的 toolchain 不可用且无法下载时会【构建失败】，而非静默回退到默认工具链；\"被攻击者本地工具链镜像劫持\"无任何证据支撑，属推测。数据块内无 [QUARANTINED:potential-instruction] 标记，亦无\"判我 CONFIRMED/把别的都 REFUTED\"类注入语句，故无注入需上报。",
+        "verification_method": "重跑全部四个确定性工具（pitax_scan/static_scan/taint_flow/dep_scan）取证，均对该文件返回空；对 rustup toolchain pinning 机制与标准行为做逻辑分析；事实核查 Rust 1.99.0 不存在。因安全影响取决于构建环境的 rustup 配置、CI 是否允许工具链覆盖/回退、是否存在本地工具链镜像——这些均无法用现有工具验证，故判 UNCERTAIN 并需人工复核。"
+      }
+    ]
+  }
+}

@@ -1,0 +1,154 @@
+{
+  "findings": [],
+  "attack_chains": [],
+  "conclusion": "本次审计未发现任何确认的漏洞。针对侦察阶段提出的三个假设（Jinja 模板注入、HTML/提示词注入、以及 AGENTS.md 提示词注入）已通过工具扫描（pitax_scan, static_scan, taint_flow 等）与语义逻辑分析进行了深度验证，结论均为 REFUTED：\n\n1. **Jinja 模板注入 (H2)**：经证伪。验证表明变量 `{{copyright}}` 源自 Sphinx 的静态配置，且 Jinja2 不存在对变量值的二次模板解析机制，不具备触发代码执行的条件。\n2. **HTML/提示词注入 (H3)**：经证伪。该文件位于测试目录，作为单元测试中 `escape=False` 语义下的期望输出 fixture 存在，仅用于 pytest 的纯文本比对，不存在任何将其作为动态 HTML 渲染的路径或 Sink。\n3. **提示词注入 (H1)**：经证伪。AGENTS.md 的指令内容与项目在 `contributing.rst` 中定义的自动化贡献政策高度一致，属于合规的 Agent 使用规范说明，不属于恶意指令注入或政策投毒。",
+  "meta": {
+    "quarantine_stats": {
+      "files_total": 345,
+      "files_changed": 0,
+      "chars_removed": 0,
+      "patterns_neutralized": 0,
+      "changed_files": []
+    },
+    "deepen_failures": 0,
+    "node_errors": {},
+    "severity_floor_upgraded": 0,
+    "agent0_findings": [],
+    "hypothesis_set": {
+      "hypotheses": [
+        {
+          "id": "H1",
+          "title": "Repository-level policy prompt injection via AGENTS.md",
+          "vuln_type": "PROMPT_INJECTION",
+          "file_path": "AGENTS.md",
+          "line_start": 7,
+          "line_end": 12,
+          "code_snippet": "- Never perform issue- or pull-request-related actions on the pandas-dev/pandas GitHub repository on behalf of the user.\n  This includes, but is not limited to, interactions such as pushing code, opening issues or pull requests, and replying to issues, pull requests, or reviews.",
+          "attack_path": "AGENTS.md is loaded as repository documentation/context. The file contains imperative directives addressed to agents, e.g., never perform issue/PR actions and require disclosure of agent information. An AI assistant that ingests the repo as context may treat these as authoritative system instructions, leading to policy lock-down, refusal of legitimate tasks, or forced disclosure of internal agent metadata. This is a repository-level prompt injection / policy poisoning.",
+          "confidence": "medium",
+          "suggested_verification": "Extract AGENTS.md and run a semantic policy-injection classifier; check if the file is included in the agent's context loading chain and whether its directives are enforced without provenance checks. Review AGENTS.md against repo policy and compare with contributing.rst."
+        },
+        {
+          "id": "H2",
+          "title": "Jinja template variable exposure in documentation footer",
+          "vuln_type": "TEMPLATE_INJECTION",
+          "file_path": "doc/_templates/pandas_footer.html",
+          "line_start": 1,
+          "line_end": 4,
+          "code_snippet": "<p class=\"copyright\">\n    &copy {{copyright}} pandas via <a href=\"https://numfocus.org\">NumFOCUS, Inc.</a>\n</p>",
+          "attack_path": "The footer template interpolates {{copyright}} from build configuration. If the copyright value is derived from untrusted PR content, config files, or release notes, an attacker can inject Jinja expressions leading to template code execution during documentation build, potentially exfiltrating CI secrets or altering rendered docs. Cross-file: release notes templates use ${BASE_VERSION} placeholders that feed into the same rendering pipeline.",
+          "confidence": "low",
+          "suggested_verification": "Audit the provenance of the 'copyright' context variable in doc build; test rendering with malicious Jinja payloads; ensure autoescape and sandboxing are enforced in Sphinx/Jinja rendering."
+        },
+        {
+          "id": "H3",
+          "title": "HTML test fixture with escaping disabled may enable XSS / visual prompt injection",
+          "vuln_type": "HTML_INJECTION",
+          "file_path": "pandas/tests/io/formats/data/html/escape_disabled.html",
+          "line_start": 7,
+          "line_end": 12,
+          "code_snippet": "<th>str<ing1 &amp;</th>\n      <td><b>bold</b></td>",
+          "attack_path": "The fixture is explicitly named escape_disabled and contains raw <b> tags and unescaped < characters in table headers. If these test HTML files are served in documentation previews, CI artifact viewers, or ingested by an AI that renders HTML, the unescaped markup can be interpreted as active HTML. An attacker who can modify test fixtures could embed <script> or prompt-injection payloads that are rendered in developer browsers or fed into an AI's visual context, achieving XSS or indirect prompt injection.",
+          "confidence": "low",
+          "suggested_verification": "Check how pandas/tests/io/formats/data/html/* files are consumed; verify that they are never rendered as live HTML in docs or web UI. Run an HTML sanitizer check on the fixture directory and search for <script>, on* attributes, or Jinja delimiters."
+        }
+      ],
+      "coverage_notes": "扫描仅覆盖 UNTRUSTED_DATA 块中显式列出的文件，约 200 个测试数据、模板、配置和文档片段。未覆盖 pandas 核心源码实现、_libs C 扩展、CI 工作流执行逻辑、依赖解析代码、以及未在数据块中出现的目录如 pandas/core/*、.github/workflows/* 完整内容、scripts/ 实际实现等。PITAX 确定性检测已运行且返回空，未发现基线规则命中。跨文件数据流、构建时模板渲染链路、以及 AI 上下文加载时的文件优先级未进行动态分析。"
+    },
+    "gated_hypothesis_set": {
+      "hypotheses": [
+        {
+          "id": "H2",
+          "title": "Jinja template variable exposure in documentation footer",
+          "vuln_type": "TEMPLATE_INJECTION",
+          "file_path": "doc/_templates/pandas_footer.html",
+          "line_start": 1,
+          "line_end": 4,
+          "code_snippet": "<p class=\"copyright\">\n    &copy {{copyright}} pandas via <a href=\"https://numfocus.org\">NumFOCUS, Inc.</a>\n</p>",
+          "attack_path": "The footer template interpolates {{copyright}} from build configuration. If the copyright value is derived from untrusted PR content, config files, or release notes, an attacker can inject Jinja expressions leading to template code execution during documentation build, potentially exfiltrating CI secrets or altering rendered docs. Cross-file: release notes templates use ${BASE_VERSION} placeholders that feed into the same rendering pipeline.",
+          "confidence": "low",
+          "suggested_verification": "Audit the provenance of the 'copyright' context variable in doc build; test rendering with malicious Jinja payloads; ensure autoescape and sandboxing are enforced in Sphinx/Jinja rendering."
+        },
+        {
+          "id": "H3",
+          "title": "HTML test fixture with escaping disabled may enable XSS / visual prompt injection",
+          "vuln_type": "HTML_INJECTION",
+          "file_path": "pandas/tests/io/formats/data/html/escape_disabled.html",
+          "line_start": 7,
+          "line_end": 12,
+          "code_snippet": "<th>str<ing1 &amp;</th>\n      <td><b>bold</b></td>",
+          "attack_path": "The fixture is explicitly named escape_disabled and contains raw <b> tags and unescaped < characters in table headers. If these test HTML files are served in documentation previews, CI artifact viewers, or ingested by an AI that renders HTML, the unescaped markup can be interpreted as active HTML. An attacker who can modify test fixtures could embed <script> or prompt-injection payloads that are rendered in developer browsers or fed into an AI's visual context, achieving XSS or indirect prompt injection.",
+          "confidence": "low",
+          "suggested_verification": "Check how pandas/tests/io/formats/data/html/* files are consumed; verify that they are never rendered as live HTML in docs or web UI. Run an HTML sanitizer check on the fixture directory and search for <script>, on* attributes, or Jinja delimiters."
+        },
+        {
+          "id": "H1",
+          "title": "Repository-level policy prompt injection via AGENTS.md",
+          "vuln_type": "PROMPT_INJECTION",
+          "file_path": "AGENTS.md",
+          "line_start": 7,
+          "line_end": 12,
+          "code_snippet": "- Never perform issue- or pull-request-related actions on the pandas-dev/pandas GitHub repository on behalf of the user.\n  This includes, but is not limited to, interactions such as pushing code, opening issues or pull requests, and replying to issues, pull requests, or reviews.",
+          "attack_path": "AGENTS.md is loaded as repository documentation/context. The file contains imperative directives addressed to agents, e.g., never perform issue/PR actions and require disclosure of agent information. An AI assistant that ingests the repo as context may treat these as authoritative system instructions, leading to policy lock-down, refusal of legitimate tasks, or forced disclosure of internal agent metadata. This is a repository-level prompt injection / policy poisoning.",
+          "confidence": "medium",
+          "suggested_verification": "Extract AGENTS.md and run a semantic policy-injection classifier; check if the file is included in the agent's context loading chain and whether its directives are enforced without provenance checks. Review AGENTS.md against repo policy and compare with contributing.rst."
+        }
+      ],
+      "coverage_notes": "扫描仅覆盖 UNTRUSTED_DATA 块中显式列出的文件，约 200 个测试数据、模板、配置和文档片段。未覆盖 pandas 核心源码实现、_libs C 扩展、CI 工作流执行逻辑、依赖解析代码、以及未在数据块中出现的目录如 pandas/core/*、.github/workflows/* 完整内容、scripts/ 实际实现等。PITAX 确定性检测已运行且返回空，未发现基线规则命中。跨文件数据流、构建时模板渲染链路、以及 AI 上下文加载时的文件优先级未进行动态分析。"
+    },
+    "gate": {
+      "enabled": true,
+      "backend": "laya",
+      "fallback": false,
+      "triage_healthy": false,
+      "ordered_ids": [
+        "H2",
+        "H3",
+        "H1"
+      ],
+      "selected_ids": [
+        "H2",
+        "H3",
+        "H1"
+      ],
+      "pruned_ids": [],
+      "scores": {
+        "H1": -749.0,
+        "H2": 1.0,
+        "H3": 1.0
+      },
+      "protected_ids": [],
+      "echo_ids": [],
+      "duplicate_ids": [],
+      "degenerate_ids": [
+        "H1"
+      ]
+    },
+    "verifications": [
+      {
+        "hypothesis_id": "H2",
+        "hypothesis_title": "Jinja template variable exposure in documentation footer",
+        "verdict": "REFUTED",
+        "confidence": 0.85,
+        "evidence": "工具取证（四个确定性工具均对绑定文件集实跑，结果均为空）：pitax_scan → []；static_scan → []；taint_flow → []（无 source→sink 污点链）；dep_scan → []。文件原文仅为标准 Sphinx 页脚模板：'<p class=\"copyright\"> &copy {{copyright}} pandas via <a href=\"https://numfocus.org\">NumFOCUS, Inc.</a> </p>'。逻辑分析证伪攻击路径：(1) {{copyright}} 是 Sphinx 内置上下文变量，其值来自 doc/conf.py 中由维护者静态设置的 copyright 字符串，仓库文件集中不存在任何将其派生自 PR 内容/外部配置/发布说明的代码路径，taint_flow 亦未追踪到任何 source→sink 流；(2) Jinja2 对变量值不做二次模板解析（无 double-evaluation），即使 copyright 值中混入 '{{...}}' 文本也只会作为字面量（或经 autoescape 转义）渲染，不会触发模板代码执行，故\"注入 Jinja 表达式导致构建期代码执行\"的机制不成立；(3) 假设中\"release notes 模板使用 ${BASE_VERSION} 占位符并汇入同一渲染管线\"的跨文件说法在所绑定文件集中无任何对应文件或证据支撑。假设自身 confidence 亦标注为 low。",
+        "verification_method": "调用 pitax_scan / static_scan / taint_flow / dep_scan 四个确定性工具对绑定文件集实跑取证（全部零命中），并结合 Jinja2 渲染语义（变量值不二次解析）与 Sphinx 上下文变量来源（conf.py 静态配置）做逻辑分析，证伪攻击路径。"
+      },
+      {
+        "hypothesis_id": "H3",
+        "hypothesis_title": "HTML test fixture with escaping disabled may enable XSS / visual prompt injection",
+        "verdict": "REFUTED",
+        "confidence": 0.9,
+        "evidence": "1) 四个确定性工具（pitax_scan / static_scan / taint_flow / dep_scan）对该文件及仓库全部返回空结果 []，无任何注入、不可见字符、危险 sink 或依赖漏洞命中。2) 文件路径 pandas/tests/io/formats/data/html/escape_disabled.html 位于 tests/ 目录下的 data/ 子目录，是 pandas 单元测试的**期望输出 fixture**：pytest 读取该文件文本，与 DataFrame.to_html(escape=False) 的生成结果做字符串比对，全程不经过任何 HTML 解析器/渲染器。3) 文件内容仅含 <b>bold</b> 与表头中未转义的 < 字符（co<l1、str<ing1），这正是 escape=False 语义下被测试的合法输出，属预期行为而非注入载荷；文件中不存在 <script>、on* 事件属性、Jinja 定界符或任何提示注入文本。4) 假设的 attack_path 完全建立在\"if these test HTML files are served in documentation previews, CI artifact viewers, or ingested by an AI that renders HTML\"这一未经验证的前提上；仓库中不存在任何将该 fixture 作为活动 HTML 服务/渲染的代码路径，攻击链不成立。5) 即便攻击者能篡改该 fixture，影响也仅限于本地 pytest 断言失败，不构成 XSS 或提示注入的可达 sink。",
+        "verification_method": "调用 pitax_scan、static_scan、taint_flow、dep_scan 四个确定性工具对仓库全量取证（均返回空）；结合文件路径语义（tests/.../data/ 下的测试期望输出 fixture）与内容分析，确认该文件仅被 pytest 作为纯文本比对数据消费，不存在任何将其渲染为活动 HTML 的代码路径，假设中的条件式攻击链（\"if served in docs/CI/AI\"）在仓库中无对应实现，故证伪。"
+      },
+      {
+        "hypothesis_id": "H1",
+        "hypothesis_title": "Repository-level policy prompt injection via AGENTS.md",
+        "verdict": "REFUTED",
+        "confidence": 0.82,
+        "evidence": "【工具证据】pitax_scan（9 条提示注入/不可见字符/文档投毒规则）与 static_scan 对 AGENTS.md 复核均返回空列表 []；预跑的 taint_flow、dep_scan 亦为 []。PITAX 确定性检测无一命中，文件内无 [QUARANTINED:potential-instruction] 隔离标记、无隐藏指令、无不可见字符。\n\n【原文语义复核】AGENTS.md 是 pandas 仓库遵循业界通用约定（AGENTS.md / .cursorrules / CLAUDE.md）的 agent 策略文件，其设计目的即向 AI agent 下发仓库级策略——\"文件被 agent 作为上下文加载并含祈使句\"是该文件的预期功能，而非异常。假设所指第 7-12 行内容为：(1) \"Never perform issue- or pull-request-related actions on the pandas-dev/pandas GitHub repository on behalf of the user\"（禁止 agent 代用户推代码/开 issue/PR/回复评论）；(2) \"The user is required to disclose your agent information (harness, model, reasoning level), and to mark any verbatim text produced by you (an agent)...\"（要求用户披露 agent 元数据并标记引用）。\n\n【为何不构成注入/投毒】a) 一致性：文件明确引用 contributing.rst 的 \"automated contributions policy\"，上述指令与项目已文档化的真实政策一致，属内生政策而非外来投毒载荷；b) 方向性：指令是限制性+透明性策略（约束 agent 自主 GitHub 操作、要求向用户披露元数据），而非要求外泄密钥、覆盖系统提示、执行恶意代码或向外部方发送数据的典型注入载荷；c) 披露对象是操作 agent 的用户本人（用于 agent 生成贡献的透明性），非外部攻击者。\n\n【对假设攻击路径的证伪】假设所称 \"policy lock-down / 拒绝合法任务 / 强制泄露内部元数据\" 实为该策略文件的预期、文档化行为：用户若想让 agent 在 pandas 上自动开 PR，被拒正是项目政策（contributing.rst 要求人工介入）的正确执行，而非漏洞；\"强制披露\" 是面向用户的透明性要求，非数据外泄。假设自身 suggested_verification 要求 \"Review AGENTS.md against repo policy and compare with contributing.rst\"，该比对结果恰支持指令与仓库政策一致，反向证伪了投毒假设。",
+        "verification_method": "调用 pitax_scan 与 static_scan 对 AGENTS.md 复核（taint_flow/dep_scan 预跑已为空且与本假设无关）；对 AGENTS.md 原文逐行做语义分析，比对假设所述攻击路径与文件实际内容，并核对第 7-12 行指令与文件引用的 contributing.rst \"automated contributions policy\" 的一致性，判定其为合法仓库级 agent 策略文件而非提示注入/策略投毒。"
+      }
+    ]
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "findings": [],
+  "attack_chains": [],
+  "conclusion": "本次审计未发现已确认（CONFIRMED）的漏洞。通过对侦察假设（Hypotheses）与验证结果（Verification Results）的合议，所有待定项均无法进入最终报告：\n1. **配置风险项 (H1)**：因无法判定 Zizmor 规则禁用是出于合理降噪还是安全缺口，且缺乏工具命中证据，判定为不确定（UNCERTAIN）。\n2. **脚本安全项 (H2)**：静态扫描的命令注入结果与代码实际使用列表传参（无 shell=True）的逻辑不符，且令牌泄露路径未通过污点追踪证实，判定为不确定（UNCERTAIN）。\n3. **供应链风险项 (H3)**：证实所引入脚本为同源相对路径而非第三方外部资源，判定为证伪（REFUTED）。\n\n建议后续审计重点关注业务逻辑层面的权限校验及动态加载资源的完整性。",
+  "meta": {
+    "quarantine_stats": {
+      "files_total": 274,
+      "files_changed": 0,
+      "chars_removed": 0,
+      "patterns_neutralized": 0,
+      "changed_files": []
+    },
+    "deepen_failures": 0,
+    "node_errors": {},
+    "severity_floor_upgraded": 0,
+    "agent0_findings": [],
+    "hypothesis_set": {
+      "hypotheses": [
+        {
+          "id": "H1",
+          "title": "Zizmor 安全规则被显式禁用，可能导致密钥泄露检测失效",
+          "vuln_type": "CONFIG_MISCONFIGURATION",
+          "file_path": ".github/zizmor.yml",
+          "line_start": 1,
+          "line_end": 6,
+          "code_snippet": "rules:\n  secrets-outside-env:\n    disable: true\n  superfluous-actions:\n    disable: true",
+          "attack_path": "zizmor 是 GitHub Actions 安全扫描器。secrets-outside-env 被禁用后，工作流中将环境变量外的密钥使用不会被检测；superfluous-actions 被禁用后多余/可疑 actions 的使用也不会被标记。攻击者可提交包含 secrets 泄露或恶意 actions 的 PR，在 CI 中通过审查并在运行中窃取 GITHUB_TOKEN 等凭证。",
+          "confidence": "medium",
+          "suggested_verification": "在仓库根执行 `zizmor --config .github/zizmor.yml` 并对比默认规则集，确认 secrets-outside-env 与 superfluous-actions 是否被跳过；检查最近的 workflow 提交是否引入了向外部 URL 发送 env 变量的行为。"
+        },
+        {
+          "id": "H2",
+          "title": "Release 脚本通过子进程获取 GitHub Token 并以明文变量保存",
+          "vuln_type": "COMMAND_INJECTION / SECRET_EXPOSURE",
+          "file_path": "release/shared.py",
+          "line_start": 10,
+          "line_end": 14,
+          "code_snippet": "def run_command(*args: str) -> str:\n    p = subprocess.run(args, stdout=subprocess.PIPE, check=True, encoding='utf-8')\n    return p.stdout.strip()\n\nGITHUB_TOKEN = run_command('gh', 'auth', 'token')",
+          "attack_path": "run_command 直接拼接并执行 shell 命令，若未来 args 来自可控输入则可被注入。当前调用 gh auth token 将令牌写入模块级变量 GITHUB_TOKEN，若该模块被导入到日志、错误报告或被 pickle/序列化，可能导致令牌泄露到日志或第三方依赖。",
+          "confidence": "medium",
+          "suggested_verification": "静态分析 release/shared.py 的导入链，检查 GITHUB_TOKEN 是否被打印、记录或写入文件；运行带 -X dev 的 Python 审计钩子，验证 subprocess.run 是否使用列表参数且不经 shell。"
+        },
+        {
+          "id": "H3",
+          "title": "文档主题模板引入第三方脚本，可能构成供应链投毒面",
+          "vuln_type": "THIRD_PARTY_SCRIPT_INJECTION",
+          "file_path": "docs/theme/main.html",
+          "line_start": 7,
+          "line_end": 9,
+          "code_snippet": "  {{ super() }}\n  <script src=\"/flarelytics/client.js\"></script>",
+          "attack_path": "主模板在内容块中加载 /flarelytics/client.js。若该静态资源被篡改或 flarelytics 服务被劫持，攻击者可向所有访问文档的用户投递恶意脚本，实现会话劫持或信息窃取。属于文档构建链路的外部依赖注入面。",
+          "confidence": "low",
+          "suggested_verification": "检查 docs 构建流程中 flarelytics/client.js 的来源与完整性校验，确认是否通过 SRI / CSP 限制；审计 mkdocs 插件配置，验证是否可通过 PR 修改模板注入脚本。"
+        }
+      ],
+      "coverage_notes": "已对 UNTRUSTED_DATA 块中提供的全部文件路径进行语义增量扫描。PITAX 确定性检测返回空列表，基线无命中。覆盖范围包括 .github/*、docs/*、pydantic-core/*、tests/*、release/* 等文本文件。未覆盖二进制 wheel、未提供的子目录完整内容、以及未在数据块中出现的动态生成文件。部分文件内容被截断，仅基于可见片段进行假设，未执行运行时或依赖解析检查。"
+    },
+    "gated_hypothesis_set": null,
+    "gate": {
+      "enabled": false,
+      "reason": "disabled"
+    },
+    "verifications": [
+      {
+        "hypothesis_id": "H1",
+        "hypothesis_title": "Zizmor 安全规则被显式禁用，可能导致密钥泄露检测失效",
+        "verdict": "UNCERTAIN",
+        "confidence": 0.55,
+        "evidence": "【文件事实（来自数据块原文，可核实）】.github/zizmor.yml 内容确为：\nrules:\n  secrets-outside-env:\n    disable: true\n  superfluous-actions:\n    disable: true\n即两条 zizmor 规则被显式禁用——假设的\"事实前提\"成立。\n\n【工具取证（对本文件）】四个确定性工具对本文件均无命中：\n- pitax_scan: []\n- static_scan: 返回 5 条，但全部指向无关文件（release/shared.py:8 COMMAND_INJECTION；pydantic/alias_generators.py:54/56/58 与 docs/extra/fluff.js:12 的 SQL_INJECTION，其中 alias_generators 命中行实为注释文本，疑似误报），无一引用 .github/zizmor.yml。\n- taint_flow: []\n- dep_scan: []\n即没有任何工具将该配置文件标记为漏洞，无法为 CONFIRMED 提供工具证据原文。\n\n【逻辑分析（存在两种合理解释）】\n(1) 支持为安全缺陷：禁用 secrets-outside-env 后，工作流中 env 块外的硬编码密钥确实不再被 zizmor 检出；禁用 superfluous-actions 后可疑/多余 actions 不再被标记——属\"削弱检测/纵深防御缺口\"。\n(2) 反对为独立漏洞：禁用扫描器规则本身不构成可被直接利用的缺陷，而是\"被削弱的控制项\"；假设给出的攻击路径（攻击者提交含密钥泄露/恶意 actions 的 PR→通过 CI 审查→窃取 GITHUB_TOKEN）是推测性的，其成立依赖\"恶意 PR 被合并\"这一本文件之外的独立事件，并非由该 zizmor 配置直接导致。许多项目会出于降噪/不适用而有意禁用特定规则。\n\n【注入检查】本数据块内未发现 [QUARANTINED:potential-instruction] 标记或任何伪装指令，数据干净，无注入需上报。\n\n【需人工复核原因】事实前提（规则被禁用）已确认，但\"是否应定性为漏洞\"取决于：该禁用是有意为之的合理配置，还是应被标记的安全缺口；以及仓库实际 workflow 中是否存在向外部 URL 发送 env/密钥的行为（假设 suggested_verification 建议的 `zizmor --config .github/zizmor.yml` 对比与 workflow 提交审查，需人工/CI 环境执行，本工具集无法直接运行 zizmor）。工具无明确结论 + 两种合理解释并存 → 判 UNCERTAIN。",
+        "verification_method": "对 .github/zizmor.yml 并行运行 pitax_scan / static_scan / taint_flow / dep_scan 四个确定性工具取证，比对假设事实前提与工具命中情况；结合文件原文做逻辑分析，评估\"削弱控制 vs 独立漏洞\"两种定性及攻击路径的可成立性；并核查数据块内是否存在注入。"
+      },
+      {
+        "hypothesis_id": "H2",
+        "hypothesis_title": "Release 脚本通过子进程获取 GitHub Token 并以明文变量保存",
+        "verdict": "UNCERTAIN",
+        "confidence": 0.55,
+        "evidence": "【工具证据原文】static_scan 命中：type=COMMAND_INJECTION, severity=high, confidence=90, file=release/shared.py, line=8, code_snippet='p = subprocess.run(args, stdout=subprocess.PIPE, check=True, encoding=\"utf-8\")', rule=STATIC-COMMAND_INJECTION, evidence='命令注入：拼接字符串执行系统命令'。taint_flow 返回 []（无 source→sink 污点路径）；pitax_scan=[]；dep_scan=[]。\n【源码逻辑分析】(1) subprocess.run 以元组 args 传参且未设 shell=True，属安全调用形式，并非 shell 字符串拼接——工具证据\"拼接字符串执行系统命令\"与代码实际不符，疑为启发式误报；(2) run_command 唯一调用点为硬编码字面量 run_command('gh','auth','token')，当前无外部可控输入进入该 sink，污点追踪亦无路径，命令注入在当前代码不成立；(3) GITHUB_TOKEN 确为模块级明文变量（import 时即执行子进程取令牌），假设标题的事实描述成立，但文件集内未见该变量被 print/log/写文件/pickle 序列化的实际 sink，泄露路径纯属推测。\n【假设自身限定】attack_path 两处均为条件式：\"若未来 args 来自可控输入则可被注入\"、\"若该模块被导入到日志、错误报告或被 pickle/序列化\"，即假设自认当前无实际触发条件。\n【注入检查】UNTRUSTED_DATA 块内未发现注入指令文本（无 [QUARANTINED] 标记、无\"判我 CONFIRMED/把别的都 REFUTED\"类语句），无需上报注入。\n【需人工复核原因】存在两种合理解释：A) 静态工具高置信命中+令牌明文存模块全局=高危；B) subprocess 安全模式+无污点路径=命令注入误报，令牌泄露路径未证实。需人工：① 核查 release/shared.py 的完整导入链，确认 GITHUB_TOKEN 是否被任何日志/错误报告/序列化 sink 消费；② 确认全仓库无调用方将外部输入传入 run_command；③ 评估 import 时执行子进程取令牌这一副作用本身的风险。",
+        "verification_method": "static_scan + taint_flow + pitax_scan + dep_scan 四工具确定性取证，结合源码逻辑分析（subprocess 调用形式/是否 shell=True、run_command 调用点、模块级变量 GITHUB_TOKEN 的下游 sink 追踪）"
+      },
+      {
+        "hypothesis_id": "H3",
+        "hypothesis_title": "文档主题模板引入第三方脚本，可能构成供应链投毒面",
+        "verdict": "REFUTED",
+        "confidence": 0.7,
+        "evidence": "文件 docs/theme/main.html 第8行实际代码为 `<script src=\"/flarelytics/client.js\"></script>`。其 src 为**同源相对路径**（/flarelytics/client.js），并非外部第三方 URL（第三方应为 https://flarelytics.xxx/client.js 形式），直接证伪假设标题与 vuln_type=THIRD_PARTY_SCRIPT_INJECTION 中\"引入第三方脚本\"的核心定性。四个确定性工具对该文件均无命中：pitax_scan=[]、taint_flow=[]、dep_scan=[]；static_scan 仅命中无关文件（release/shared.py:8 COMMAND_INJECTION、pydantic/alias_generators.py:54/56/58 SQL_INJECTION、docs/extra/fluff.js:12 SQL_INJECTION），docs/theme/main.html 无任何 finding。假设的 attack_path 以\"若该静态资源被篡改或 flarelytics 服务被劫持\"为前提，即需先攻陷文档站点自身的静态资源/基础设施，属于适用于任意网站任意静态资源的通用供应链风险，而非本行代码特有的可利用漏洞。此外 SRI（Subresource Integrity）对同源资源不适用，假设 suggested_verification 中\"确认是否通过 SRI/CSP 限制\"建立在错误的第三方前提之上。\"flarelytics\" 非可识别的外部服务名，更像主题自带的本地分析脚本。综合：核心定性错误 + 工具零命中 + 攻击路径依赖前置自身基础设施被攻陷，判 REFUTED。",
+        "verification_method": "调用全部四个确定性工具（pitax_scan / static_scan / taint_flow / dep_scan）取证，确认 docs/theme/main.html 无任何 finding（static_scan 命中均位于无关文件）；随后对 script src 属性做逻辑分析，判定为同源相对路径而非第三方外部资源，证伪\"第三方脚本\"定性；并评估 attack_path 依赖对站点自身基础设施的前置攻陷，属通用供应链风险而非本行代码特有漏洞，且 SRI 对同源资源不适用。"
+      }
+    ]
+  }
+}

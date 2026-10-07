@@ -1,0 +1,18 @@
+{
+  "risk_score": 0,
+  "agent0_findings": 0,
+  "hypotheses": 0,
+  "verifications": 0,
+  "confirmed": 0,
+  "attack_chains": 0,
+  "deepen_failures": 0,
+  "quarantine_stats": {
+    "files_total": 199,
+    "files_changed": 0,
+    "chars_removed": 0,
+    "patterns_neutralized": 0,
+    "changed_files": []
+  },
+  "node_errors": {},
+  "dry_run": false
+}
