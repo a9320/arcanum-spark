@@ -7,6 +7,7 @@ import hmac
 import json
 import os
 import logging
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -20,9 +21,12 @@ from typing import Annotated, Optional
 from app.config import settings
 from app.models import (
     AnalyzeRequest, AnalyzeResponse, ErrorResponse,
+    QuickscanRequest, QuickscanResponse,
     ReportResponse, TaskResponse, TaskStatus,
 )
 from app.tasks import analyze_codebase_task, celery_app
+from app.pitax import InputSanitizer, PITAX_VERSION
+from fastapi.staticfiles import StaticFiles
 
 # ── 日志配置 ──
 logging.basicConfig(
@@ -446,4 +450,55 @@ async def scan_local(request: Request, authorization: str | None = Header(None))
         task_id=task_id,
         status=TaskStatus.PENDING,
         message=f"Local scan queued. Use GET /api/v1/tasks/{task_id} to check progress.",
+    )
+
+
+# ── QUICKSCAN ENDPOINT（同步确定性快扫 — 移动控制台/红队盒专用）──
+
+QUICKSCAN_MAX_CHARS = 200_000
+
+
+@app.post(f"{settings.API_PREFIX}/quickscan", response_model=QuickscanResponse)
+async def quickscan(request: QuickscanRequest, authorization: str | None = Header(None)):
+    """同步确定性 PITAX 快扫：秒级返回，零 Redis/队列/LLM 依赖。
+
+    findings 字段与 Agent 0 报告同构（type/line/severity/code_snippet/...），
+    规则路由由 filename 提示决定（AI 配置 → T-46 / 文档 → N-06 / 源码 → T-51）。
+    """
+    verify_api_key(authorization)
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="text is empty")
+    if len(request.text) > QUICKSCAN_MAX_CHARS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"text exceeds quickscan limit ({QUICKSCAN_MAX_CHARS} chars); use /analyze instead",
+        )
+
+    started = time.perf_counter()
+    sanitizer = InputSanitizer()
+    findings, _raw = sanitizer.sanitize(request.text, request.filename)
+    scan_ms = int((time.perf_counter() - started) * 1000)
+
+    severity_summary: dict[str, int] = {}
+    for f in findings:
+        severity_summary[f["severity"]] = severity_summary.get(f["severity"], 0) + 1
+
+    return QuickscanResponse(
+        findings_count=len(findings),
+        scan_ms=scan_ms,
+        pitax_version=PITAX_VERSION,
+        filename=request.filename,
+        severity_summary=severity_summary,
+        findings=findings,
+    )
+
+
+# ── 移动控制台（同源伺服，静态单页；Via/任意浏览器打开 /console/ 即用）──
+
+_console_dir = Path(__file__).parent / "static"
+if _console_dir.is_dir():
+    app.mount(
+        "/console",
+        StaticFiles(directory=str(_console_dir), html=True),
+        name="console",
     )

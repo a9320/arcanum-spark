@@ -52,6 +52,18 @@ class AnalyzeRequest(BaseModel):
     )
 
 
+class QuickscanRequest(BaseModel):
+    """同步快扫请求（确定性 PITAX，秒级，无队列/Redis 依赖）"""
+    text: str = Field(description="待扫描文本内容（≤200k 字符）")
+    filename: str = Field(
+        default="pasted_input.md",
+        description=(
+            "文件名提示，决定规则路由：AGENTS.md/CLAUDE.md/.cursor/rules → T-46（AI 配置后门）；"
+            "*.md → N-06（文档投毒）；源码扩展名 → T-51（注释指令覆盖）"
+        ),
+    )
+
+
 # ──────────────────────────────────────────────────────────────
 # 响应模型
 # ──────────────────────────────────────────────────────────────
@@ -118,6 +130,16 @@ class ReportResponse(BaseModel):
     report_urls: ReportURLs = Field(default_factory=ReportURLs)
     digital_signature: Optional[str] = None
     completed_at: Optional[str] = None
+
+
+class QuickscanResponse(BaseModel):
+    """同步快扫响应（findings 与 Agent 0 报告字段同构，可直接复用渲染）"""
+    findings_count: int = 0
+    scan_ms: int = 0
+    pitax_version: str = ""
+    filename: str = ""
+    severity_summary: dict[str, int] = Field(default_factory=dict)
+    findings: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class AnalyzeResponse(BaseModel):

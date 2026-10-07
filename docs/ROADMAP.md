@@ -7,7 +7,7 @@
 
 - [x] **PITAX 确定性规则 9 条**（编号与官方 taxonomy v1.6.1 对齐）：PIT-E-23/E-54/T-46/T-51/N-06/E-07/E-14/E-36/E-57；
       扫描面覆盖 AI 根上下文文件（`.mdc`/`.cursorrules` 已入白名单，2026-10-02 修复登记册 #15）
-- [x] **确定性测试套件 289 collected / verify.sh 5/5**（正样本检出 + 负样本零误报 + 映射验证 + SARIF + 输出护栏 + 单一数据源防漂移；257→289 随 hardneg 批次增长）
+- [x] **确定性测试套件 296 collected / verify.sh 5/5**（正样本检出 + 负样本零误报 + 映射验证 + SARIF + 输出护栏 + 单一数据源防漂移 + quickscan API 冒烟；本地最小 venv 缺 fastapi 时 API 模块 skip=289，CI 全装环境=296；数量随 hardneg 批次增长）
 - [x] **六节点 Agent 流水线**（Scout→…→Arbiter，strands 编排）：MI300X/gfx942 本地四服务 + 云端五端点 named-routes 双部署；
       混合臂 env 覆盖实证（`ARCA_DEPLOYMENT=local` + `ARCA_<STAGE>_{MODEL,BASE_URL,API_KEY}` 零代码换端）+
       `ARCA_SCOUT_MAX_TOKENS` 抬帽新知（6000 帽撞思考型云模型=MaxTokensReached 空卷）
@@ -34,6 +34,12 @@
 - [x] **CI Actions（v1.1 #4，2026-10-02 落地）**：确定性 CI 全量回归（`scripts/test_count.py` 锚 + verify.sh 5/5，零 LLM API 调用；
       引擎集成测试需 Redis 故 CI 沿用 verify.sh 单一入口防口径漂移）；**26 runs 全绿（2026-10-06 GitHub API 实拍，今日 5/5 push 全 success）**；
       README badge 随 D1 双语改造补挂——**v1.1 全项达成收官（2026-10-06）**
+
+- [x] **移动控制台 + 同步快扫端点（D1 推广基建，2026-10-07）**：`POST /api/v1/quickscan`（秒级确定性 PITAX 快扫，
+      零 Redis/队列/LLM 依赖，findings 与 Agent 0 报告同构；filename 提示决定规则路由 T-46/N-06/T-51）+
+      `/console/` 同源伺服移动单页（快扫/全链审计/历史三标签，localStorage 任务簿，PDF 拉取带鉴权头；
+      Via 或任意浏览器打开即用，产品不耦合 Via 插件 API）；
+      定位=IC27 Demo + 推广触点，云端部署试点待 IC27 主案（Foundry）同栈验证
 
 ## 🔜 v1.2 — 规模化与经济性（gate v2 前置 #2/#6 已满足→解锁）
 
