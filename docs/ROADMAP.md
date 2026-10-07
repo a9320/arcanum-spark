@@ -55,6 +55,6 @@
 ## 🔜 远期
 
 - [ ] **172 节点全量规则**（Intents 27 / Techniques 70 / Evasions 63 / Inputs 12）+ 供应链注入规则重设计 + JS 时间炸弹语义检测（PIT-T-50）
-- [ ] **可移植性复验**：非 gfx942 CUDA 环境部署验证（登记册 #11）
+- [ ] **可移植性复验**：非 gfx942 CUDA 环境部署验证（登记册 #11）——**进行中**：确定性层 Windows 全绿（verify.sh 五步在 Win 本机常态跑）+ Laya r6 Windows 纯 CPU 判分与 GPU 逐位一致（24/24、AP=1.0、FN=0；`timing-r6-local-win-cpu.json`，2026-10-07）；剩余=非 gfx942 CUDA GPU 环境实测
 - [ ] **语义级注入检测**（LLM 二次判断"隐藏指令是否恶意"）+ OWASP LLM Top 10 / MITRE ATLAS 全量映射
 - [ ] **自动化 AI 红队基准**：AIPWN.me / Bot-Tricks 攻击场景持续回归
