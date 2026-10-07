@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 使用讨论
+    url: https://github.com/a9320/arcanum-spark/discussions
+    about: 问题咨询与用法讨论请走 Discussions，issue 仅收 bug/功能/误报三类
