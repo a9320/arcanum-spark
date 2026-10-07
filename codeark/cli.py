@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -35,6 +36,7 @@ for _stream in (sys.stdout, sys.stderr):
 
 from codeark.graph.pipeline import run_pipeline
 from codeark.models.factory import make_stage_models_from_env
+from codeark.pitax.detectors import is_ai_config_path
 
 # 要读的代码文件扩展名
 _SOURCE_EXTS = {
@@ -47,9 +49,21 @@ _SOURCE_EXTS = {
 _SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "build", ".pytest_cache"}
 
 
+def _est_tokens(text: str) -> int:
+    """粗估 token 数：ASCII ~4 字符/token，非 ASCII（CJK 等）按 ~1 字符/token 计。"""
+    nonascii = sum(1 for ch in text if ord(ch) > 127)
+    return (len(text) - nonascii) // 4 + nonascii
+
+
 def _read_repo(repo_dir: Path, limit_kb: int = 512) -> dict[str, str]:
-    """递归读取仓库代码文件到 {相对路径: 内容}。跳过大文件与二进制。"""
-    files: dict[str, str] = {}
+    """递归读取仓库代码文件到 {相对路径: 内容}。跳过大文件与二进制。
+
+    总量预算 ARCA_SCOUT_MAX_TOTAL_TOKENS（默认 60000，0=不设限）：真实仓 446 文件
+    全量注入曾以 ~908K tokens 撑爆 98K ctx（2026-10-07 axios 实证），故按
+    AI 配置文件优先、小文件优先的确定性顺序贪心装填，装不下的整文件跳过并披露。
+    """
+    budget = int(os.getenv("ARCA_SCOUT_MAX_TOTAL_TOKENS", "60000"))
+    candidates: list[tuple[int, int, str, str]] = []
     for p in sorted(repo_dir.rglob("*")):
         if not p.is_file():
             continue
@@ -67,7 +81,23 @@ def _read_repo(repo_dir: Path, limit_kb: int = 512) -> dict[str, str]:
         except Exception:
             continue
         if content.strip():
-            files[rel] = content
+            rank = 0 if is_ai_config_path(rel) else 1
+            candidates.append((rank, _est_tokens(content), rel, content))
+
+    files: dict[str, str] = {}
+    total = 0
+    skipped: list[str] = []
+    for _rank, est, rel, content in sorted(candidates, key=lambda c: (c[0], c[1], c[2])):
+        if budget and total + est > budget:
+            skipped.append(rel)
+            continue
+        files[rel] = content
+        total += est
+    if budget:
+        print(f"   Scout input budget: {len(files)} files / ~{total} est. tokens "
+              f"(cap {budget}); {len(skipped)} files skipped over budget")
+    else:
+        print("   Scout input budget: disabled (ARCA_SCOUT_MAX_TOTAL_TOKENS=0)")
     return files
 
 
