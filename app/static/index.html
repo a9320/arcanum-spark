@@ -17,7 +17,7 @@ header{display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1
 header b{font-size:17px;letter-spacing:.5px}
 #health{margin-left:auto;font-size:12px;color:var(--dim)}
 #health .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--info);margin-right:4px}
-#health.ok .dot{background:var(--ok)} #health.bad .dot{background:var(--crit)}
+#health.ok .dot{background:var(--ok)} #health.warn .dot{background:var(--warn)} #health.bad .dot{background:var(--crit)}
 nav{display:flex;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
 nav button{flex:1;padding:11px 0;background:none;border:none;color:var(--dim);font-size:14px;border-bottom:2px solid transparent}
 nav button.on{color:var(--acc);border-bottom-color:var(--acc)}
@@ -153,9 +153,17 @@ async function api(path, opts = {}) {
 }
 async function checkHealth() {
   const h = $("health");
-  try { const r = await fetch(cfg.base + "/health"); h.className = r.ok ? "ok" : "bad";
-    h.innerHTML = '<span class="dot"></span>' + (r.ok ? "在线" : "异常"); }
-  catch { h.className = "bad"; h.innerHTML = '<span class="dot"></span>离线'; }
+  try {
+    const r = await fetch(cfg.base + "/health");
+    if (r.ok) { h.className = "ok"; h.innerHTML = '<span class="dot"></span>在线'; return; }
+    if (r.status === 503) {          // degraded：快扫可用，Redis/worker 缺席
+      let d = {}; try { d = await r.json(); } catch {}
+      h.className = "warn";
+      h.innerHTML = '<span class="dot"></span>' + (d.checks && d.checks.redis ? "在线" : "快扫在线·全链待Redis");
+      return;
+    }
+    h.className = "bad"; h.innerHTML = '<span class="dot"></span>异常';
+  } catch { h.className = "bad"; h.innerHTML = '<span class="dot"></span>离线'; }
 }
 
 /* ── 标签页 ── */
