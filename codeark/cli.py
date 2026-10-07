@@ -19,6 +19,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Callable
 
 # 让 codeark 可被直接运行（python codeark/cli.py）
 ROOT = Path(__file__).resolve().parent.parent
@@ -34,6 +35,7 @@ for _stream in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
+from codeark.graph.gate_factory import build_gate_from_env
 from codeark.graph.pipeline import run_pipeline
 from codeark.models.factory import make_stage_models_from_env
 from codeark.pitax.detectors import is_ai_config_path
@@ -101,6 +103,18 @@ def _read_repo(repo_dir: Path, limit_kb: int = 512) -> dict[str, str]:
     return files
 
 
+def _build_gate(dry: bool) -> tuple[Callable | None, str]:
+    """gate 装配（与 eval/run_gate_e2e 同一工厂=单一数据源）：dry-run 不装配。
+
+    生产挂载策略见 gate_factory.build_gate_from_env：模型缺失/配置非法返回
+    (None, reason)，调用方告警后无 gate 继续扫（v1.2 FP 标定发现的接线缺口，
+    2026-10-07 补齐）。
+    """
+    if dry:
+        return None, "dry-run"
+    return build_gate_from_env()
+
+
 async def _main(args: argparse.Namespace) -> int:
     repo_dir = Path(args.repo).resolve()
     if not repo_dir.is_dir():
@@ -116,7 +130,10 @@ async def _main(args: argparse.Namespace) -> int:
 
     print(f"{'🧪' if args.dry else '🤖'} Running the 6-node pipeline ({'dry-run' if args.dry else 'configured LLMs'})...")
     stage_models = None if args.dry else make_stage_models_from_env()
-    result = await run_pipeline(files, dry=args.dry, stage_models=stage_models)
+    gate_callable, gate_meta = _build_gate(args.dry)
+    print(f"   Gate: {'armed' if gate_callable else 'disabled'} ({gate_meta})")
+    result = await run_pipeline(files, dry=args.dry, stage_models=stage_models,
+                                hypothesis_gate=gate_callable)
 
     # 打印摘要
     print(f"\n⚖️  Risk score: {result.risk_score}/100")

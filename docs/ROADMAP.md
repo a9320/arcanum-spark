@@ -7,7 +7,7 @@
 
 - [x] **PITAX 确定性规则 9 条**（编号与官方 taxonomy v1.6.1 对齐）：PIT-E-23/E-54/T-46/T-51/N-06/E-07/E-14/E-36/E-57；
       扫描面覆盖 AI 根上下文文件（`.mdc`/`.cursorrules` 已入白名单，2026-10-02 修复登记册 #15）
-- [x] **确定性测试套件 296 collected / verify.sh 5/5**（正样本检出 + 负样本零误报 + 映射验证 + SARIF + 输出护栏 + 单一数据源防漂移 + quickscan API 冒烟；本地最小 venv 缺 fastapi 时 API 模块 skip=289，CI 全装环境=296；数量随 hardneg 批次增长）
+- [x] **确定性测试套件 308 collected / verify.sh 5/5**（正样本检出 + 负样本零误报 + 映射验证 + SARIF + 输出护栏 + 单一数据源防漂移 + quickscan API 冒烟 + Scout 预算帽回归锚 + CLI gate 接线回归锚；本地最小 venv 缺 fastapi 时 API 模块 skip=301，CI 全装环境=308；数量随 hardneg 批次增长）
 - [x] **六节点 Agent 流水线**（Scout→…→Arbiter，strands 编排）：MI300X/gfx942 本地四服务 + 云端五端点 named-routes 双部署；
       混合臂 env 覆盖实证（`ARCA_DEPLOYMENT=local` + `ARCA_<STAGE>_{MODEL,BASE_URL,API_KEY}` 零代码换端）+
       `ARCA_SCOUT_MAX_TOKENS` 抬帽新知（6000 帽撞思考型云模型=MaxTokensReached 空卷）
