@@ -46,8 +46,9 @@ python -m app.pitax.cli demo/vuln-demo-repo --json
 python -m app.pitax.cli demo/vuln-demo-repo --sarif   # SARIF 2.1.0 含 PITAX 元数据
 ```
 
-评委将直观看到 8 条检出：PIT-E-23 ×2、PIT-E-54 ×1、PIT-T-46 ×2、
-PIT-T-51 ×1、PIT-N-06 ×1、PIT-E-57 ×1——每条带编号 + 映射 + 参考链接 +
+评委将直观看到 7 条检出：PIT-T-46 ×2、PIT-E-23/E-54/E-57/T-51/N-06 各 ×1
+（dry-run 报告 findings 层口径，2026-10-10 实测；agent0 预扫层为 12 条，
+两口径分列见 eval/expected.json）——每条带编号 + 映射 + 参考链接 +
 解码载荷明文；干净文件零误报。
 
 ## SARIF 扩展（GitHub Code Scanning 可直接消费）
@@ -90,7 +91,7 @@ app/prompt_guard.py # 主线 A：系统提示金库 + 输出护栏
 app/agents/sanitizer_agent.py  # Agent 0（接入 Celery 流水线）
 app/tasks.py        # Agent 0 → Agent 1-4 流水线 + 报告护栏
 demo/               # 演示仓库生成器
-tests/              # 测试套件（全仓 288 用例，其中 PITAX 相关 54：正/负样本回归防误报）
+tests/              # 测试套件（全仓 310 用例=codeark/tests+tests，2026-10-10 口径；其中 PITAX 规则测试 39 例：正/负样本回归防误报）
 ```
 
 ## 流水线集成（Agent 0）
@@ -104,7 +105,7 @@ Agent 0 (PITAX 预扫描) → Agent 1 (静态) → Agent 2 (语义) → Agent 3 
 ## 测试
 
 ```bash
-python -m pytest tests/ -q   # 288 passed（2026-10-05 实测）：PITAX 正/负样本 + 映射/SARIF/护栏 + 全仓回归
+python -m pytest -c codeark/pyproject.toml codeark/tests tests -q   # 全仓 310 collected（2026-10-10 实测口径）：PITAX 正/负样本 + 映射/SARIF/护栏 + 全仓回归（单跑 tests/ 子集为 176）
 ```
 
 ## 参考资源

@@ -22,7 +22,7 @@ from codeark.agents.scout_agent import run_scout
 from codeark.agents.verify_agent import run_verify_split
 from codeark.agents.deepen_agent import run_deepen
 from codeark.agents.arbiter_agent import run_arbiter
-from codeark.agents.report_agent import render_report, apply_severity_floor
+from codeark.agents.report_agent import render_report, apply_severity_floor, merge_agent0_baseline
 from codeark.graph.quarantine import quarantine_files
 from codeark.models.factory import make_stage_tuning_from_env
 from codeark.models.routing import StageModels, StageTuning, redact_error
@@ -380,6 +380,7 @@ class CodeRiskGraph:
                 "node_errors": res.node_errors,
                 "severity_floor_upgraded": res.severity_floor_upgraded,
                 "agent0_findings": res.agent0_findings,
+                "hypothesis_source": res.hypothesis_source,
                 "hypothesis_set": _jsonable(res.hypothesis_set),
                 "gated_hypothesis_set": _jsonable(res.gated_hypothesis_set),
                 "gate": res.gate,
@@ -391,13 +392,19 @@ class CodeRiskGraph:
         # 优先级：合议定稿 findings（LLM 层产出）→ Agent0 规则层兜底。
         # 修复 §11-A：原写法 `res.agent0_findings or ...` 因 or 短路，
         # 导致 LLM 层产出对风险分零影响（两次端到端均恒为 22）。
+        # 修复 2026-10-10 外审 P1：风险分与渲染报告同源——定稿层在渲染层
+        # 合并 Agent0 规则行，风险分改经同一 merge_agent0_baseline 计算，
+        # 不再只取 Arbiter findings（规则层有命中时此前会低估）。
         final_findings = None
         if isinstance(res.final_report, dict):
             final_findings = res.final_report.get("findings")
         elif res.final_report is not None:
             final_findings = getattr(res.final_report, "findings", None)
         res.risk_score = compute_risk_score(
-            final_findings or res.agent0_findings
+            merge_agent0_baseline(
+                final_findings if final_findings else [],
+                res.agent0_findings,
+            )
         )
         return res
 

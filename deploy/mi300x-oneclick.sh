@@ -33,19 +33,41 @@ echo "== llama-server 就位: $($LL --version 2>/dev/null | head -1) =="
 # 2) 目录
 mkdir -p $MODELS/gemma4-qat $MODELS/qwen38 $MODELS/r1-32b $MODELS/Muse-Glimmer-30B-GGUF
 
-dl() {  # dl <url> <dest>  断点续传
-  if [ -f "$2" ]; then echo "已有 $(basename "$2")，跳过"; return 0; fi
+# dl <url> <dest> [expected_bytes]  断点续传 + 字节硬校验（2026-10-10 外审 P0-④）。
+# 给了期望字节数时：已存在的文件也先验尺寸（防半截件被"已有即跳过"放行——pod 重建
+# 重下 48GB 与跨源偏移两坑同源），下载后再验一次；不匹配 = rm + FATAL 退出。
+# TODO(下次 DSW 会话)：四件母带算 SHA256 后在此加 sha256sum 硬锚，字节数只是弱校验。
+dl() {
+  if [ -f "$2" ]; then
+    if [ -n "$3" ]; then
+      S=$(stat -c %s "$2")
+      if [ "$S" != "$3" ]; then
+        echo "FATAL: 已有 $(basename "$2") 字节数 $S != 期望 $3（半截件），删除后重跑本脚本" >&2
+        rm -f "$2"
+        exit 1
+      fi
+    fi
+    echo "已有 $(basename "$2")，跳过"; return 0
+  fi
   echo "== 下载 $(basename "$2") =="
   curl -L -C - --retry 5 --retry-delay 3 -o "$2" "$1"
+  if [ -n "$3" ]; then
+    S=$(stat -c %s "$2")
+    if [ "$S" != "$3" ]; then
+      echo "FATAL: $(basename "$2") 下载后字节数 $S != 期望 $3，删除后重跑本脚本" >&2
+      rm -f "$2"
+      exit 1
+    fi
+  fi
 }
 
 # 3) 三个模型（根盘；实例释放即失，靠本脚本重建）
 dl $MIRROR/unsloth/gemma-4-26B-A4B-it-qat-GGUF/resolve/main/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf \
-   $MODELS/gemma4-qat/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf
+   $MODELS/gemma4-qat/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf 14249047104
 dl $MIRROR/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-UD-Q4_K_XL.gguf \
-   $MODELS/qwen38/Qwen3.8-27B-UD-Q4_K_XL.gguf
+   $MODELS/qwen38/Qwen3.8-27B-UD-Q4_K_XL.gguf 17559178144
 dl $MIRROR/bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf \
-   $MODELS/r1-32b/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf
+   $MODELS/r1-32b/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf 19851335840
 
 # Muse：优先用持久区原件（免下载），持久区也没有才从镜像补
 if [ ! -f $MODELS/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf ]; then
@@ -53,15 +75,22 @@ if [ ! -f $MODELS/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.
     echo "== 从持久区复制 Muse（~1-2 分钟）=="
     cp /mnt/workspace/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf \
        $MODELS/Muse-Glimmer-30B-GGUF/
+    M=$(stat -c %s $MODELS/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf)
+    if [ "$M" != "19653960832" ]; then
+      echo "FATAL: Muse 复制后字节数 $M != 19653960832（母带库异常），删除后排查持久区" >&2
+      rm -f $MODELS/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf
+      exit 1
+    fi
   else
     dl $MIRROR/unsloth/Muse-Glimmer-30B-GGUF/resolve/main/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf \
-       $MODELS/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf
+       $MODELS/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf 19653960832
   fi
 fi
 
-# 4) 字节校验（qwen 已知基准）
+# 4) 字节校验（qwen 已知基准；dl() 已前置校验，此处为服务起前最后一道闸——硬失败）
 Q=$(stat -c %s $MODELS/qwen38/Qwen3.8-27B-UD-Q4_K_XL.gguf)
-if [ "$Q" = "17559178144" ]; then echo "qwen 校验 OK"; else echo "警告: qwen 字节数 $Q != 17559178144"; fi
+if [ "$Q" = "17559178144" ]; then echo "qwen 校验 OK"; else
+  echo "FATAL: qwen 字节数 $Q != 17559178144，拒绝带病起服务，请重跑本脚本" >&2; exit 1; fi
 
 # 5) 写四服务启动脚本（含端口表与清理旧进程）
 cat > /root/start-arcanum.sh << 'INNER_EOF'

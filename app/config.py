@@ -45,6 +45,21 @@ class Settings:
 
     # Auth
     API_KEY = os.getenv("CODERISK_API_KEY", "dev-key-change-in-production")
+    if API_KEY == "dev-key-change-in-production":
+        if os.getenv("ARCA_ENV", "dev") == "production":
+            # 生产姿态（ARCA_ENV=production）禁止弱默认 key：docker-compose 已有
+            # ${CODERISK_API_KEY:?} 硬闸，此处封住"裸 python/uvicorn 直接起服务"旁路
+            # （2026-10-10 外审 P0/P1-2 收口）。
+            raise RuntimeError(
+                "CODERISK_API_KEY not set with ARCA_ENV=production — "
+                "refusing to start with the built-in development default key; "
+                "set CODERISK_API_KEY explicitly"
+            )
+        print(
+            "WARNING [app.config]: CODERISK_API_KEY not set — using the built-in development default key, "
+            "authentication is effectively useless; production deployments must explicitly set this environment variable",
+            file=sys.stderr,
+        )
 
     # Storage
     REPORTS_DIR = Path(os.getenv("REPORTS_DIR", str(Path(__file__).parent.parent / "reports")))

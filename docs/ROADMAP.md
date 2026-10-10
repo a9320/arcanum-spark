@@ -7,7 +7,7 @@
 
 - [x] **PITAX 确定性规则 9 条**（编号与官方 taxonomy v1.6.1 对齐）：PIT-E-23/E-54/T-46/T-51/N-06/E-07/E-14/E-36/E-57；
       扫描面覆盖 AI 根上下文文件（`.mdc`/`.cursorrules` 已入白名单，2026-10-02 修复登记册 #15）
-- [x] **确定性测试套件 308 collected / verify.sh 5/5**（正样本检出 + 负样本零误报 + 映射验证 + SARIF + 输出护栏 + 单一数据源防漂移 + quickscan API 冒烟 + Scout 预算帽回归锚 + CLI gate 接线回归锚；本地最小 venv 缺 fastapi 时 API 模块 skip=301，CI 全装环境=308；数量随 hardneg 批次增长）
+- [x] **确定性测试套件 310 collected / verify.sh 5/5**（正样本检出 + 负样本零误报 + 映射验证 + SARIF + 输出护栏 + 单一数据源防漂移 + quickscan API 冒烟 + Scout 预算帽回归锚 + CLI gate 接线回归锚 + 克隆失败返回契约回归锚 ×2；本地最小 venv 缺 fastapi 时 API 模块 skip=303，CI 全装环境=310；数量随 hardneg 批次增长）
 - [x] **六节点 Agent 流水线**（Scout→…→Arbiter，strands 编排）：MI300X/gfx942 本地四服务 + 云端五端点 named-routes 双部署；
       混合臂 env 覆盖实证（`ARCA_DEPLOYMENT=local` + `ARCA_<STAGE>_{MODEL,BASE_URL,API_KEY}` 零代码换端）+
       `ARCA_SCOUT_MAX_TOKENS` 抬帽新知（6000 帽撞思考型云模型=MaxTokensReached 空卷）
@@ -20,7 +20,8 @@
 - [x] **K1-min 首张真值对照表（v1.1 #1，2026-10-05 跑卷/10-06 定版）**：NYU CTF 20 题 web 类全卷 →
       K2 两批五题 intended 源码复核定稿（串题/记忆偏差/JWT 零证据/logic-puzzle 射程外/弱密码学链）→
       两轮重判分收敛：**机制 8/9/3 + 语义 10/5/5/0（总账 20 首次自洽，零模型 token 收回 3+3 TP）**；
-      方法学=docs/K2-INTENDED-REVIEW.md；判分件=reports/m8-k1/{k1_score_k2,k1_score_v02,hybrid_score_k2}.json
+      方法学=docs/K2-INTENDED-REVIEW.md；判分件=reports/m8-k1/{k1_score_k2,k1_score_v02,hybrid_score_k2}.json；
+      交付边界=上仓为判分汇总件（含每题 pipeline 摘要），逐题完整 report 不随仓（20 题原始卷以 data/m8_k1_manifest.json 与 runs 归档为准，2026-10-10 外审 P2-2 明示）
 - [x] **gate v1.2 三臂重验收（v1.1 #2，2026-10-03）**：gate12v3 双 ACCEPT 翻 v27 污染 REJECT（登记册 #2 销号）
 - [x] **laya checkpoint 多副本回传（v1.1 #3，2026-10-03）**：三资产 Release 201（登记册 #3 销号）
 - [x] **R7 校准轮（v1.1 #6，2026-10-03）**：r7 留任 23/24、ECE 0.1016→**0.0417**（timing-r7 @ebc529f）；

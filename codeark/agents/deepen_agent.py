@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 
 from strands import Agent
@@ -31,6 +32,8 @@ from codeark.graph.quarantine import (
 )
 
 __all__ = ["DEEPEN_SYSTEM_PROMPT", "build_deepen_agent", "run_deepen"]
+
+logger = logging.getLogger(__name__)
 
 
 # ── 文本兜底：从模型原始文本解析 AttackChain 列表 ──
@@ -147,20 +150,21 @@ def _parse_attack_chains(raw_text: str) -> list[AttackChain]:
                     elif isinstance(item, dict):
                         try:
                             chains.append(AttackChain.model_validate(item))
-                        except Exception:
+                        except Exception as e:
+                            logger.debug("deepen chain item validate failed: %s: %s", type(e).__name__, e)
                             continue
                 if chains:
                     return chains
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("deepen primary parse failed: %s: %s", type(e).__name__, e)
     m = re.search(r"\{[\s\S]*\}", raw_text, re.DOTALL)
     if m:
         try:
             parsed = json.loads(m.group(0))
             if isinstance(parsed, dict):
                 return [AttackChain.model_validate(parsed)]
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("deepen json-regex parse failed: %s: %s", type(e).__name__, e)
     return _parse_markdown_chains(raw_text)
 
 
@@ -244,7 +248,8 @@ def _extract_json_object(text: str) -> dict | None:
             if depth == 0:
                 try:
                     obj = json.loads(t[start:i + 1])
-                except Exception:
+                except Exception as e:
+                    logger.debug("deepen brace-slice json parse failed: %s: %s", type(e).__name__, e)
                     return None
                 return obj if isinstance(obj, dict) else None
     return None
@@ -269,7 +274,8 @@ def _coerce_chain(obj: dict) -> AttackChain | None:
             impact=str(obj.get("impact", ""))[:1000],
             remediation=str(obj.get("remediation", ""))[:1500],
         )
-    except Exception:
+    except Exception as e:
+        logger.debug("deepen chain model_validate failed: %s: %s", type(e).__name__, e)
         return None
 
 

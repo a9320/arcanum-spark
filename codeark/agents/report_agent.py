@@ -98,6 +98,33 @@ def dedup_findings(findings: list[dict]) -> list[dict]:
     return list(best.values())
 
 
+def merge_agent0_baseline(
+    findings: list[dict], agent0_findings: list[dict] | None
+) -> list[dict]:
+    """定稿层唯一来源：确定性去重 + Agent0 规则层行合并。
+
+    Day-2 eval 契约（eval/check_report.py）：定稿层 = 确定性规则行 + LLM 语义增量。
+    agent0 命中按原键（file/rule/severity）并入，补 file_path/vuln_type 别名键贯通
+    SARIF/Markdown 渲染；同 (file, rule) 多次命中由 dedup 保留最高 severity。
+    渲染层与 risk_score 必须经本函数同源（2026-10-10 外审 P1：此前 risk_score 只取
+    Arbiter 终态 findings，Agent0 基线在渲染层才并入，两口径漂移）。
+    """
+    normalized = dedup_findings(
+        [f.model_dump() if hasattr(f, "model_dump") else f for f in findings]
+    )
+    rule_rows: list[dict] = []
+    for a in agent0_findings or []:
+        if not isinstance(a, dict):
+            continue
+        row = dict(a)
+        row.setdefault("file_path", row.get("file") or "")
+        row.setdefault("vuln_type", row.get("rule") or row.get("type") or "")
+        rule_rows.append(row)
+    if rule_rows:
+        return dedup_findings([*rule_rows, *normalized])
+    return normalized
+
+
 def build_sarif(findings: list[dict]) -> dict:
     """将结构化 findings 渲染为 SARIF 2.1.0 格式。"""
     rules: dict[str, dict] = {}
@@ -252,23 +279,10 @@ def render_report(
     else:
         findings = getattr(final, "findings", None) or getattr(final, "results", None) or []
         conclusion = str(getattr(final, "conclusion", "") or "")
-    # 兼容 dict 形式条目 + 确定性去重（file_path + vuln_type 口径）
-    findings = dedup_findings(
-        [f.model_dump() if hasattr(f, "model_dump") else f for f in findings]
+    # 兼容 dict 形式条目 + 确定性去重 + Agent0 基线合并（与 risk_score 定稿层同源）
+    findings = merge_agent0_baseline(
+        findings, (meta or {}).get("agent0_findings")
     )
-    # Day-2 eval 契约（eval/check_report.py）：定稿层 = 确定性规则行 + LLM 语义增量。
-    # agent0 命中按原键（file/rule/severity）并入，补 file_path/vuln_type 别名键贯通
-    # SARIF/Markdown 渲染；同 (file, rule) 多次命中由 dedup 保留最高 severity。
-    rule_rows: list[dict] = []
-    for a in (meta or {}).get("agent0_findings") or []:
-        if not isinstance(a, dict):
-            continue
-        row = dict(a)
-        row.setdefault("file_path", row.get("file") or "")
-        row.setdefault("vuln_type", row.get("rule") or row.get("type") or "")
-        rule_rows.append(row)
-    if rule_rows:
-        findings = dedup_findings([*rule_rows, *findings])
     chains = [
         c.model_dump() if hasattr(c, "model_dump") else c
         for c in (attack_chains or [])

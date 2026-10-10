@@ -16,7 +16,8 @@ step "1/5 Explicit test count"
 check $? "Test count collected from codeark/tests + tests (log: /tmp/verify_count.log)"
 
 step "2/5 Deterministic test suite (no LLM)"
-# test_engine_integration.py 需 Redis/rich 运行环境（收集安全，仅运行期依赖），确定性验证路径显式排除；
+# test_engine_integration.py 保持显式排除（口径稳定）：2026-10-10 外审复核实测其
+# 并不需要 Redis/rich（仅 import app.config 与 engine 模块），排除非依赖必需；
 # 历史冒烟脚本已迁 scripts/smoke/（非 pytest 套件），本命令无其他排除项。
 "$PY" -m pytest -c codeark/pyproject.toml codeark/tests tests -q \
   --ignore=tests/test_engine_integration.py >/tmp/verify_pytest.log 2>&1

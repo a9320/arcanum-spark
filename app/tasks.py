@@ -450,7 +450,10 @@ def _prepare_into(task_id: str, config: dict, work_dir: Path) -> tuple[str | Non
             return str(work_dir), True
         except subprocess.CalledProcessError as e:
             logger.error(f"Git clone failed: {e.stderr.decode()[:200]}")
-            return None
+            return None, False
+        except subprocess.TimeoutExpired:
+            logger.error("Git clone timed out after 120s")
+            return None, False
 
     elif source == "local":
         local_path = config.get("local_path", "").strip()
