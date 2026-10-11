@@ -4,6 +4,7 @@ deployspec:
 ---
 
 # Arcanum · Spark（Arcanum · 星火）
+![demo](docs/demo.gif)
 
 **Catch the first spark before it becomes a wildfire.** Code security audit for AI-era vulnerabilities — built on the [Arcanum Prompt Injection Taxonomy](https://arcanum-sec.com/pitax) (Jason Haddix, Arcanum Information Security), packaged as an Agent Skill plus a 6-agent LLM pipeline. It runs fully local and deterministic (zero LLM), or self-hosted on **four llama-servers on AMD MI300X** (`ARCA_DEPLOYMENT=local`) — the operative deployment — with the original per-stage **cloud API council** still available through environment routing.
 
