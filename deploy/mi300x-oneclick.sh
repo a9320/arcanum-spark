@@ -33,10 +33,10 @@ echo "== llama-server 就位: $($LL --version 2>/dev/null | head -1) =="
 # 2) 目录
 mkdir -p $MODELS/gemma4-qat $MODELS/qwen38 $MODELS/r1-32b $MODELS/Muse-Glimmer-30B-GGUF
 
-# dl <url> <dest> [expected_bytes]  断点续传 + 字节硬校验（2026-10-10 外审 P0-④）。
+# dl <url> <dest> [expected_bytes] [expected_sha256]  断点续传 + 字节+SHA256 双硬校验（2026-10-10 外审 P0-④ 字节锚；2026-10-11 DSW 块B 四母带 SHA256 锚定升级）。
 # 给了期望字节数时：已存在的文件也先验尺寸（防半截件被"已有即跳过"放行——pod 重建
 # 重下 48GB 与跨源偏移两坑同源），下载后再验一次；不匹配 = rm + FATAL 退出。
-# TODO(下次 DSW 会话)：四件母带算 SHA256 后在此加 sha256sum 硬锚，字节数只是弱校验。
+# 给了期望 SHA256 时：同两段位置验哈希（比字节强——同尺寸内容漂移也拦），字节数保留为第二道。
 dl() {
   if [ -f "$2" ]; then
     if [ -n "$3" ]; then
@@ -47,7 +47,15 @@ dl() {
         exit 1
       fi
     fi
-    echo "已有 $(basename "$2")，跳过"; return 0
+    if [ -n "$4" ]; then
+      H=$(sha256sum "$2" | cut -d' ' -f1)
+      if [ "$H" != "$4" ]; then
+        echo "FATAL: 已有 $(basename "$2") sha256 $H != 期望 $4（内容漂移），删除后重跑本脚本" >&2
+        rm -f "$2"
+        exit 1
+      fi
+    fi
+    echo "已有 $(basename "$2")，校验通过，跳过"; return 0
   fi
   echo "== 下载 $(basename "$2") =="
   curl -L -C - --retry 5 --retry-delay 3 -o "$2" "$1"
@@ -59,31 +67,41 @@ dl() {
       exit 1
     fi
   fi
+  if [ -n "$4" ]; then
+    H=$(sha256sum "$2" | cut -d' ' -f1)
+    if [ "$H" != "$4" ]; then
+      echo "FATAL: $(basename "$2") 下载后 sha256 $H != 期望 $4，删除后重跑本脚本" >&2
+      rm -f "$2"
+      exit 1
+    fi
+  fi
 }
 
-# 3) 三个模型（根盘；实例释放即失，靠本脚本重建）
+# 3) 三个模型（根盘；实例释放即失，靠本脚本重建；SHA256=2026-10-11 持久区母带库实测，masters-sha256.txt）
 dl $MIRROR/unsloth/gemma-4-26B-A4B-it-qat-GGUF/resolve/main/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf \
-   $MODELS/gemma4-qat/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf 14249047104
+   $MODELS/gemma4-qat/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf 14249047104 a7c5bc715f5ff8e99a3e8901ce7d2b42b402c669bf24f7c5250747633d0f5891
 dl $MIRROR/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-UD-Q4_K_XL.gguf \
-   $MODELS/qwen38/Qwen3.8-27B-UD-Q4_K_XL.gguf 17559178144
+   $MODELS/qwen38/Qwen3.8-27B-UD-Q4_K_XL.gguf 17559178144 3f227079003add2511437e5b1e94812e363385225bf6a9b47b0054a72bc8b01e
 dl $MIRROR/bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf \
-   $MODELS/r1-32b/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf 19851335840
+   $MODELS/r1-32b/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf 19851335840 bed9b0f551f5b95bf9da5888a48f0f87c37ad6b72519c4cbd775f54ac0b9fc62
 
 # Muse：优先用持久区原件（免下载），持久区也没有才从镜像补
+MUSE_SHA=ac7023d6a4c704eb9af54ab53e476a66b7f5b6c0ef2fc4a8dde5253c291a6c38
 if [ ! -f $MODELS/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf ]; then
   if [ -f /mnt/workspace/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf ]; then
     echo "== 从持久区复制 Muse（~1-2 分钟）=="
     cp /mnt/workspace/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf \
        $MODELS/Muse-Glimmer-30B-GGUF/
     M=$(stat -c %s $MODELS/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf)
-    if [ "$M" != "19653960832" ]; then
-      echo "FATAL: Muse 复制后字节数 $M != 19653960832（母带库异常），删除后排查持久区" >&2
+    H=$(sha256sum $MODELS/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf | cut -d' ' -f1)
+    if [ "$M" != "19653960832" ] || [ "$H" != "$MUSE_SHA" ]; then
+      echo "FATAL: Muse 复制后 $M 字节 / $H != 期望 19653960832 / $MUSE_SHA（母带库异常），删除后排查持久区" >&2
       rm -f $MODELS/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf
       exit 1
     fi
   else
     dl $MIRROR/unsloth/Muse-Glimmer-30B-GGUF/resolve/main/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf \
-       $MODELS/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf 19653960832
+       $MODELS/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf 19653960832 $MUSE_SHA
   fi
 fi
 
