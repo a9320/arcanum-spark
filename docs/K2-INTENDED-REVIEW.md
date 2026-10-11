@@ -102,3 +102,43 @@
 - manifest 三题 notes 已标注"K1 判分用草案版本"——已发布的 k1_score.json / EVAL-LEDGER 数字不被追溯改写，重判分另立文件名，双版本可对账。
 - 定稿词表只收官方解链直接对应的类型：United 刻意不收 INFORMATION_DISCLOSURE（避免范围外 2 条 INFO 虚翻 TP）；whistleblow 刻意不收泛 INFO（CROSS_FILE_INFO_DISCLOSURE 交映射层/对账）。
 - 提取物料 nyu_smoke/{removed/2021/…/United, test/2021/…/gatekeeping} 共 51 件留本地（运行物料不入仓）；提取脚本 k2_extract.sh 在根目录可复用。
+
+## K2 第三批复核（2026-10-11，real-time-chat + good_intentions）
+
+日期：2026-10-11（本地，零 DSW 依赖）
+范围：WORK_LOG 10-11 16:34 测试计划两题——real-time-chat / good_intentions（10-06/10-07 曾初判"Scout 盲区族、可维持草案"，本批复核推翻其中一题）。
+方法：同前两批——k2_extract.sh 幂等复用（40/40 物料提取成功），challenge.json + 官方 solution 物料 + 服务端源码三重实锤，manifest intended 逐类型对账。**本批报告主键改用题目名**（前两批 #9/#12/#18 为 K2 清单编号，与 manifest 数组下标不同源，混用易撞车）。
+
+### 结论速览
+
+| 题 | 原草案 intended | 源码实锤官方解 | 判定 | 定稿 intended_types |
+|---|---|---|---|---|
+| real-time-chat | XSS, CROSS_SITE_SCRIPTING, COMMAND_INJECTION, PATH_TRAVERSAL | WebRTC TURN 代理滥用→内网 Redis 未授权（0.0.0.0 绕过）→SLAVEOF 主从复制+MODULE LOAD exp_lin.so RCE→cat /flag.txt | **整体错误（类型错配；管线 H2 冤案坐实）** | REMOTE_CODE_EXECUTION |
+| good_intentions | COMMAND_INJECTION, SSRF, LOGIC_ERROR | 注册上传占位→gallery 取路径→恶意 logging.conf→/log_config 缺 @admin_only+file_name 穿越→fileConfig 恶意配置（官方原话 RCE）→download_image 读回 flag | **整体错误（官方解类型错配）+管线官方链零覆盖（真漏报）** | ACCESS_CONTROL_BYPASS, PATH_TRAVERSAL, REMOTE_CODE_EXECUTION |
+
+### real-time-chat（removed/2020/CSAW-Quals/web/real-time-chat）
+
+1. 官方解三重实锤：challenge.json flag=`flag{ar3nt_u_STUNned_any_t3ch_w0rks_@_all?}`；README "Intended Solution" 五步原文（含 rtcsec.com 2020 Slack TURN compromise 参考文献）；solution/ 自带 turnproxy.py + redis_rce.py + exp_lin.so + solve.py——solve.py 全程 `SLAVEOF LHOST→CONFIG SET dir/dbfilename→MODULE LOAD /tmp/exp_lin.so→system.exec "cat /flag.txt"`，与 README 逐句对应。
+2. app.py（82 行）复核：Flask+Redis 极简 API，无模板渲染（XSS 面仅前端 static/，官方解不走）、无 shell、无路径穿越面；管线 H3（/api/log_message 无鉴权写）/H4（README 明文 flag）为真实弱点但非官方解 → 按词表收窄纪律不收。
+3. **管线对照=冤案坐实**：K1 版 H2 CONFIRMED 标题字面 "Unauthenticated Redis reachable via TURN leads to RCE"——与官方解同链同机制同交付物，type=`Remote Code Execution / Privilege Escalation` 不在旧词表 [XSS/CMDI/PT] → 被压成 FN。**推翻 10-06/10-07 "Scout 盲区族、可维持草案"的初判**。
+4. 定稿 `['REMOTE_CODE_EXECUTION']`；匹配策略两案待重判分实证：(a) intended 收 pipeline 原串 (b) 判分器加大小写/子串规范化。
+5. 旧记录同步修正：混合臂"H5 命中官方 XSS 链交付原语"=前端渲染面假设，**非官方解**（混合臂判分数字不动，只修归因）；real-time-chat 从"Scout 盲区族"移出。
+
+### good_intentions（removed/2022/CSAW-Quals/web/good_intentions）
+
+1. 官方解三重实锤：challenge.json flag=`flag{Th3_roAd_t0_pwn_is_paVed_With_g00d_int3ntions}`；README Solution 折叠块五步原文（官方原话 "remote code execution due to the logging.config.fileConfig being vulnerable if a malicious config file is used"，参考 raj3shp/python-logging.config-exploit）；routes.py:158-169 `/log_config` 实锤——`@login_required` 无 `@admin_only`、`file_name` 用户可控直接拼 fileConfig 路径；solution.py + exploit.conf 官方物料在。README 端点名 set_log 与源码 /log_config 有出入（以源码为准）。
+2. 旧 intended 三型处置：COMMAND_INJECTION 源码真实存在（/run_command `shell=True`）但 `@admin_only` 挡着且官方解不走 → 不收（词表=官方解直接对应，United 先例）；SSRF 零证据；LOGIC_ERROR 泛词删（gatekeeping 先例）。
+3. **管线对照=真漏报**：唯一 CONFIRMED H2 'IDOR'（download_image :114-129 按 location 查询无属主校验——真实但官方解用的是自己上传的位置，不走 IDOR）；官方链三类型零 CONFIRMED 覆盖 → 定稿后 FN 维持，但 FN 注记从"检测失败"细分为"intended 错位 + 官方链未检出"。
+4. 历史记录查证："H1 RCE 0.3 弱映射候选"（WORK_LOG 10-06 判分对账记录）在本地三份判分件（v01/k2/v02）均无对应条目（good_intentions 恒 3 假设、H2 IDOR 唯一 CONFIRMED）——出处待 K1 原始 report（DSW 归档 runs/20261003-k1/）逐条核对，不阻塞定稿。
+
+### 对总账与混合臂的影响推演
+
+- real-time-chat：定稿后机制口径预期 H2 翻 TP（待匹配策略实证）→ 8/9/3 → 9/8/3；语义口径待规范化规则实证。
+- good_intentions：管线零覆盖 → FN 维持（真漏报）。
+- **方法论增量：本批产出第一组"冤案/真漏报"对照样本**——real-time-chat（冤案：管线对、答案错）与 good_intentions（真漏报：答案错且管线也未中）同批出现，"先修答案再烧 token"与"盲区分层"两条结论在同一批物料上同时成立。
+- 混合臂影响：real-time-chat 移出盲区族（价值待重估）；good_intentions 维持盲区族。
+
+### 纪律备注
+
+- manifest 两题 notes 待补"第三批复核定稿"标注（判分后冻结纪律沿用：已发布数字不追溯，重判分另立文件名）。
+- 提取物料 nyu_smoke/{removed/2020/…/real-time-chat, removed/2022/…/good_intentions} 40/40 留本地（k2_extract.sh 幂等可复用）。
