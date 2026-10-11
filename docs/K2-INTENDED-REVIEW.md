@@ -140,5 +140,52 @@
 
 ### 纪律备注
 
-- manifest 两题 notes 待补"第三批复核定稿"标注（判分后冻结纪律沿用：已发布数字不追溯，重判分另立文件名）。
+- manifest 两题 notes 待补"第三批复核"标注（判分后冻结纪律沿用：已发布数字不追溯，重判分另立文件名）。
 - 提取物料 nyu_smoke/{removed/2020/…/real-time-chat, removed/2022/…/good_intentions} 40/40 留本地（k2_extract.sh 幂等可复用）。
+
+## K2 第四批复核（2026-10-11，剩余失分题全量 8 题）
+
+日期：2026-10-11（本地，零 DSW 依赖）
+范围：v02 判分件 FN 12 题扣除前三批已复核 4 题，剩余失分题全量——nekocat / flask_caching / webhooktester / picgram / I Got Id / raid_fat_fs_chal / unagi / poem-collection。**至此 20 题 intended 全部源码级定稿，草案遗留清零。**
+方法：同前三批——k2_extract.sh 幂等复用（157/158 件提取，1 件失败=空 `__init__.py` blob 被脚本非空判据误报，无内容影响），challenge.json + 官方解物料 + 服务端源码三重实锤。**同时补落第三批遗留：real-time-chat / good_intentions 两题定稿词表入 manifest（42c4ee0 只提交了报告，manifest 漏同步）**。
+
+### 结论速览
+
+| 题 | 原草案 intended | 源码实锤官方解 | 判定 | 定稿 intended_types |
+|---|---|---|---|---|
+| nekocat | DESERIALIZATION, COMMAND_INJECTION, SSTI, PATH_TRAVERSAL | XSS(href)→CSRF 发帖→服务端 preview→`//a/flaginfo` 路由混淆→泄露 SECRET_KEY→SecureCookie pickle RCE | **部分正确（DESER 保留，三型删，三型增）** | CROSS_SITE_SCRIPTING, DESERIALIZATION, HARDCODED_SECRET, ACCESS_CONTROL_BYPASS |
+| flask_caching | DESERIALIZATION, SSTI, CACHE_POISONING, PICKLE_INSECURE_LOAD | note title 覆盖 redis 缓存键（过滤绕过）+pickle payload RCE | **大部分正确（仅删 SSTI）** | DESERIALIZATION, PICKLE_INSECURE_LOAD, CACHE_POISONING |
+| webhooktester | SSRF, SERVER_SIDE_REQUEST_FORGERY, COMMAND_INJECTION | cURL globbing 绕域校验→SSRF 打 Caddy admin→改 fastCGI SCRIPT_FILENAME→pearcmd gadget RCE | **部分正确（SSRF 保留；CMDI 实锤不成立；RCE 增）** | SSRF, REMOTE_CODE_EXECUTION |
+| picgram | SQL_INJECTION, IDOR, PATH_TRAVERSAL | 上传伪装 .jpg 的 EPS→Ghostscript 9.23 PostScript RCE→读 flag.db | **整体错误（全删）** | REMOTE_CODE_EXECUTION |
+| unagi | DESERIALIZATION, LOCAL_FILE_INCLUSION, COMMAND_INJECTION, PHP_OBJECT_INJECTION | UTF-16 编码绕关键词 WAF + XXE 读 file:///flag.txt | **整体错误（全删）** | XML_EXTERNAL_ENTITY_INJECTION |
+| poem-collection | SQL_INJECTION, LOCAL_FILE_INCLUSION, XSS, COMMAND_INJECTION | `?poem=../flag.txt` 任意文件读 | **部分正确（LFI 保留）** | PATH_TRAVERSAL, LOCAL_FILE_INCLUSION |
+| I Got Id | PATH_TRAVERSAL, COMMAND_INJECTION, CODE_INJECTION, ARBITRARY_FILE_READ | 上传字段注入 `cat /flag |`→Perl `<>` 钻石操作符命令执行 | **部分正确（CMDI 保留）** | COMMAND_INJECTION |
+| raid_fat_fs_chal | PATH_TRAVERSAL, ARBITRARY_FILE_READ, LOGIC_ERROR | load 端 `__import__`+reload 无过滤 RCE 原语（upload→import 桥未重构，见纪律备注） | **整体错误（全删）** | REMOTE_CODE_EXECUTION |
+
+### 块 D 三题（DSW 混合臂题单，判读依据就位）
+
+1. **nekocat**（removed/2018/CSAW-Finals/web/nekocat）——官方解=readme.md 官方解题记录全文：①jinja href `javascript:` URI XSS（post.html:59 `<a href="{{ post.link }}">`，escaping 保护不了的 XSS 类）；②CSRF 已验证用户发帖；③服务端 `get_post_preview`（app.py:27 只挡 `/flaginfo` 前缀）被 `//a/flaginfo` 绕过（werkzeug 路由 bug pallets/werkzeug#1286）；④flagoninfo（flagon.py:51 仅限 127.0.0.1）返回 `os.environ`——**泄露 FLAGON_SECRET_KEY 默认值 `superdupersecretflagonkey`**（flagon.py:14）；⑤`SecureCookie.unserialize`（flagon.py:40）pickle 反序列化→`__reduce__`→`subprocess.check_output(['cat','flag.txt'])` RCE。管线对照：**H2 XSS_STORED @ post.html=官方链发动环（等价类族 4 强映射→语义翻）；H5 HARDCODED_SECRET @ Dockerfile=SECRET_KEY 硬编码事实根源（词表字面→机制翻）**——双口径预期 FN→TP。
+2. **flask_caching**（removed/2020/CSAW-Quals/web/flask_caching）——官方解=README Solution 官方原文 + solve.py 双实锤：Flask-Caching 把响应 pickle 存 redis（键 `flask_cache_view//test1`）；note title 映射 redis 键→**缓存键覆盖**；`flask_cache_view//` 替换过滤用 `flask_cache_viewflask_cache_view////test1` 绕过；payload 前缀 `!`（库只 unpickle `!` 开头值）；GET `/test1` 触发 `pickle.loads`→`os.system` RCE。管线唯一 CONFIRMED=H1 INFORMATION_DISCLOSURE（README 明文 flag，artifact 性质）→ **FN 维持=真漏报**（与 good_intentions 同向）。
+3. **webhooktester**（removed/2023/CSAW-Finals/web/webhooktester）——官方解=SOLUTION.md + solve.sh 官方物料：`parse_url` 校验 host=discord.com（index.php:7-14），但 **cURL globbing `{a,b,c}` 在 curl 层展开**绕过全部校验（flag 串 `ssRf_w1ZarrD` 实锤）→SSRF 打 Caddy admin API（localhost:2019）→改 fastCGI transport env 的 `SCRIPT_FILENAME` 指向 pearcmd.php→`config-create` gadget 写 webshell `/pwn.php`→RCE；时序把戏（delay 恢复 SCRIPT_FILENAME）。**CMDI 实锤不成立**：`escapeshellarg` 双参（index.php:16-17）挡死 shell 注入——globbing 是 curl 自身特性，escapeshellarg 管不到。管线唯一 CONFIRMED=H2 PRIVILEGE_ESCALATION（setuid getflag=flag 交付设计，非官方解类型）→ **FN 维持=真漏报**。
+
+### 其余五题
+
+4. **picgram**（test/2020/CSAW-Finals/web/picgram）——**官方 solve 物料缺席**，三重证据定稿：Dockerfile 基础镜像=`vulhub/ghostscript:9.23`（知名 PostScript 沙箱逃逸演示镜像）+ Pillow 5.3.0 `Image.open` 按内容（非扩展名）解码 + challenge.json "spooky scripting" 双关——上传伪装 .jpg 的 EPS→Ghostscript 渲染→RCE 读 flag.db。app.py 51 行无 SQL 面（generate.py 的 sqlite 是建库脚本）、无 IDOR、无 PT（tempfile+白名单扩展拼接）→草案全删。管线 CONFIRMED 零条 → FN 维持（真漏报）。
+5. **unagi**（removed/2019/CSAW-Quals/web/unagi）——官方 solve.xml + solver.sh 在案：UTF-16 编码的 XML（PHP `strpos` 字节级关键词 WAF 全盲——"file"/"SYSTEM"/"ENTITY" 在 UTF-16 字节流中不出现）+ `libxml_disable_entity_loader(false)` + `simplexml_load_file(..., LIBXML_NOENT)`（upload.php:44-45）→`<!ENTITY xxe SYSTEM "file:///flag.txt">` 回显读 flag。草案四型（DESER/LFI/CMDI/PHP_OBJ）零源码对应全删。管线对照：**H2 XML_EXTERNAL_ENTITY_INJECTION @ src/upload.php=官方链本体，机制字面命中→FN→TP**。
+6. **poem-collection**（test/2021/CSAW-Quals/web/poem-collection）——官方 solve.sh：`?poem=../flag.txt`；`src/poems/index.php:2-4` `file_get_contents($_GET["poem"])` 零过滤任意读。SQLI/XSS/CMDI 零源码对应删。管线对照：**H1 PATH_TRAVERSAL @ src/poems/index.php=官方链本体，机制字面命中→FN→TP**。
+7. **I Got Id**（development/2016/CSAW-Quals/web/I Got Id）——官方 solution.txt 在案：`curl -F "file=ARGV" -F "file=@-" ".../file.pl?cat%20%2fflag%20|"`；`cgi/file.pl:26-31` `while (<$file>)` **Perl 钻石操作符对含管道的 param 字符串执行命令管道**（2 参 open 语义）→`cat /flag`。PT/CODE_INJ/AFR 删（读 flag 靠命令执行非文件读原语）。管线 CONFIRMED 全为 artifact（challenge.json/flag 明文）→ FN 维持（真漏报）。
+8. **raid_fat_fs_chal**（removed/2018/CSAW-Finals/web/raid_fat_fs_chal）——**官方解物料缺席**（无 README solution/solve，题眼= FAT 挂载：`mkfs.fat` 挂 public_html，index.html "wonder why?"）。源码实锤：**load 端点 `__import__(filename)+reload(a)` 零过滤**（http_server.py:140-152）=RCE 原语；upload 端扩展检查为**子串匹配缺陷**（`.t`/`.tx` 均为白名单字符串子串可过）+ 写盘限制 public_html 下无 `/`/`\`/`..`。upload→import 的完整桥接（FAT 大小写不敏感/8.3 短名如何让 import 命中攻击者文件）**无法从物料重构，如实标注不编造**。草案三型（PT/AFR/LOGIC_ERROR）零源码对应删。管线 hyp=0 无对照 → FN 维持。
+
+### 对总账与块 C/D 的影响推演
+
+- **机制口径预期**：翻 TP 三题——nekocat（H5 HARDCODED_SECRET 字面）、unagi（H2 XXE 字面）、poem-collection（H1 PT 字面）→ **tp 8→11 / fn 9→6**（待块 C v03 重判分实证；real-time-chat 匹配策略两案仍待实证）。
+- **语义口径预期**：同三题翻（XSS_STORED↔XSS 族 4、XXE 字面、PT↔LFI 族 2）→ **10/5/5/0 → 13/2/5/0**（待实证）。
+- **FN 细分归因更新**：FN 剩余 5 题（flask_caching/webhooktester/picgram/I Got Id/raid_fat_fs_chal）+ good_intentions 全部为"答案定稿后管线真漏报"，"intended 错位"归因清零——**K2 全部失分题中 12 题里 7 题系草案错位（冤案方向），5+1 题系管线真漏报**。
+- **块 D 判读基准就位**：nekocat 官方链=XSS 发动+SECRET_KEY 泄露+pickle RCE；flask_caching 官方链=缓存键覆盖+pickle RCE；webhooktester 官方链=SSRF+pearcmd RCE——云 Scout 对这三链的提出能力即块 D 判读问题。
+- **方法论增量**：webhooktester 提供第二组"escapeshellarg 存在但 curl 特性绕过"案例（CMDI 草案≠零风险：草案词表写 CMDI 会把"globbing 绕过"误判为 CMDI 检测成功）——**草案错误的方向不止"有写无"（漏），还有"有写错"（错位诱导虚翻风险）**，nekocat 若不删 PT 同理（`//a/` 是路由混淆非穿越）。
+
+### 纪律备注
+
+- 本批 8 题 + 第三批 2 题遗留：manifest 定稿词表与 notes 全部落盘（JSON 校验通过，20 题）；判分后冻结纪律沿用——已发布 v01/k2/v02 数字不追溯，块 C 用 v03 另立文件名重判分对账。
+- 提取物料 nyu_smoke/ 8 题共 157 件留本地（k2_extract.sh 幂等可复用）；raid_fat_fs_chal 的 contrib/__init__.py 空 blob 提取失败为脚本 `[ -s ]` 非空判据误报，无复核影响。
+- 本批两题（picgram/raid_fat_fs_chal）官方 solve 物料缺席，定稿依据（Dockerfile 基础镜像+PIL 内容解码链；load 端 __import__ 原语+FAT 题眼）已在 notes 如实标注证据等级；raid 的桥接未重构项待官方 writeup 可得时补。

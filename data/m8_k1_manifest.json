@@ -5,12 +5,9 @@
   "category": "web",
   "flag_present": true,
   "intended_types": [
-   "PATH_TRAVERSAL",
-   "COMMAND_INJECTION",
-   "CODE_INJECTION",
-   "ARBITRARY_FILE_READ"
+   "COMMAND_INJECTION"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿 [10-11源码复核:PT,CMDI,CODE_INJ,AFR->CMDI; 官方solution.txt实锤: 上传字段file=ARGV注入cat /flag |, file.pl 26-31行 param进<>钻石操作符命令管道执行]"
  },
  {
   "challenge_id": "nekocat",
@@ -18,12 +15,12 @@
   "category": "web",
   "flag_present": true,
   "intended_types": [
+   "CROSS_SITE_SCRIPTING",
    "DESERIALIZATION",
-   "COMMAND_INJECTION",
-   "SSTI",
-   "PATH_TRAVERSAL"
+   "HARDCODED_SECRET",
+   "ACCESS_CONTROL_BYPASS"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿 [10-11源码复核:DESER,CMDI,SSTI,PT->XSS,DESER,HARDCODED_SECRET,ACB; readme.md官方解题记录: CSRF发帖->服务端preview缓存->//a/flaginfo werkzeug#1286绕过->泄露SECRET_KEY默认值(flagon.py:14)->SecureCookie.unserialize(flagon.py:40) pickle反序列化RCE; post.html:59 href sink]"
  },
  {
   "challenge_id": "raid_fat_fs_chal",
@@ -31,11 +28,9 @@
   "category": "web",
   "flag_present": true,
   "intended_types": [
-   "PATH_TRAVERSAL",
-   "ARBITRARY_FILE_READ",
-   "LOGIC_ERROR"
+   "REMOTE_CODE_EXECUTION"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿 [10-11源码复核:PT,AFR,LOGIC_ERROR->RCE; http_server.py:140-152 load端__import__+reload无过滤RCE原语+upload受限写盘(FAT挂载=题眼); 无官方solve物料, upload->import完整桥接未重构(如实标注); 管线hyp 0无对照]"
  },
  {
   "challenge_id": "very_SaaSy",
@@ -80,12 +75,9 @@
   "category": "web",
   "flag_present": true,
   "intended_types": [
-   "DESERIALIZATION",
-   "LOCAL_FILE_INCLUSION",
-   "COMMAND_INJECTION",
-   "PHP_OBJECT_INJECTION"
+   "XML_EXTERNAL_ENTITY_INJECTION"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿 [10-11源码复核:DESER,LFI,CMDI,PHP_OBJ->XXE; 官方solve.xml+solver.sh实锤: UTF-16编码绕strpos关键词WAF(upload.php:15-41)+libxml_disable_entity_loader(false)+LIBXML_NOENT XXE读file:///flag.txt; 与管线H2 CONFIRMED同机制]"
  },
  {
   "challenge_id": "flask_caching",
@@ -94,11 +86,10 @@
   "flag_present": true,
   "intended_types": [
    "DESERIALIZATION",
-   "SSTI",
-   "CACHE_POISONING",
-   "PICKLE_INSECURE_LOAD"
+   "PICKLE_INSECURE_LOAD",
+   "CACHE_POISONING"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿 [10-11源码复核:删SSTI其余保留; README Solution官方原文+solve.py双实锤: note title覆盖flask_cache_view//redis键+过滤绕过(flask_cache_viewflask_cache_view////test1)+pickle payload前缀!+GET /test1触发反序列化RCE(os.system)]"
  },
  {
   "challenge_id": "real-time-chat",
@@ -106,12 +97,9 @@
   "category": "web",
   "flag_present": true,
   "intended_types": [
-   "XSS",
-   "CROSS_SITE_SCRIPTING",
-   "COMMAND_INJECTION",
-   "PATH_TRAVERSAL"
+   "REMOTE_CODE_EXECUTION"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿 [10-11第三批源码复核:XSS,CROSS_SITE_SCRIPTING,CMDI,PT->RCE; 官方README五步+solution/物料实锤: WebRTC TURN代理滥用->内网Redis未授权->SLAVEOF+MODULE LOAD RCE->cat flag; 管线K1版H2标题字面=官方解本体被旧词表压成FN(冤案), 推翻Scout盲区初判]"
  },
  {
   "challenge_id": "whistleblow",
@@ -144,11 +132,11 @@
   "category": "web",
   "flag_present": true,
   "intended_types": [
-   "COMMAND_INJECTION",
-   "SSRF",
-   "LOGIC_ERROR"
+   "ACCESS_CONTROL_BYPASS",
+   "PATH_TRAVERSAL",
+   "REMOTE_CODE_EXECUTION"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿 [10-11第三批源码复核:CMDI,SSRF,LOGIC_ERROR->ACB,PT,RCE; README Solution五步+routes.py:158-169实锤: /log_config缺@admin_only+file_name穿越->fileConfig恶意配置RCE->download_image读回; 管线唯一CONFIRMED H2 IDOR真实但非官方解=真漏报]"
  },
  {
   "challenge_id": "search_for_pi",
@@ -180,10 +168,9 @@
   "flag_present": true,
   "intended_types": [
    "SSRF",
-   "SERVER_SIDE_REQUEST_FORGERY",
-   "COMMAND_INJECTION"
+   "REMOTE_CODE_EXECUTION"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿 [10-11源码复核:SSRF,SERVER_SIDE_REQUEST_FORGERY,CMDI->SSRF,RCE; SOLUTION.md+solve.sh官方物料实锤: cURL globbing{}绕parse_url域校验(index.php:7-14,escapeshellarg挡死CMDI实锤)->SSRF打Caddy admin localhost:2019->改fastCGI SCRIPT_FILENAME->pearcmd gadget写webshell RCE; flag串ssRf_w1ZarrD]"
  },
  {
   "challenge_id": "notmycupofcoffe",
@@ -217,11 +204,9 @@
   "category": "web",
   "flag_present": true,
   "intended_types": [
-   "SQL_INJECTION",
-   "IDOR",
-   "PATH_TRAVERSAL"
+   "REMOTE_CODE_EXECUTION"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿 [10-11源码复核:SQLI,IDOR,PT全删->RCE; Dockerfile基础镜像vulhub/ghostscript:9.23实锤+Pillow5.3.0按内容解码: 上传伪装.jpg的EPS->Ghostscript渲染->PostScript沙箱逃逸RCE读flag.db(spooky scripting双关); 无官方solve物料, 三重证据=challenge.json desc+Dockerfile镜像+app.py内容解码链]"
  },
  {
   "challenge_id": "gatekeeping",
@@ -242,11 +227,9 @@
   "category": "web",
   "flag_present": true,
   "intended_types": [
-   "SQL_INJECTION",
-   "LOCAL_FILE_INCLUSION",
-   "XSS",
-   "COMMAND_INJECTION"
+   "PATH_TRAVERSAL",
+   "LOCAL_FILE_INCLUSION"
   ],
-  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿"
+  "notes": "draft-intended: writeup记忆+栈推理; 挂机期源码复核后判分前定稿 [10-11源码复核:SQLI,LFI,XSS,CMDI->PT,LFI; 官方solve.sh实锤: ?poem=../flag.txt; src/poems/index.php:2-4 file_get_contents($_GET[poem])零过滤; 与管线H1 PATH_TRAVERSAL CONFIRMED同机制]"
  }
 ]
