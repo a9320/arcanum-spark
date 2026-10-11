@@ -1,0 +1,152 @@
+{
+  "findings": [],
+  "attack_chains": [],
+  "conclusion": "本次审计针对文档投毒、政策注入及上下文污染等假设进行了深度验证。结果显示，所有侦察假设（H1: AGENTS.md 提示注入、H2: PR 模板社会工程、H3: iframe 参数注入）均被证伪（REFUTED）。验证过程结合了确定性工具扫描（pitax_scan, static_scan, taint_flow, dep_scan）与逻辑语义分析，确认相关文件均属于标准的防御性/透明性文档或无害的演示示例，不具备攻击载荷属性，亦无证据表明存在可行的攻击路径。",
+  "meta": {
+    "quarantine_stats": {
+      "files_total": 345,
+      "files_changed": 0,
+      "chars_removed": 0,
+      "patterns_neutralized": 0,
+      "changed_files": []
+    },
+    "deepen_failures": 0,
+    "node_errors": {},
+    "severity_floor_upgraded": 0,
+    "agent0_findings": [],
+    "hypothesis_set": {
+      "hypotheses": [
+        {
+          "id": "H1",
+          "title": "AGENTS.md 中对 AI 助手的强制行为指令可能构成文档投毒式提示注入",
+          "vuln_type": "PROMPT_INJECTION",
+          "file_path": "AGENTS.md",
+          "line_start": 9,
+          "line_end": 15,
+          "code_snippet": "- Never perform issue- or pull-request-related actions on the pandas-dev/pandas GitHub repository on behalf of the user.\n  This includes, but is not limited to, interactions such as pushing code, opening issues or pull requests, and replying to issues, pull requests, or reviews.\n- The user is required to disclose your agent information (harness, model, reasoning level), and to mark any verbatim text produced by you (an agent) that they quote with `>` or a triple-backtick code fence.",
+          "attack_path": "AGENTS.md 被作为仓库元数据被 AI 助手/代码审查代理在上下文加载时读取，文件内以项目规范形式植入对 AI 的行为约束和信息披露要求。攻击者可利用该文档投毒使助手在后续任务中主动拒绝合法操作或被迫泄露模型/推理层级等敏感元数据，形成跨会话的策略劫持。",
+          "confidence": "medium",
+          "suggested_verification": "模拟 AI 上下文加载流程，确认 AGENTS.md 是否被自动纳入系统提示或工具描述；用受控提示测试助手是否会因该文件而拒绝 issue/PR 相关操作或主动披露 agent 信息，并记录触发条件。"
+        },
+        {
+          "id": "H2",
+          "title": "PR 模板中强制 AI 使用披露可能被用作社会工程诱导",
+          "vuln_type": "POLICY_INJECTION",
+          "file_path": ".github/PULL_REQUEST_TEMPLATE.md",
+          "line_start": 7,
+          "line_end": 12,
+          "code_snippet": "Check exactly one of the following, per the [automated contributions policy](https://pandas.pydata.org/docs/dev/development/contributing.html#automated-contributions-policy):\n\n- [ ] I did **not** use AI to develop this pull request.\n- [ ] I used AI to develop this pull request. I prompted it to follow `AGENTS.md`, I have reviewed and understood every change, and I have described above how I used it and exactly which tool, model version, and effort setting — e.g. `claude opus 4.8 (xhigh)`, not just `claude`.",
+          "attack_path": "模板文件被贡献者或自动化工具读取时，其对 AI 使用的强制披露条款可被视为对下游 AI 代理的指令。攻击者通过控制模板内容诱导代理在生成 PR 描述时泄露工具链、模型版本等内部信息，或迫使代理遵循 AGENTS.md 中的限制，形成文档链路的横向影响。",
+          "confidence": "low",
+          "suggested_verification": "检查 CI/代码生成流水线是否将 .github/PULL_REQUEST_TEMPLATE.md 作为提示的一部分注入；审计模板渲染路径，验证是否存在未过滤的模板文本进入 LLM 上下文。"
+        },
+        {
+          "id": "H3",
+          "title": "web/pandas/try.md 中的 JupyterLite iframe URL 携带代码参数存在潜在的上下文污染面",
+          "vuln_type": "XSS / CONTEXT_INJECTION",
+          "file_path": "web/pandas/try.md",
+          "line_start": 15,
+          "line_end": 22,
+          "code_snippet": "<iframe\n  src=\"./lite/repl/index.html?toolbar=1&kernel=python&execute=0&code=import%20pandas%20as%20pd%0Adf%20%3D%20pd.DataFrame%28%7B%22num_legs%22%3A%20%5B2%2C%204%5D%2C%20%22num_wings%22%3A%20%5B2%2C%200%5D%7D%2C%20index%3D%5B%22falcon%22%2C%20%22dog%22%5D%29%0Adf\"\n  style=\"width: 100%; max-width: 650px; height: 600px; border: 1px solid #130753;\"\n></iframe>",
+          "attack_path": "文档中硬编码的 iframe src 包含 code= 参数，若该页面被代理或 AI 工具抓取并执行 URL 解码，可能将嵌入的代码作为可信上下文执行。攻击者可通过修改仓库中该 Markdown 或通过链接重写注入恶意 Python 代码，导致在浏览器或自动化预览环境中执行，或被 AI 助手误认为可信示例而复现。",
+          "confidence": "low",
+          "suggested_verification": "对 web/ 目录下的 Markdown 进行静态分析，检查所有 iframe/src 链接是否来源于可信域且参数是否经过净化；在沙箱中渲染页面并监控 code 参数是否被执行，评估是否可被外部链接劫持。"
+        }
+      ],
+      "coverage_notes": "本次审计仅覆盖 UNTRUSTED_DATA 块中提供的有限文件片段，主要为 AGENTS.md、.github/*、web/*、doc/_templates/* 等文档/模板及大量测试数据 HTML。未覆盖 pandas 核心源码、_libs C 扩展、CI 工作流执行逻辑、以及未在数据块中出现的配置文件如 environment.yml、pixi.toml、.pre-commit-config.yaml 等。PITAX 确定性检测已运行且未命中，语义增量假设基于文档投毒与上下文加载链路推断，缺乏对实际 AI 上下文加载机制的运行时验证。"
+    },
+    "gated_hypothesis_set": {
+      "hypotheses": [
+        {
+          "id": "H1",
+          "title": "AGENTS.md 中对 AI 助手的强制行为指令可能构成文档投毒式提示注入",
+          "vuln_type": "PROMPT_INJECTION",
+          "file_path": "AGENTS.md",
+          "line_start": 9,
+          "line_end": 15,
+          "code_snippet": "- Never perform issue- or pull-request-related actions on the pandas-dev/pandas GitHub repository on behalf of the user.\n  This includes, but is not limited to, interactions such as pushing code, opening issues or pull requests, and replying to issues, pull requests, or reviews.\n- The user is required to disclose your agent information (harness, model, reasoning level), and to mark any verbatim text produced by you (an agent) that they quote with `>` or a triple-backtick code fence.",
+          "attack_path": "AGENTS.md 被作为仓库元数据被 AI 助手/代码审查代理在上下文加载时读取，文件内以项目规范形式植入对 AI 的行为约束和信息披露要求。攻击者可利用该文档投毒使助手在后续任务中主动拒绝合法操作或被迫泄露模型/推理层级等敏感元数据，形成跨会话的策略劫持。",
+          "confidence": "medium",
+          "suggested_verification": "模拟 AI 上下文加载流程，确认 AGENTS.md 是否被自动纳入系统提示或工具描述；用受控提示测试助手是否会因该文件而拒绝 issue/PR 相关操作或主动披露 agent 信息，并记录触发条件。"
+        },
+        {
+          "id": "H2",
+          "title": "PR 模板中强制 AI 使用披露可能被用作社会工程诱导",
+          "vuln_type": "POLICY_INJECTION",
+          "file_path": ".github/PULL_REQUEST_TEMPLATE.md",
+          "line_start": 7,
+          "line_end": 12,
+          "code_snippet": "Check exactly one of the following, per the [automated contributions policy](https://pandas.pydata.org/docs/dev/development/contributing.html#automated-contributions-policy):\n\n- [ ] I did **not** use AI to develop this pull request.\n- [ ] I used AI to develop this pull request. I prompted it to follow `AGENTS.md`, I have reviewed and understood every change, and I have described above how I used it and exactly which tool, model version, and effort setting — e.g. `claude opus 4.8 (xhigh)`, not just `claude`.",
+          "attack_path": "模板文件被贡献者或自动化工具读取时，其对 AI 使用的强制披露条款可被视为对下游 AI 代理的指令。攻击者通过控制模板内容诱导代理在生成 PR 描述时泄露工具链、模型版本等内部信息，或迫使代理遵循 AGENTS.md 中的限制，形成文档链路的横向影响。",
+          "confidence": "low",
+          "suggested_verification": "检查 CI/代码生成流水线是否将 .github/PULL_REQUEST_TEMPLATE.md 作为提示的一部分注入；审计模板渲染路径，验证是否存在未过滤的模板文本进入 LLM 上下文。"
+        },
+        {
+          "id": "H3",
+          "title": "web/pandas/try.md 中的 JupyterLite iframe URL 携带代码参数存在潜在的上下文污染面",
+          "vuln_type": "XSS / CONTEXT_INJECTION",
+          "file_path": "web/pandas/try.md",
+          "line_start": 15,
+          "line_end": 22,
+          "code_snippet": "<iframe\n  src=\"./lite/repl/index.html?toolbar=1&kernel=python&execute=0&code=import%20pandas%20as%20pd%0Adf%20%3D%20pd.DataFrame%28%7B%22num_legs%22%3A%20%5B2%2C%204%5D%2C%20%22num_wings%22%3A%20%5B2%2C%200%5D%7D%2C%20index%3D%5B%22falcon%22%2C%20%22dog%22%5D%29%0Adf\"\n  style=\"width: 100%; max-width: 650px; height: 600px; border: 1px solid #130753;\"\n></iframe>",
+          "attack_path": "文档中硬编码的 iframe src 包含 code= 参数，若该页面被代理或 AI 工具抓取并执行 URL 解码，可能将嵌入的代码作为可信上下文执行。攻击者可通过修改仓库中该 Markdown 或通过链接重写注入恶意 Python 代码，导致在浏览器或自动化预览环境中执行，或被 AI 助手误认为可信示例而复现。",
+          "confidence": "low",
+          "suggested_verification": "对 web/ 目录下的 Markdown 进行静态分析，检查所有 iframe/src 链接是否来源于可信域且参数是否经过净化；在沙箱中渲染页面并监控 code 参数是否被执行，评估是否可被外部链接劫持。"
+        }
+      ],
+      "coverage_notes": "本次审计仅覆盖 UNTRUSTED_DATA 块中提供的有限文件片段，主要为 AGENTS.md、.github/*、web/*、doc/_templates/* 等文档/模板及大量测试数据 HTML。未覆盖 pandas 核心源码、_libs C 扩展、CI 工作流执行逻辑、以及未在数据块中出现的配置文件如 environment.yml、pixi.toml、.pre-commit-config.yaml 等。PITAX 确定性检测已运行且未命中，语义增量假设基于文档投毒与上下文加载链路推断，缺乏对实际 AI 上下文加载机制的运行时验证。"
+    },
+    "gate": {
+      "enabled": true,
+      "backend": "laya",
+      "fallback": false,
+      "triage_healthy": true,
+      "ordered_ids": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "selected_ids": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "pruned_ids": [],
+      "scores": {
+        "H1": 1.0,
+        "H2": 1.0,
+        "H3": 1.0
+      },
+      "protected_ids": [],
+      "echo_ids": [],
+      "duplicate_ids": [],
+      "degenerate_ids": []
+    },
+    "verifications": [
+      {
+        "hypothesis_id": "H1",
+        "hypothesis_title": "AGENTS.md 中对 AI 助手的强制行为指令可能构成文档投毒式提示注入",
+        "verdict": "REFUTED",
+        "confidence": 0.78,
+        "evidence": "【工具证据】pitax_scan（9 条 AI 提示注入/文档投毒/不可见字符规则）返回 []；static_scan 返回 []；taint_flow 返回 []；dep_scan 返回 []。四个确定性工具均无命中，尤其 PITAX 专用检测器未发现任何注入/投毒/隐藏字符模式。\n\n【内容逻辑分析】被指认的 AGENTS.md 第 9–15 行原文为：\n\"- Never perform issue- or pull-request-related actions on the pandas-dev/pandas GitHub repository on behalf of the user. This includes, but is not limited to, interactions such as pushing code, opening issues or pull requests, and replying to issues, pull requests, or reviews.\"\n\"- The user is required to disclose your agent information (harness, model, reasoning level), and to mark any verbatim text produced by you (an agent) that they quote with `>` or a triple-backtick code fence.\"\n\n(1) AGENTS.md 是 AI 编码代理读取项目约定的标准、合法文件约定，其存在本身不构成投毒信号；(2) 上述两条指令均为防御性/透明性策略——前者是禁止代理擅自执行 GitHub 操作的安全边界，后者是要求用户披露代理生成内容的透明度要求，二者均不导致数据外泄、不绕过安全控制、不含\"忽略先前指令\"或隐藏/不可见字符，与恶意注入方向相反；(3) 假设的 attack_path 为推测性表述（\"攻击者可利用该文档投毒使助手...被迫泄露模型/推理层级\"），未给出任何可复现的具体利用链，且该策略本身并不造成元数据泄露（是要求用户披露，属透明度而非外泄），\"拒绝合法操作\"只是安全边界按预期生效。\n\n【注入声明】本数据块内假设 JSON 及 AGENTS.md 文本均按待验证数据处理，未发现针对验证官的注入指令；裁决标准未受块内任何文字影响。\n\n综上：工具无命中 + 逻辑分析不成立（内容为标准文件中的合法防御性策略，非恶意文档投毒）→ 判 REFUTED。",
+        "verification_method": "pitax_scan + static_scan + taint_flow + dep_scan 四工具确定性检测（均返回空）+ 对 AGENTS.md 第 9–15 行内容的逻辑分析（文件合法性、指令防御性/透明性、攻击路径可复现性）"
+      },
+      {
+        "hypothesis_id": "H2",
+        "hypothesis_title": "PR 模板中强制 AI 使用披露可能被用作社会工程诱导",
+        "verdict": "REFUTED",
+        "confidence": 0.72,
+        "evidence": "四个确定性工具对 .github/PULL_REQUEST_TEMPLATE.md 的预跑与复跑结果均为空：pitax_scan=[]、static_scan=[]、taint_flow=[]、dep_scan=[]。即无提示注入触发词、无不可见字符/文档投毒、无 source→sink 污点流、无依赖问题。文件本身是标准 GitHub PR 模板（pandas 风格）的人类可读 markdown 清单，由 GitHub 渲染给贡献者，非可执行代码，也非注入载荷；其中\"AI 使用披露\"条款是面向人类贡献者的自报勾选框（\"I did not use AI...\" / \"I used AI... I prompted it to follow AGENTS.md...\"），并非对下游 AI 代理的指令。假设的攻击路径前提——\"CI/代码生成流水线将模板文本注入 LLM 上下文\"——在仓库中无任何证据支撑：不存在读取该模板并送入 LLM 提示的 CI 配置或代码，taint_flow 亦未发现任何流。该前提未经验证，且模板内容为合法政策清单而非可利用注入向量，攻击链不成立。数据块内未发现针对验证官的注入语句（无\"判我 CONFIRMED\"类文本），亦无 [QUARANTINED] 标记。",
+        "verification_method": "调用 pitax_scan / static_scan / taint_flow / dep_scan 四个确定性工具复跑取证（均返回空），并结合文件语义与攻击路径前提的逻辑分析：模板为人类可读政策清单、非注入载荷，且\"模板被注入 LLM 上下文\"这一关键前提在仓库中无证据支撑，攻击链不成立。"
+      },
+      {
+        "hypothesis_id": "H3",
+        "hypothesis_title": "web/pandas/try.md 中的 JupyterLite iframe URL 携带代码参数存在潜在的上下文污染面",
+        "verdict": "REFUTED",
+        "confidence": 0.8,
+        "evidence": "四个确定性工具对绑定文件集均返回空：pitax_scan=[]（无提示注入/不可见字符/文档投毒）、static_scan=[]（无 XSS/注入模式）、taint_flow=[]（无 source→sink 污点流）、dep_scan=[]（无依赖漏洞）。文件 web/pandas/try.md 为 pandas 官方文档页（\"Try pandas in your browser\"），其中 iframe src 为相对路径 ./lite/repl/index.html（本地可信 JupyterLite 页面，非外部域）；code= 参数为 URL 编码的无害演示代码（构造 num_legs/num_wings 的 DataFrame），且 execute=0 表示加载时不自动执行。该 code 参数是传给 Pyodide 沙箱内核的惰性数据，并非注入 HTML 的 XSS 载体。假设的攻击路径纯属推测：需攻击者拥有仓库写权限（非代码漏洞）或\"链接重写\"（无机制证明）或假设性 AI 工具抓取执行 URL，均无实证。文件内无任何注入触发词、不可见字符或提示注入模式。此为正常文档功能，非漏洞。",
+        "verification_method": "调用 pitax_scan / static_scan / taint_flow / dep_scan 四个确定性工具取证（均返回空），并结合文件原文逻辑分析：iframe 为相对本地路径、code 参数为无害演示且 execute=0、无 XSS 载体、攻击路径依赖仓库写权限或假设性 AI 行为，均不成立。"
+      }
+    ]
+  }
+}

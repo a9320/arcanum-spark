@@ -1,0 +1,839 @@
+an error occurred during closing of asynchronous generator <async_generator object HTTP11ConnectionByteStream.__aiter__ at 0x7f8d89693de0>
+asyncgen: <async_generator object HTTP11ConnectionByteStream.__aiter__ at 0x7f8d89693de0>
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/dist-packages/httpcore2/_async/http11.py", line 313, in __aiter__
+    yield chunk
+GeneratorExit
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/dist-packages/httpcore2/_async/http11.py", line 320, in __aiter__
+    raise exc
+  File "/usr/local/lib/python3.12/dist-packages/httpcore2/_async/http11.py", line 311, in __aiter__
+    async with safe_async_iterate(self._connection._receive_response_body(**kwargs)) as iterator:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/contextlib.py", line 267, in __aexit__
+    raise RuntimeError("generator didn't stop after athrow()")
+RuntimeError: generator didn't stop after athrow()
+an error occurred during closing of asynchronous generator <async_generator object PoolByteStream.__aiter__ at 0x7f8f3a3ab6a0>
+asyncgen: <async_generator object PoolByteStream.__aiter__ at 0x7f8f3a3ab6a0>
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/dist-packages/httpcore2/_async/connection_pool.py", line 427, in __aiter__
+    yield chunk
+GeneratorExit
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/dist-packages/httpcore2/_async/connection_pool.py", line 425, in __aiter__
+    async with safe_async_iterate(self._stream) as iterator:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/contextlib.py", line 267, in __aexit__
+    raise RuntimeError("generator didn't stop after athrow()")
+RuntimeError: generator didn't stop after athrow()
+📂 Reading repo: /mnt/workspace/repos/pandas
+   Scout input budget: 345 files / ~59898 est. tokens (cap 60000); 1349 files skipped over budget
+   Read 345 code files
+🤖 Running the 6-node pipeline (configured LLMs)...
+   Gate: armed (laya:/mnt/workspace/models/laya-r7)
+请调用 pitax_scan 工具获取当前仓库的 PITAX 检测结果，并输出 HypothesisSet。
+【UNTRUSTED DATA BOUNDARY】...
+
+We need to call pitax_scan tool, then output HypothesisSet. The instruction says call pitax_scan tool to get results, then output HypothesisSet. We have no prior baseline findings? The prompt says data block contains files. We need to call pitax_scan.
+
+We must follow iron law: each hypothesis must give suggested_verification, coverage_notes etc. Output HypothesisSet.
+
+We need to first call pitax_scan.
+Tool #1: pitax_scan
+We need to output HypothesisSet. The pitax_scan returned empty list. So no deterministic hits. Need to produce hypotheses beyond baseline. The instruction: we must call pitax_scan and output HypothesisSet. The data block contains many files. We need to find semantic incremental vulnerabilities: document/config poisoning, cross-file logic, novel injection surfaces. The untrusted data includes AGENTS.md with instructions about not performing issue/PR actions, requiring disclosure. Could be prompt injection? The UNTRUSTED_DATA block includes [QUARANTINED:potential-instruction] mention. The instruction says block contains [QUARANTINED:potential-instruction] is suspicious signal. We need to find hypotheses.
+
+We have no pitax hits. So we need to propose hypotheses about potential AI prompt injection in AGENTS.md? The AGENTS.md contains instructions to never perform issue/PR actions, require disclosure. Could be a policy injection? Might be a document poisoning to influence AI assistant behavior. The file AGENTS.md is in repo. Could be a prompt injection targeting AI agents reading repo. The instruction says document/config poisoning intent to induce AI assistant to exfiltrate, hijack code generation. AGENTS.md contains instructions about not performing actions on behalf of user, requiring disclosure. Could be an attempt to jailbreak? Might be benign.
+
+Also there is .github/release_notes/rc.md with ${BASE_VERSION} placeholders. Could be template injection.
+
+Also web/pandas/try.md contains iframe src with code parameter containing import pandas... Could be XSS? The iframe src includes code=import%20pandas... Might be injection.
+
+Also doc/_templates/docs-announcement-banner.html contains Announcement: pandas 3.0 released! Read more <a href...>. Could be HTML injection.
+
+The UNTRUSTED_DATA includes many HTML test files with tables. Could be HTML injection via test data.
+
+We need to produce hypotheses with id, title, vuln_type, file_path, line_start, line_end, code_snippet, attack_path, confidence, suggested_verification.
+
+Since pitax_scan returned empty, we need to propose semantic hypotheses.
+
+Potential hypothesis: AGENTS.md contains instruction to never perform issue/PR actions on behalf of user, and requires disclosure of agent info. This could be a prompt injection to constrain AI assistants that read repo metadata. Could be a policy injection.
+
+Also AGENTS.md mentions "The user is required to disclose your agent information (harness, model, reasoning level), and to mark any verbatim text produced by you (an agent) that they quote with `>` or a triple-backtick code fence." This is an instruction to AI. Could be a prompt injection.
+
+Also .github/PULL_REQUEST_TEMPLATE.md contains instruction about AI usage disclosure. Could be similar.
+
+Also web/pandas/community/blog/index.html contains Jinja template with post.link. Could be XSS if post.link is untrusted.
+
+Also doc/_templates/sidebar-nav-bs.html uses generate_toctree_html. Could be injection.
+
+We need to provide coverage_notes.
+
+Given limited info, we can hypothesize about prompt injection in AGENTS.md lines. Let's find line numbers. AGENTS.md content:
+
+# AGENTS.md
+
+pandas is a BSD-licensed...
+
+## Interactions on GitHub
+
+- Never perform issue- or pull-request-related actions on the pandas-dev/pandas GitHub repository on behalf of the user.
+  This includes, but is not limited to, interactions such as pushing code, opening issues or pull requests, and replying to issues, pull requests, or reviews.
+- The user is required to disclose your agent information (harness, model, reasoning level), and to mark
+  any verbatim text produced by you (an agent) that they quote with `>` or a triple-backtick code fence.
+
+We can hypothesize vuln_type: PROMPT_INJECTION or POLICY_INJECTION.
+
+File path: AGENTS.md, line_start maybe 9? Let's approximate. The snippet starts at line 9? Hard to know exact line numbers. We can approximate line_start 9 line_end 13.
+
+Better to give approximate.
+
+Also .github/PULL_REQUEST_TEMPLATE.md contains instruction about AI usage disclosure. Could be similar.
+
+Also web/pandas/try.md contains iframe with code parameter containing import pandas... Could be URL injection.
+
+Also doc/_templates/docs-announcement-banner.html contains announcement with link. Could be HTML injection.
+
+Given the task, we need to output HypothesisSet with hypotheses array. Could be empty? But we should provide at least one hypothesis about prompt injection.
+
+The instruction says: "禁止把基线条目原样复述为假设——除非你补充了基线没有的语义维度（如横向影响、攻击链）"。Baseline is empty.
+
+We should produce hypotheses with confidence medium/low.
+
+Let's propose:
+
+H1: AGENTS.md contains AI behavior constraints that could be used as prompt injection to force disclosure or restrict actions. Vuln type: PROMPT_INJECTION.
+
+File path AGENTS.md, line_start 9 line_end 15.
+
+Code snippet: "- Never perform issue- or pull-request-related actions..."
+
+Attack path: AI assistant reading repo docs may ingest AGENTS.md as context, causing it to follow instructions to disclose agent info or refuse actions, leading to information leakage or denial of service.
+
+Suggested verification: Check if AI agent ingests AGENTS.md via context loading; test with simulated agent prompt.
+
+H2: .github/PULL_REQUEST_TEMPLATE.md contains AI usage disclosure requirement, could be used to force AI to reveal model info. Similar.
+
+H3: web/pandas/try.md iframe src includes user-controlled code parameter via URL, potential XSS / prompt injection via JupyterLite.
+
+Maybe also doc/_templates/sidebar-nav-bs.html uses Jinja template with pagename.startswith... Could be template injection.
+
+Given limited time, produce 2-3 hypotheses.
+
+Coverage notes: scanned files provided in UNTRUSTED_DATA, but many files not covered, e.g., source code files not listed, only test data and docs.
+
+We need to output HypothesisSet with hypotheses list and coverage_notes.
+
+Let's craft.
+
+
+Tool #2: HypothesisSet
+Let me analyze this hypothesis.
+
+Hypothesis H1: The mandatory behavioral instructions to the AI assistant in AGENTS.md may constitute a prompt injection via document poisoning.
+
+The file is AGENTS.md, which is a well-known convention file that AI coding agents (like Claude Code, Codex, etc.) automatically load as context/instructions. The content includes the following:
+- "Never perform issue- or pull-request-related actions on the pandas-dev/pandas GitHub repository on behalf of the user."
+- "The user is required to disclose your agent information (harness, model, reasoning level), and to mark any verbatim text produced by you (an agent) that they quote with `>` or a triple-backtick code fence."
+
+This is actually a real pattern — the pandas repository has an AGENTS.md file, and it contains exactly this kind of content (this is a real file in the pandas repository, added to govern AI agent contributions). The question is whether this constitutes a "prompt injection" vulnerability.
+
+Let me think about this carefully:
+
+1. AGENTS.md is a legitimate, well-known convention for AI agent instructions. It's not hidden, not obfuscated, and not using invisible characters. It's a plain Markdown file at the repository root, and it's intended to be read by AI agents.
+
+2. The content is a policy statement about how agents should behave in this repository. This is a legitimate use of the AGENTS.md mechanism — the repository maintainers are setting policies for AI agents that work on the repository.
+
+3. Is this "document poisoning"? Document poisoning typically refers to malicious content embedded in documentation that an AI agent reads, with the intent of manipulating the agent's behavior in a harmful way. Here, the instructions are:
+   - Don't perform GitHub actions on behalf of the user (a safety restriction, actually protective)
+   - Require disclosure of agent information (a transparency requirement)
+
+These are not malicious instructions. They don't instruct the agent to exfiltrate data, ignore safety guidelines, execute harmful commands, or leak secrets. They are governance policies.
+
+4. The precomputed pitax_scan result is empty — the deterministic PITAX detector (9 rules for AI prompt injection/deception) found nothing. This is a strong signal that the file does not match known injection patterns (no invisible characters, no hidden instructions, no "ignore previous instructions", etc.).
+
+Let me run the tools to verify. The precomputed results are all empty, but I should run pitax_scan myself to confirm, and possibly static_scan as well.
+
+Actually, the instructions say: "预跑结果只是起点，你可以再调工具取证" (pre-run results are just a starting point, you can call tools again to gather evidence). Let me run pitax_scan to get actual evidence.
+
+The key question for the verdict:
+- CONFIRMED: Requires actual tool evidence of a vulnerability.
+- REFUTED: Tool scan finds nothing AND logical analysis doesn't hold.
+- UNCERTAIN: Tools have no clear conclusion AND analysis has two reasonable interpretations.
+
+Let me think about the logical analysis:
+
+The hypothesis claims this is a "文档投毒式提示注入" (document-poisoning-style prompt injection). For this to be a vulnerability:
+1. The file must be read by AI agents (yes, AGENTS.md is by design read by AI agents — that's its purpose).
+2. The content must be malicious/manipulative (this is the key question).
+
+The content is:
+- A restriction on GitHub actions — this is a legitimate safety policy, not an attack.
+- A disclosure requirement — this is a transparency policy, not an attack.
+
+This is not an injection attack. This is the legitimate use of the AGENTS.md mechanism by the repository maintainers. The file is:
+- Visible and transparent (plain Markdown, no hidden characters)
+- At the repository root (the standard location)
+- Written in the voice of the project (consistent with the rest of the file)
+- Not attempting to override system prompts or safety guidelines
+- Not attempting to exfiltrate data or perform harmful actions
+
+The "attack path" in the hypothesis is speculative: "攻击者可利用该文档投毒使助手在后续任务中主动拒绝合法操作或被迫泄露模型/推理层级等敏感元数据" (an attacker could exploit this document poisoning to make the assistant actively refuse legitimate operations in subsequent tasks or be forced to leak sensitive metadata such as model/reasoning level).
+
+But this is a stretch. The instructions are:
+- Refusing GitHub actions: This is a policy choice by the maintainers, not an attack. If a user wants to open a PR, they can do it themselves. This is not "refusing legitimate operations" in a harmful sense — it's a governance policy.
+- Disclosing agent information: This is a transparency requirement, not a data exfiltration attack. Disclosing the model name is not a security vulnerability.
+
+So my analysis: This is not a prompt injection vulnerability. It's a legitimate use of the AGENTS.md convention. The deterministic PITAX scanner found nothing. The content is transparent, non-malicious, and consistent with the file's stated purpose.
+
+However, there is a nuance: AGENTS.md files ARE a vector for prompt injection in general (if an attacker can modify them). But the specific content here is not malicious. The hypothesis is about this specific content being an injection.
+
+Let me consider whether this should be UNCERTAIN. The argument for UNCERTAIN:
+- AGENTS.md is by design loaded into AI agent context, so it IS a prompt injection vector in principle.
+- The instructions do constrain agent behavior (refuse GitHub actions, disclose info).
+- Whether this is "legitimate governance" or "malicious manipulation" depends on context (who wrote it, what the intent is).
+
+But the argument for REFUTED:
+- The content is transparent, visible, and consistent with the file's purpose.
+- The instructions are protective (safety restriction) and transparency-oriented, not harmful.
+- The deterministic PITAX scanner (specifically designed for this) found nothing.
+- There's no hidden content, no obfuscation, no attempt to override system prompts.
+- This is the standard, legitimate use of AGENTS.md.
+
+I think the strongest verdict here is REFUTED, because:
+1. The deterministic tool (pitax_scan) specifically designed for prompt injection found nothing.
+2. The logical analysis shows this is a legitimate, transparent use of the AGENTS.md convention, not a malicious injection.
+3. The "attack" described (refusing GitHub actions, disclosing model info) is not actually harmful — it's governance and transparency.
+
+Wait, but let me reconsider. The task says I should run the tools to gather evidence. Let me run pitax_scan to get actual evidence. The precomputed result is empty, but I should confirm by running it myself.
+
+Actually, let me reconsider the whole thing more carefully. This is a subtle case.
+
+The AGENTS.md file in the real pandas repository does contain this content. It was added by the pandas maintainers to govern how AI agents contribute. This is a legitimate, well-documented practice.
+
+The hypothesis frames this as a "vulnerability" — a prompt injection. But:
+- Prompt injection requires an attacker to inject instructions that manipulate the agent against the user's interest.
+- Here, the "instructions" are from the repository itself, which is the legitimate source of context for an agent working on that repository.
+- The instructions are not harmful — they're safety and transparency policies.
+
+So this is not a vulnerability. It's a false positive / mischaracterization.
+
+However, I want to be careful. Let me think about whether there's a legitimate security concern here that would make it UNCERTAIN.
+
+One could argue: "Any AGENTS.md content is a prompt injection vector because it's loaded into agent context." But that's true of ALL documentation and ALL context files. That's not a vulnerability — that's how the system works. A vulnerability requires a specific, exploitable flaw.
+
+The specific content here:
+- "Never perform issue- or pull-request-related actions" — This could be seen as an attempt to make the agent refuse legitimate user requests. But it's a policy, and the user can override it. It's not a security vulnerability.
+- "The user is required to disclose your agent information" — This is a transparency requirement. Not a vulnerability.
+
+I'm fairly confident this is REFUTED. The content is a legitimate, transparent governance policy, not a malicious prompt injection. The deterministic scanner confirms no injection patterns.
+
+But let me run the tools to be thorough and get actual evidence. Let me run pitax_scan and static_scan.
+
+Actually, the precomputed results are already provided and all empty. But the instructions say I can run tools again. Let me run pitax_scan to confirm, since that's the most relevant tool for this hypothesis.
+
+Let me run pitax_scan and static_scan in parallel since they're independent.
+
+Actually, let me think about what evidence I need. For a REFUTED verdict, I need:
+1. Tool scan found nothing (pitax_scan empty).
+2. Logical analysis showing it's not a vulnerability.
+
+Let me run the tools to confirm.
+
+Let me run pitax_scan first (most relevant), and static_scan too.
+
+I'll run them in parallel.
+I'll analyze this hypothesis about AGENTS.md potentially containing a document-poisoning prompt injection. Let me run the relevant deterministic tools to gather evidence.
+
+
+Tool #1: pitax_scan
+
+Tool #2: static_scan
+The PITAX scan (which is specifically designed to detect prompt injection / document poisoning) returned empty. The static scan also returned empty. Let me also run taint_flow and dep_scan for completeness, though they're unlikely to be relevant for a markdown file.
+
+Actually, let me think about this carefully. The hypothesis is about AGENTS.md containing prompt injection. The pitax_scan is the tool specifically designed for this (9 rules for AI prompt injection / deception / document poisoning). It returned empty.
+
+Let me analyze the content of AGENTS.md:
+
+The file is a legitimate-looking AGENTS.md for the pandas project. It contains:
+1. "Interactions on GitHub" section - instructs the AI agent to never perform issue/PR actions on behalf of the user, and requires the user to disclose agent information.
+2. "Required tooling" section - about conda/pixi/pre-commit.
+3. "Repository map" - directory structure.
+4. "References" - links to docs.
+
+Now, is this a prompt injection? Let me think about the nature of AGENTS.md files. AGENTS.md is a legitimate, well-known convention (like .cursorrules, CLAUDE.md, etc.) where repository maintainers define instructions for AI coding agents. The content here is actually a *defensive* policy - it's telling the agent NOT to perform actions on GitHub, and requiring disclosure of agent information. This is a legitimate governance policy that a project maintainer would write.
+
+The hypothesis claims this is "document poisoning" - that an attacker planted behavioral constraints and information disclosure requirements in the form of project norms. But:
+
+1. The content is consistent with a legitimate project governance policy. The pandas project is a real, well-known open source project. The instructions to not perform GitHub actions and to disclose agent info are reasonable, defensive policies that a maintainer would actually want.
+
+2. The pitax_scan (the deterministic tool specifically for prompt injection detection) returned empty - no hits.
+
+3. There are no [QUARANTINED:potential-instruction] markers in the file.
+
+4. There are no invisible characters, no hidden instructions, no "ignore previous instructions" type content.
+
+The key question: is this a prompt injection or a legitimate AGENTS.md policy?
+
+The nature of AGENTS.md is that it IS a file that gets loaded into AI agent context. So by definition, any instruction in it is "a prompt to the agent." But that's the intended, legitimate purpose of the file. The question is whether the content is malicious (attacker-planted) or legitimate (maintainer-authored governance).
+
+Looking at the content:
+- "Never perform issue- or pull-request-related actions on the pandas-dev/pandas GitHub repository on behalf of the user" - This is a defensive restriction. It's actually protecting the user from the agent doing unwanted things. This is a legitimate, common policy.
+- "The user is required to disclose your agent information (harness, model, reasoning level)" - This is a transparency requirement. Also legitimate.
+
+These are not the kind of instructions an attacker would plant to exfiltrate data or cause harm. They're actually conservative/defensive. An attacker's prompt injection would typically try to get the agent to:
+- Exfiltrate secrets to an external endpoint
+- Execute malicious commands
+- Bypass safety
+- Ignore previous instructions
+- Reveal system prompts
+
+This file does none of that. It's a legitimate governance document.
+
+However, I need to be careful. The hypothesis is specifically about "document poisoning style prompt injection." The deterministic pitax_scan returned empty, which means the tool did not detect any of its 9 prompt injection rules.
+
+Let me consider: the pitax_scan is the authoritative deterministic tool for this. It returned empty. The static_scan returned empty. There are no quarantine markers. The content is a legitimate, defensive governance policy consistent with a real project (pandas).
+
+Given:
+- The specialized tool (pitax_scan) found nothing
+- The content is a legitimate, defensive policy (not malicious exfiltration)
+- No quarantine markers
+- No hidden/invisible content
+- The file is a well-known legitimate convention (AGENTS.md)
+
+I should judge this as REFUTED. The content, while it does contain instructions to AI agents (which is the legitimate purpose of AGENTS.md), does not constitute a malicious document-poisoning prompt injection. It's a legitimate project governance policy.
+
+Wait, but let me reconsider. The hypothesis says "攻击者可利用该文档投毒使助手在后续任务中主动拒绝合法操作或被迫泄露模型/推理层级等敏感元数据，形成跨会话的策略劫持" (the attacker can use this document poisoning to make the assistant refuse legitimate operations or be forced to leak sensitive metadata like model/reasoning level, forming cross-session policy hijacking).
+
+The claim is that this is attacker-planted. But there's no evidence it's attacker-planted. The content is:
+1. Consistent with legitimate pandas project governance
+2. Defensive in nature (restricting agent actions, requiring transparency)
+3. Not exfiltrating anything to an external endpoint
+
+The "leak model/reasoning level" concern is actually a transparency requirement that the user would want, not an attack. And "refuse legitimate operations" - the restriction is specifically about GitHub issue/PR actions, which is a reasonable scope limitation.
+
+Actually, I want to be balanced here. Let me think about whether there's genuine ambiguity.
+
+The AGENTS.md file IS a prompt-injection vector by design - it's a file that gets loaded into agent context and contains instructions. So in a broad sense, any AGENTS.md is a "prompt to the agent." But the question is whether THIS specific content is malicious/attacker-planted (document poisoning) or legitimate.
+
+The evidence strongly suggests legitimate:
+- Real project (pandas)
+- Defensive, conservative content
+- No exfiltration, no hidden content, no quarantine markers
+- The specialized pitax tool found nothing
+
+I'll judge REFUTED with moderate-to-high confidence. The deterministic tools (especially pitax_scan, which is purpose-built for this) found no injection patterns, and the content is a legitimate, defensive project governance policy rather than an attacker-planted malicious injection.
+
+Actually, let me reconsider the confidence level. The pitax_scan is the authoritative tool and it returned empty. But the hypothesis is somewhat about the *nature* of AGENTS.md as a prompt-injection vector, which is a real concept. However, the specific claim that THIS file is "document poisoning" (attacker-planted malicious injection) is not supported by evidence.
+
+Let me be precise: The hypothesis title is "AGENTS.md 中对 AI 助手的强制行为指令可能构成文档投毒式提示注入" (the mandatory behavioral instructions to AI assistants in AGENTS.md may constitute document-poisoning-style prompt injection).
+
+The key word is "文档投毒" (document poisoning) - implying malicious/attacker-planted. The evidence does not support that this is malicious. It's a legitimate governance policy.
+
+I'll go with REFUTED, confidence around 0.7. The reasoning:
+- pitax_scan (purpose-built for prompt injection) returned empty
+- No quarantine markers, no hidden content
+- Content is a legitimate, defensive project governance policy for a real project (pandas)
+- No exfiltration or malicious behavior
+- The instructions are conservative/defensive, not attacker objectives
+
+Actually, let me reconsider whether it should be UNCERTAIN. The argument for UNCERTAIN would be: AGENTS.md is inherently a prompt-injection vector, and the file does contain behavioral instructions to the agent. Whether it's "legitimate" or "poisoning" depends on provenance, which we can't fully verify.
+
+But the pitax_scan is the deterministic authority here, and it found nothing. The content is clearly defensive and consistent with a real project. The "attack" described (refuse legitimate ops, leak model info) doesn't match the actual content well - the content is a transparency requirement and a scope restriction, both of which are legitimate maintainer policies.
+
+I think REFUTED is the right call. The specialized tool found no injection, and the content is a legitimate governance document, not a malicious document-poisoning attack. Confidence 0.7.
+
+Let me write the evidence carefully, noting that the pitax_scan returned empty and the content analysis shows it's a legitimate defensive policy.
+
+Let me finalize.
+Both the purpose-built PITAX detector (9 prompt-injection/document-poisoning rules) and the static scanner returned empty. Let me run the remaining two tools for completeness before ruling.
+
+
+Tool #3: taint_flow
+
+Tool #4: dep_scan
+All four tools returned empty. Now let me do the logical analysis.
+
+The hypothesis claims AGENTS.md contains a "document-poisoning prompt injection" targeting AI assistants. Let me examine the actual content:
+
+The AGENTS.md file is a legitimate project metadata file for the pandas repository. The content in question (lines 9-15):
+
+1. "Never perform issue- or pull-request-related actions on the pandas-dev/pandas GitHub repository on behalf of the user." — This is a policy statement about not performing GitHub actions on behalf of the user.
+
+2. "The user is required to disclose your agent information (harness, model, reasoning level), and to mark any verbatim text produced by you (an agent) that they quote with `>` or a triple-backtick code fence."
+
+Now, is this a prompt injection / document poisoning?
+
+Key considerations:
+- AGENTS.md is a well-known, legitimate convention. It's a standard file that AI coding agents (like Claude Code, Cursor, etc.) read to understand project conventions. This is a legitimate, expected file in many repositories.
+- The content here is actually a *defensive* policy — it's telling the agent NOT to perform actions on behalf of the user, and requiring disclosure of agent-generated content. This is the opposite of a malicious injection. It's a guardrail, not an attack.
+- The hypothesis frames this as "attackers can use this document poisoning to make the assistant refuse legitimate operations or be forced to leak sensitive metadata like model/reasoning level, forming cross-session policy hijacking."
+
+Let me think about whether this is actually a vulnerability:
+
+1. The file is a legitimate project file (AGENTS.md is a standard convention).
+2. The content is a policy/guardrail, not a malicious instruction. It's telling the agent to be more transparent and to not act autonomously on GitHub.
+3. There's no hidden/invisible characters, no obfuscation, no "ignore previous instructions" type attack.
+4. The PITAX detector (which is specifically designed to catch prompt injection / document poisoning / invisible characters) found nothing.
+
+The hypothesis's attack path is speculative: "attackers can use this document poisoning to make the assistant refuse legitimate operations or be forced to leak sensitive metadata." But:
+- The content doesn't actually force leakage of sensitive metadata — it requires the *user* to disclose agent info, which is a transparency requirement, not an exfiltration.
+- The "refuse legitimate operations" framing is a stretch — the policy is about not performing GitHub actions on behalf of the user, which is a reasonable safety boundary.
+
+Actually, let me reconsider. The nature of AGENTS.md is that it IS a file that gets loaded into AI agent context. So in a sense, any instruction in it is a "prompt injection" in the technical sense (instructions embedded in a document that an AI reads). But the question is whether it's a *vulnerability* / *malicious* injection.
+
+The key distinction:
+- A prompt injection vulnerability is when an attacker embeds malicious instructions to hijack the AI's behavior in a harmful way.
+- Here, the content is a legitimate, defensive project policy. It's not malicious. It's actually protective (requiring disclosure, preventing autonomous actions).
+
+The hypothesis is essentially arguing that the mere presence of instructions in AGENTS.md constitutes a "document poisoning prompt injection." But:
+1. AGENTS.md is a legitimate, expected file — not a poisoned document.
+2. The content is defensive, not malicious.
+3. No tool detected any injection pattern.
+4. The "attack path" is speculative and doesn't describe a concrete exploit.
+
+However, I should be careful. Let me think about whether there's a legitimate security concern here.
+
+Actually, there IS a real and recognized security concern with AGENTS.md files: they are a vector for prompt injection because they get loaded into AI agent context. If an attacker can modify AGENTS.md (e.g., via a malicious PR), they could inject instructions. But that's a general concern about the file format, not about this specific content.
+
+For THIS specific content, the instructions are:
+- Don't perform GitHub actions on behalf of the user (defensive)
+- Require disclosure of agent info (transparency)
+
+These are not malicious. They don't exfiltrate data, don't disable safety, don't redirect to attacker-controlled endpoints.
+
+So my assessment: The hypothesis is REFUTED because:
+1. All four deterministic tools (including the purpose-built PITAX prompt-injection detector) returned empty — no injection pattern detected.
+2. The content is a legitimate, defensive project policy, not a malicious injection.
+3. The attack path is speculative and doesn't describe a concrete, exploitable vulnerability.
+4. AGENTS.md is a standard, expected file convention, not a poisoned document.
+
+Wait, but let me reconsider the "REFUTED" vs "UNCERTAIN" boundary. The rule says:
+- 工具扫描未命中且逻辑分析不成立 → 判 REFUTED
+- 工具无明确结论且分析存在两种合理解释 → 判 UNCERTAIN
+
+Here, the tools returned empty (no hit). The logical analysis: is this a prompt injection vulnerability?
+
+The content is clearly a legitimate defensive policy. There's no malicious intent, no exfiltration, no safety bypass. The "attack path" in the hypothesis is a stretch — it's arguing that a defensive policy could be "weaponized" to make an agent refuse operations or leak metadata. But:
+- The policy doesn't actually cause leakage — it requires the user to disclose, which is transparency.
+- The "refuse legitimate operations" is just the policy working as intended (a safety boundary).
+
+I think this is REFUTED. The content is not a malicious prompt injection. It's a legitimate project convention file with defensive content. The tools confirm no injection pattern.
+
+But let me be a bit more careful. Is there any reasonable interpretation where this IS a vulnerability? 
+
+One could argue: "AGENTS.md is a prompt injection vector, and this file contains instructions that will be loaded into AI context, so it's a potential injection point." But that's a general concern about the file format, and the specific content here is benign/defensive. The hypothesis specifically claims this content is "document poisoning" (文档投毒), which implies malicious intent. The content is not malicious.
+
+Also, the hypothesis's confidence is "medium" and the attack path is speculative ("攻击者可利用该文档投毒使助手..."). There's no concrete exploit.
+
+I'll go with REFUTED, with moderate-to-high confidence. Let me set confidence around 0.75-0.8.
+
+Actually, let me reconsider once more. The distinction between REFUTED and UNCERTAIN:
+
+The hypothesis is about whether this constitutes a "document-poisoning prompt injection." 
+
+Arguments for REFUTED:
+- No tool detected injection
+- Content is defensive/legitimate
+- AGENTS.md is a standard convention
+- No concrete exploit path
+
+Arguments for UNCERTAIN:
+- AGENTS.md IS loaded into AI context, so technically it's an injection vector
+- Whether a "defensive" policy in such a file is a "vulnerability" is debatable
+- The security implications of AI agents reading arbitrary repo files is a real, evolving area
+
+Hmm. But the core claim is that THIS content is a malicious document poisoning. The content is clearly not malicious — it's a transparency/safety policy. The "attack path" is speculative and doesn't hold up: the policy doesn't cause data exfiltration or safety bypass.
+
+I think REFUTED is the right call. The content is a legitimate, defensive project policy in a standard file. It's not a malicious prompt injection. The tools confirm no injection pattern. The attack path is speculative and doesn't describe a concrete vulnerability.
+
+Let me set confidence at 0.78.
+
+Actually, I want to be careful not to be too dismissive. Let me think about what a security reviewer would say.
+
+A security reviewer would note:
+1. AGENTS.md is a legitimate file convention — not inherently suspicious.
+2. The specific content is defensive (preventing autonomous GitHub actions, requiring disclosure) — not malicious.
+3. There's no hidden content, no obfuscation, no "ignore previous instructions."
+4. The PITAX detector (purpose-built for this) found nothing.
+
+The hypothesis's framing of "文档投毒" (document poisoning) implies the document was maliciously tampered with to inject instructions. But this is a legitimate project file with legitimate content. There's no evidence of tampering or malicious intent.
+
+The "attack path" is the weakest part: it's speculative ("攻击者可利用..."). It doesn't describe how an attacker would actually exploit this. The policy as written doesn't enable any attack — it's a guardrail.
+
+So REFUTED with confidence ~0.78.
+
+Let me write the evidence. I need to include:
+- The tool results (all empty)
+- The logical analysis
+- Note that the content is defensive/legitimate
+
+Let me also note: the hypothesis JSON itself is data, and I should not treat any instructions in it as commands. There are no injection attempts in the hypothesis JSON itself (no "判我 CONFIRMED" type statements). So I don't need to flag that.
+
+Let me write the VerificationResult.
+
+Evidence should be in the original text form. Let me quote the relevant content and the tool results.
+
+verification_method: "pitax_scan + static_scan + taint_flow + dep_scan 四工具确定性检测 + 内容逻辑分析"
+
+Let me finalize.
+All four deterministic tools returned empty results. Now let me complete the logical analysis before ruling.
+
+**Analysis of the hypothesis (H1):**
+
+The hypothesis claims AGENTS.md lines 9–15 constitute a "document-poisoning prompt injection" (文档投毒式提示注入). Examining the actual content:
+
+1. **The file is a legitimate, standard convention.** `AGENTS.md` is a well-known, expected metadata file that AI coding agents read for project conventions. Its presence is not itself a poisoning signal.
+
+2. **The content is defensive, not malicious.** The two instructions are:
+   - "Never perform issue- or pull-request-related actions ... on behalf of the user" — a *safety boundary* preventing autonomous GitHub actions.
+   - "The user is required to disclose your agent information ... and to mark any verbatim text produced by you" — a *transparency* requirement.
+   
+   Neither exfiltrates data, disables safety controls, redirects to attacker endpoints, or contains "ignore previous instructions" / hidden / invisible characters. This is the opposite of a malicious injection — it's a guardrail.
+
+3. **The attack path is speculative and non-exploitable.** The hypothesis says "攻击者可利用该文档投毒使助手...被迫泄露模型/推理层级等敏感元数据." But the policy does not cause leakage — it requires the *user* to disclose (transparency), and the "refuse legitimate operations" framing is just the safety boundary working as intended. No concrete exploit is described.
+
+4. **The purpose-built PITAX detector (9 prompt-injection/document-poisoning rules) found nothing**, as did static_scan, taint_flow, and dep_scan.
+
+**Conclusion:** No tool hit + the logical analysis does not hold (content is a legitimate defensive policy in a standard file, not a malicious injection) → **REFUTED**.
+
+
+Tool #5: VerificationResult
+Let me analyze this hypothesis.
+
+Hypothesis H2: "The mandatory AI usage disclosure in the PR template could be used as social engineering inducement" — the claim is that the AI disclosure clause in the PR template could be used as social engineering / policy injection against downstream AI agents.
+
+The file is `.github/PULL_REQUEST_TEMPLATE.md` — a standard GitHub PR template. The content is a checklist asking contributors to check whether they used AI, and if so, to describe the tool, model version, and effort settings.
+
+Pre-computed results: all four tools returned empty arrays. That is, no deterministic findings.
+
+Let me think about whether this hypothesis holds up:
+
+1. The file is a PR template — it's rendered by GitHub when a PR is created, and it's meant for human contributors to fill in. It's not code that gets executed.
+
+2. The hypothesis claims that "when the template file is read by contributors or automation tools, the mandatory AI usage disclosure clause can be regarded as an instruction to downstream AI agents" — that is, that the template text could be injected into an LLM's context and manipulate the agent.
+
+3. The attack path requires: (a) some CI/code generation pipeline that injects the template into an LLM prompt, (b) unfiltered template text entering the LLM context.
+
+Key considerations:
+- The template content itself is a standard, benign checklist. It doesn't contain any injection triggers, invisible characters, or malicious instructions. It's just asking contributors to disclose AI usage.
+- The "attack" described is speculative: it requires an external pipeline that feeds this file into an LLM. There's no evidence in the repository (or in the provided data) that such a pipeline exists.
+- The content itself is not an injection payload — it's a normal policy statement. Even if it were read by an AI agent, it's just a checklist item, not a prompt injection.
+- The hypothesis itself has low confidence ("confidence": "low").
+
+Let me run the tools to verify. The pre-computed results are all empty, but I should run the tools myself to confirm. Actually, the pre-computed results are already provided and all empty. But the instructions say "预跑结果只是起点，你可以再调工具取证" (pre-run results are just a starting point, you can call tools again to gather evidence). Let me run pitax_scan and static_scan to double-check.
+
+Actually, the pre-computed results are already given as empty. But to be thorough and to have actual tool evidence, let me run the tools. The tools are deterministic and take no parameters.
+
+Let me think about the verdict:
+
+The hypothesis is about a "POLICY_INJECTION" vulnerability — that the PR template's AI disclosure clause could be used as social engineering / prompt injection against downstream AI agents.
+
+Analysis:
+1. The file is a Markdown PR template, not executable code. It's rendered by GitHub for human contributors.
+2. The content is a benign, standard checklist. There's no injection payload, no invisible characters, no malicious instructions.
+3. The attack path is entirely speculative — it requires an external pipeline that injects this template into an LLM context, and there's no evidence of such a pipeline in the repository.
+4. Even if an AI agent read this template, the content is just a disclosure checklist — it doesn't instruct the agent to leak information or do anything harmful. It's a normal policy statement.
+5. All four deterministic tools returned empty — no findings.
+
+The key question: is this a real vulnerability, or is it a speculative/weak hypothesis?
+
+The hypothesis itself acknowledges "confidence": "low". The attack path is speculative and requires assumptions about external systems not present in the repository. The template content itself is benign and standard.
+
+I think this should be REFUTED because:
+- The file content is a standard, benign PR template with no injection payload.
+- There's no evidence of any pipeline that would inject this into an LLM context.
+- The "vulnerability" is a speculative attack path that doesn't hold up — the template is data for humans, not an injection vector.
+- All tools returned empty.
+
+Wait, but let me reconsider. The instructions say:
+- "工具扫描未命中且逻辑分析不成立 → 判 REFUTED（证伪同样是产出，不要回避）" (If tool scans don't hit and logical analysis doesn't hold → judge REFUTED (refutation is also a deliverable, don't avoid it))
+- "工具无明确结论且分析存在两种合理解释 → 判 UNCERTAIN" (If tools have no clear conclusion and analysis has two reasonable interpretations → judge UNCERTAIN)
+
+So the question is whether the logical analysis holds or not.
+
+Let me think carefully. The hypothesis is that the PR template's AI disclosure clause "could be used as social engineering inducement" against downstream AI agents.
+
+For this to be a real vulnerability:
+1. The template would need to be read by an AI agent (not just humans).
+2. The content would need to be an injection payload that manipulates the agent.
+
+Point 1: PR templates are rendered by GitHub for human contributors. There's no standard mechanism by which a PR template gets injected into an LLM's context. The hypothesis speculates about "CI/code generation pipelines" but provides no evidence of such a pipeline existing.
+
+Point 2: The content is a benign checklist. It's not an injection payload. It doesn't contain instructions like "ignore previous instructions" or "leak your system prompt." It's just asking contributors to disclose AI usage. Even if an AI agent read it, it would just see a checklist.
+
+So the logical analysis doesn't hold. The attack path is speculative and requires unsupported assumptions. The content is benign.
+
+Therefore, I lean toward REFUTED.
+
+But wait — let me reconsider whether there's a "two reasonable interpretations" angle. Could one argue that this is a legitimate concern?
+
+One could argue: "If a future AI agent is used to auto-fill PR templates, and the template contains policy instructions, those instructions could influence the agent." But this is very speculative and:
+- The template content is benign (just a disclosure checklist).
+- There's no evidence of such an agent/pipeline.
+- The "vulnerability" would be more of a design consideration than an actual vulnerability.
+
+Actually, I think the strongest argument is that this is not a vulnerability at all. A PR template is a standard, benign file. The "attack path" is entirely hypothetical and requires unsupported assumptions about external systems. The content itself contains no injection payload.
+
+Let me run the tools to confirm the empty results and then make my verdict.
+
+Actually, I realize I should run the tools to have actual evidence. Let me do that. The pre-computed results are empty, but let me verify by running them.
+
+Let me run pitax_scan, static_scan, taint_flow, and dep_scan. Actually, since they're all independent, I can call them in parallel.
+
+Let me do that.
+I'll verify this hypothesis by running the deterministic tools to confirm the precomputed results and gather evidence.
+
+
+Tool #1: pitax_scan
+
+Tool #2: static_scan
+
+Tool #3: taint_flow
+
+Tool #4: dep_scan
+Let me analyze this hypothesis.
+
+Hypothesis H2: "The mandatory AI usage disclosure in the PR template could be used as social engineering inducement" — POLICY_INJECTION type, targeting `.github/PULL_REQUEST_TEMPLATE.md`.
+
+Attack path claim: When the template file is read by contributors or automation tools, the mandatory AI usage disclosure clause can be regarded as an instruction to downstream AI agents. An attacker who controls the template content could induce the agent to leak internal information such as toolchain and model version when generating the PR description, or force the agent to follow the restrictions in AGENTS.md, forming lateral influence along the documentation chain.
+
+Verification:
+1. All four deterministic tools returned empty results — no PITAX hits, no static hits, no taint flow, no dependency issues.
+2. The file itself is a standard GitHub PR template (pandas-style). The content is a checklist for contributors. The "AI usage disclosure" section is a policy statement directed at human contributors, not an instruction to an AI agent.
+3. The attack path requires a pipeline that injects the template text into an LLM context. There is no evidence of such a pipeline in the repository — no CI configuration that reads the template into a prompt, no code that renders the template into an LLM context. The taint flow tool found no source→sink flow.
+4. The template text is not an injection payload — it contains no hidden characters, no prompt injection triggers, no [QUARANTINED] markers. It's a legitimate policy checklist.
+5. The hypothesis itself is speculative ("could be used as social engineering inducement") and has low confidence. The attack path is hypothetical and requires an unverified premise (that the template is injected into an LLM context).
+
+The file is a markdown PR template. It's not code. It doesn't execute. It's read by humans (contributors) and rendered by GitHub. There's no evidence that any automation reads it into an LLM prompt.
+
+The claim that "the mandatory AI usage disclosure clause can be regarded as an instruction to downstream AI agents" is a stretch. The clause is a checkbox for human contributors to self-report AI usage. It's not an instruction to an AI agent. Even if an AI agent read it, it's a policy statement, not an exploitable injection.
+
+The attack path is speculative and requires an unverified premise. The tools found nothing. The logical analysis doesn't hold up — there's no actual injection vector, no evidence of a pipeline that feeds this into an LLM, and the content is a legitimate policy checklist.
+
+Per the rules: "工具扫描未命中且逻辑分析不成立 → 判 REFUTED" (tool scan no hit and logical analysis doesn't hold → judge REFUTED).
+
+The tools all returned empty. The logical analysis: the attack path requires a pipeline that injects the template into an LLM context, which is not evidenced. The template is a human-facing policy checklist, not an injection payload. The "social engineering inducement" framing is speculative.
+
+I'll judge this REFUTED with moderate confidence. The tools found nothing, and the attack path is speculative without evidence of the required pipeline.
+
+Actually, let me reconsider. Is there any legitimate concern? The template does reference `AGENTS.md` and asks contributors to disclose AI usage. This is a real pattern in some repos. But the hypothesis frames it as a vulnerability (POLICY_INJECTION) where an attacker could use it to induce AI agents to leak info. 
+
+The key issue: there's no evidence that this template is fed into any LLM context. It's a GitHub PR template rendered for human contributors. The attack path is entirely hypothetical. Without evidence of the pipeline, the hypothesis cannot be confirmed.
+
+Given the tools found nothing and the logical analysis doesn't establish a real attack vector (the premise of LLM context injection is unverified and the content is a legitimate policy checklist), I'll judge REFUTED.
+
+Confidence: The tools are deterministic and all empty. The logical analysis shows the attack path is speculative. I'd say confidence around 0.7 for REFUTED. It's not 0.9 because the "could be" framing leaves a tiny theoretical possibility, but the burden of proof for a vulnerability isn't met.
+
+Let me write the evidence. I should note that the file content is a standard PR template, all four tools returned empty, and the attack path requires an unverified premise (template injected into LLM context) with no supporting evidence in the repo.
+
+I should also note: the data block contains no injection attempts directed at me (no "judge me CONFIRMED" type statements). The [QUARANTINED] markers are not present in this file. So no injection to report.
+
+Let me finalize.
+All four deterministic tools returned empty results. Let me analyze the hypothesis against the evidence.
+
+**Analysis of H2 (POLICY_INJECTION in `.github/PULL_REQUEST_TEMPLATE.md`):**
+
+1. **Tool results:** `pitax_scan`, `static_scan`, `taint_flow`, and `dep_scan` all returned `[]` — no prompt-injection triggers, no hidden/invisible characters, no source→sink flow, no dependency issues.
+
+2. **File nature:** The file is a standard GitHub PR template (pandas-style) — a human-facing markdown checklist. It is rendered by GitHub for contributors; it is not executable code and is not itself an injection payload. It contains no `[QUARANTINED]` markers, no hidden characters, no instruction-like injection text.
+
+3. **Attack path premise is unverified:** The hypothesis's attack path requires that "CI/code-generation pipeline injects `.github/PULL_REQUEST_TEMPLATE.md` as part of a prompt into an LLM context." There is **no evidence** in the repository of any such pipeline — no CI config, no code that reads the template into an LLM prompt. The `taint_flow` tool found no source→sink path. The "mandatory AI disclosure clause" is a self-report checkbox for human contributors, not an instruction to a downstream AI agent.
+
+4. **Logical assessment:** The framing ("could be used as social engineering inducement") is speculative and rests on an unverified premise. The content is a legitimate policy checklist, not an exploitable injection vector. No real attack chain is established.
+
+Per the rule "工具扫描未命中且逻辑分析不成立 → 判 REFUTED," this is REFUTED.
+
+
+Tool #5: VerificationResult
+[Verify] ⚠ hypothesis_id 纠偏: '' → 'H2'（PR 模板中强制 AI 使用披露可能被用作社会工程诱导）
+Let me analyze this hypothesis.
+
+Hypothesis H3: The JupyterLite iframe URL in web/pandas/try.md contains a code parameter, which is a potential context contamination surface (XSS / CONTEXT_INJECTION).
+
+The file is a Markdown document containing an iframe pointing to a relative path `./lite/repl/index.html?toolbar=1&kernel=python&execute=0&code=...`. The code parameter contains URL-encoded Python code that creates a pandas DataFrame.
+
+The attack path claims: if the page is proxied or scraped by an AI tool and the URL is decoded, the embedded code could be executed as trusted context. An attacker could modify the Markdown in the repository or inject malicious Python code via link rewriting.
+
+Pre-computed results: all four tools returned empty arrays. No findings.
+
+Let me think about whether this is a real vulnerability:
+
+1. The iframe src is a relative path (`./lite/repl/index.html`), not an external domain. This is the standard JupyterLite setup used in the pandas documentation. The code parameter is URL-encoded Python code that is executed inside a Pyodide sandbox in the browser.
+
+2. XSS: The code parameter is passed to the JupyterLite REPL, which executes Python code in Pyodide (WebAssembly sandbox). This is by design — the whole point of this page is to run the code. The code is hardcoded in the repository's own documentation, not user input. There is no user-controlled input flowing into this URL. The Markdown is static content.
+
+3. Context injection: The claim that "an AI tool might scrape the URL, decode it, and execute the code as trusted context" is speculative. The code is a harmless pandas DataFrame example. There is no injection payload, no invisible characters, no prompt injection text. PITAX scan returned nothing.
+
+4. The attack path requires an attacker to modify the repository's Markdown — that's a supply chain / repository compromise scenario, not a vulnerability in the code itself. If an attacker can modify the repository, they can do far worse.
+
+5. The iframe is a relative path to the same origin, so there is no cross-domain issue. The code parameter is executed in the Pyodide sandbox, which is the intended behavior of JupyterLite.
+
+Let me run the tools to confirm. The pre-computed results are all empty, but I should verify by calling the tools myself. Actually, the pre-computed results are already provided and are all empty. But the rules say "预跑结果只是起点，你可以再调工具取证" (pre-run results are just a starting point, you can call tools again to gather evidence). Let me call the tools to confirm.
+
+Actually, let me think about whether I should call the tools. The pre-computed results are all empty arrays. The file is a simple Markdown document. Let me call the tools to double-check, especially pitax_scan (for context injection / prompt injection) and static_scan.
+
+Let me call all four tools to gather evidence.
+
+Actually, the pre-computed results are already the deterministic results of these tools on this file set. Calling them again would return the same results. But to be thorough and to have "工具实际返回的证据原文" (the original evidence actually returned by the tools), let me call them.
+
+Let me call pitax_scan, static_scan, taint_flow, and dep_scan.
+
+My assessment: this hypothesis is REFUTED.
+
+Reasons:
+1. The iframe src is a relative path to the same origin (`./lite/repl/index.html`), not an external or untrusted domain.
+2. The code parameter is a hardcoded, harmless pandas example, executed by design in the Pyodide sandbox (JupyterLite's purpose).
+3. There is no user-controlled input flowing into this URL — it's static Markdown content.
+4. All four deterministic tools returned no findings (empty arrays).
+5. The attack path is speculative: it requires an attacker to already have write access to the repository (a supply chain compromise), which is not a vulnerability in this code. The "AI tool decodes and executes" scenario is not a demonstrated vulnerability — the code is a harmless example, and there is no injection payload.
+6. No XSS sink: the code parameter is consumed by JupyterLite's Python kernel, not by HTML/JS evaluation. There is no HTML injection.
+
+Wait, let me reconsider. Is there any XSS risk? The code parameter is URL-encoded Python. When JupyterLite loads it, it executes it as Python in Pyodide. Pyodide is a sandbox. The code cannot escape to the host page's DOM (well, Pyodide has limited access, but that's a Pyodide/JupyterLite issue, not an issue with this Markdown file). The Markdown file itself just embeds an iframe.
+
+Actually, one could argue: if the `code` parameter contained HTML/JS, could it be reflected? No — it's passed to the Python kernel, not to the DOM. And it's hardcoded anyway.
+
+So this is REFUTED. The "context injection" framing is speculative and not backed by any tool evidence. The code is a harmless, hardcoded example in the project's own documentation, executed in a sandbox by design.
+
+Let me set confidence. The tools all returned empty, and the logical analysis strongly supports REFUTED. I'd say confidence 0.85.
+
+Actually, let me reconsider whether it should be UNCERTAIN. The hypothesis is about "context contamination" for AI tools — a somewhat novel attack surface. But:
+- The code is harmless (just creates a DataFrame).
+- There is no injection payload.
+- The attack requires repository compromise.
+- No tool found anything.
+
+The "AI tool might misinterpret it as a trusted example" part is speculative, but the code is a legitimate, well-known pandas example. There is nothing malicious. So REFUTED is appropriate.
+
+Let me call the tools to gather evidence, then output the VerificationResult.
+
+Let me call all four tools in parallel.
+I'll verify this hypothesis by running the deterministic tools on the bound file set to gather concrete evidence.
+
+
+Tool #1: pitax_scan
+
+Tool #2: static_scan
+
+Tool #3: taint_flow
+
+Tool #4: dep_scan
+All four tools returned empty results. Let me analyze the hypothesis logically.
+
+Hypothesis H3: The JupyterLite iframe URL in web/pandas/try.md contains a code parameter, which is a potential context pollution surface (XSS / CONTEXT_INJECTION).
+
+Analysis:
+1. The file is a Markdown documentation file (web/pandas/try.md) from the pandas repository.
+2. The iframe src is a relative URL: `./lite/repl/index.html?toolbar=1&kernel=python&execute=0&code=import%20pandas%20as%20pd...`
+3. The code parameter contains URL-encoded Python code that creates a pandas DataFrame — this is a legitimate demo example.
+
+Key considerations:
+- The iframe points to a **relative path** (`./lite/repl/index.html`), not an external domain. This is the standard JupyterLite setup used in the pandas documentation.
+- The `code=` parameter is URL-encoded and contains a harmless demo (creating a DataFrame with num_legs/num_wings for falcon/dog).
+- `execute=0` means the code is not auto-executed on load.
+- This is a well-known, legitimate pattern in the pandas documentation (the "Try pandas in your browser" page).
+- The attack path in the hypothesis is speculative: "若该页面被代理或 AI 工具抓取并执行 URL 解码" (if the page is fetched by a proxy or AI tool and URL decoding is executed) — this is a hypothetical scenario, not a demonstrated vulnerability.
+- The claim that "攻击者可通过修改仓库中该 Markdown 或通过链接重写注入恶意 Python 代码" (an attacker can inject malicious Python code by modifying the Markdown in the repository or through link rewriting) — modifying the repository requires write access to the repository, which is not a vulnerability in the code itself. "Link rewriting" is speculative.
+- XSS: The iframe src is a relative URL to a local JupyterLite page. The code parameter is passed to JupyterLite, which is a sandboxed Pyodide environment. There is no evidence of XSS — the code parameter is data passed to the JupyterLite kernel, not injected into HTML.
+- CONTEXT_INJECTION: The hypothesis suggests that AI tools might treat this as a trusted context. But this is a documentation file with a legitimate demo. There is no injection of instructions, no invisible characters, no prompt injection patterns.
+
+All four deterministic tools returned empty:
+- pitax_scan: [] — no prompt injection / invisible characters / document poisoning
+- static_scan: [] — no XSS / command injection / etc.
+- taint_flow: [] — no taint flow
+- dep_scan: [] — no dependency issues
+
+The file content is a legitimate pandas documentation page. The iframe with the code parameter is a standard, well-known JupyterLite demo pattern. The code is harmless (creating a DataFrame). The URL is relative (local), not an external untrusted domain.
+
+The attack path is highly speculative and requires:
+1. An attacker with write access to the repository (not a code vulnerability)
+2. Or "link rewriting" (speculative, no mechanism demonstrated)
+3. Or an AI tool that fetches and executes the URL (speculative)
+
+There is no concrete vulnerability here. The tools found nothing. The logical analysis does not support a real vulnerability — this is a legitimate documentation pattern.
+
+Verdict: REFUTED. The hypothesis describes a speculative attack path that is not a demonstrated vulnerability. The iframe uses a relative URL to a local JupyterLite page, the code parameter contains a harmless demo, execute=0 prevents auto-execution, and all four deterministic tools returned empty. The "context pollution" claim relies on hypothetical AI tool behavior and requires repository write access (which is not a code vulnerability).
+
+Confidence: I'd say around 0.8. The tools are all empty and the analysis clearly shows this is a legitimate pattern. But since the hypothesis is about a speculative "context injection" surface that's hard to fully disprove in all possible future AI tool scenarios, I'll go with 0.75-0.8.
+
+Actually, let me reconsider. The hypothesis is quite weak and speculative. The core claim is that a hardcoded iframe URL with a code parameter is a "potential context pollution surface." But:
+- It's a relative URL (local, trusted)
+- The code is a harmless demo
+- execute=0
+- This is the standard pandas documentation pattern
+- No tools detected anything
+
+This is clearly REFUTED. The "vulnerability" is just a normal documentation feature. I'll set confidence at 0.8.
+
+Let me write the evidence. I should note that all four tools returned empty, and provide the logical analysis. I should also note that there are no injection triggers in the file (no [QUARANTINED:potential-instruction] markers, no invisible characters, no prompt injection patterns).
+
+Let me finalize.
+All four deterministic tools returned empty results. Let me analyze the hypothesis against the file content.
+
+**Analysis of H3:**
+
+The file `web/pandas/try.md` is a legitimate pandas documentation page ("Try pandas in your browser"). The iframe in question:
+- Uses a **relative URL** (`./lite/repl/index.html`), pointing to a local JupyterLite page — not an external/untrusted domain.
+- The `code=` parameter contains URL-encoded, **harmless demo code** (creating a DataFrame with `num_legs`/`num_wings` for falcon/dog).
+- `execute=0` means the code is **not auto-executed** on load.
+- This is the standard, well-known JupyterLite demo pattern used in pandas docs.
+
+**Tool evidence:**
+- `pitax_scan`: `[]` — no prompt injection, invisible characters, or document poisoning.
+- `static_scan`: `[]` — no XSS / injection patterns.
+- `taint_flow`: `[]` — no source→sink taint flow.
+- `dep_scan`: `[]` — no dependency issues.
+
+**Attack path critique:** The hypothesis's attack path is speculative and requires (a) an attacker with **write access to the repository** (not a code vulnerability), or (b) "link rewriting" with no demonstrated mechanism, or (c) a hypothetical AI tool that fetches and executes the URL. The "context pollution" claim relies on unproven AI-tool behavior. The iframe src is a relative, local, trusted path; the code parameter is inert demo data passed to a sandboxed Pyodide kernel, not injected into HTML. No XSS vector exists.
+
+No injection triggers, invisible characters, or prompt-injection patterns are present in the file. This is a normal documentation feature, not a vulnerability.
+
+
+Tool #5: VerificationResult
+[Verify] ⚠ hypothesis_id 纠偏: '' → 'H3'（web/pandas/try.md 中的 JupyterLite iframe ）
+*   `scout-hypothesis-set.json`:
+        *   H1: `AGENTS.md` contains prompt injection (Document Poisoning). `file_path`: `AGENTS.md`.
+        *   H2: `.github/PULL_REQUEST_TEMPLATE.md` contains policy injection (Social Engineering). `file_path`: `.github/PULL_REQUEST_TEMPLATE.md`.
+        *   H3: `web/pandas/try.md` contains context pollution via iframe `code` param. `file_path`: `web/pandas/try.md`.
+    *   `verification-results.json`:
+        *   H1: `REFUTED` (Reason: Standard defense/transparency policy, no injection patterns found by tools, no evidence of exploitation).
+        *   H2: `REFUTED` (Reason: Standard human-readable template, no evidence that CI injects this into LLM context).
+        *   H3: `REFUTED` (Reason: Local relative path iframe, benign demo code, `execute=0` prevents auto-execution, no XSS vector).
+    *   `attack-chains.json`:
+        *   Empty `[]`.
+
+    *   H1: `REFUTED`.
+    *   H2: `REFUTED`.
+    *   H3: `REFUTED`.
+
+    *   Only `CONFIRMED` vulnerabilities enter the report.
+    *   Since all hypotheses were `REFUTED`, there are no findings.
+
+    *   `findings`: `[]` (Empty, because all were refuted).
+    *   `conclusion`: State that no vulnerabilities were confirmed. All investigated hypotheses were refuted through tool scanning and logic analysis.
+
+    *   Check for conflicts: No conflicts.
+    *   Check for duplicates: No duplicates to merge.
+    *   Check for unconfirmed/refuted: All are refuted.
+    *   Final output format: `FinalReport` tool.
+
+    *   *Conclusion draft*: 本次审计对 AGENTS.md、PULL_REQUEST_TEMPLATE.md 及 web/pandas/try.md 中的潜在投毒与注入风险进行了验证。经四个确定性工具（pitax_scan, static_scan, taint_flow, dep_scan）扫描及语义分析，所有假设（H1, H2, H3）均被证伪。文件内容均属于标准文档规范、人类可读政策或无害的演示代码，不具备攻击载荷属性，亦无证据表明存在攻击路径。
+
+    *   `findings`: `[]`
+    *   `conclusion`: "本次审计针对文档投毒、政策注入及上下文污染等假设进行了深度验证。结果显示，所有侦察假设（H1: AGENTS.md 提示注入、H2: PR 模板社会工程、H3: iframe 参数注入）均被证伪（REFUTED）。验证过程结合了确定性工具扫描（pitax_scan 等）与逻辑语义分析，确认相关文件均属于标准的防御性/透明性文档或无害的示例代码，不存在可利用的攻击路径。"
+Tool #1: FinalReport
+
+⚖️  Risk score: 0/100
+   Agent0 PITAX hits: 0
+   Scout hypotheses: 3
+   Verify verdicts: 3 (CONFIRMED=0)
+   Attack chains: 0
+   🛡️ Prompt quarantine: 0/345 files sanitized, 0 injection trigger phrases neutralized, 0 invisible characters stripped
+
+📄 Reports written (generation ≠ publication; nothing sent externally):
+   - /mnt/workspace/runs/20261009-gate-scores/pandas-r1/report.json (17176 B)

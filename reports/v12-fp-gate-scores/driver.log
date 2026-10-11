@@ -1,0 +1,13 @@
+nohup: ignoring input
+[21:50] START axios
+[22:05] DONE axios (run_seconds=900)
+[22:05] START pydantic
+[22:08] DONE pydantic (run_seconds=163)
+[budget] SKIP pydantic
+[22:08] START uv
+[22:12] DONE uv (run_seconds=232)
+[budget] SKIP uv
+[22:12] START pandas-r1
+[22:23] DONE pandas-r1 (run_seconds=655)
+[budget] SKIP pandas-r1
+BATCH_DONE 22:23

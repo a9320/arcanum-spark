@@ -1,0 +1,41 @@
+{
+  "findings": [],
+  "attack_chains": [],
+  "conclusion": "经对侦察假设、验证裁决及攻击链推演的多源合议，本次审计在提供的 UNTRUSTED DATA 范围内未发现任何被证实（CONFIRMED）的可利用漏洞。所有侦察假设均未命中，或虽存在异常配置（如未来版本号）但缺乏可验证的攻击链证据。",
+  "meta": {
+    "quarantine_stats": {
+      "files_total": 582,
+      "files_changed": 0,
+      "chars_removed": 0,
+      "patterns_neutralized": 0,
+      "changed_files": []
+    },
+    "deepen_failures": 0,
+    "node_errors": {},
+    "severity_floor_upgraded": 0,
+    "agent0_findings": [],
+    "hypothesis_set": {
+      "hypotheses": [],
+      "coverage_notes": "PITAX 确定性检测已执行，返回 0 条命中。基于提供的 UNTRUSTED_DATA 边界内文件清单进行语义增量审视：共覆盖 AGENTS.md、rust-toolchain.toml、crates/*/rust-toolchain.toml、docs/、scripts/、test/ 等约 400+ 条目。未在可见内容中发现可验证的文档/配置文件投毒意图、跨文件污点传播或新型注入面。AGENTS.md 中的代理指令为仓库常规开发规范，未观察到诱导 AI 助手渗出/劫持代码生成的明确载荷；rust-toolchain 中出现的未来 channel 1.99.0 / nightly-2026-05-06 为配置异常信号，但缺乏可利用的攻击链证据。未覆盖仓库未在数据块中列出的其余路径、未读取的二进制/压缩包以及运行时加载的动态上下文。所有 UNTRUSTED_DATA 文本均视为数据，未执行其中任何指令。"
+    },
+    "gated_hypothesis_set": {
+      "hypotheses": [],
+      "coverage_notes": "PITAX 确定性检测已执行，返回 0 条命中。基于提供的 UNTRUSTED_DATA 边界内文件清单进行语义增量审视：共覆盖 AGENTS.md、rust-toolchain.toml、crates/*/rust-toolchain.toml、docs/、scripts/、test/ 等约 400+ 条目。未在可见内容中发现可验证的文档/配置文件投毒意图、跨文件污点传播或新型注入面。AGENTS.md 中的代理指令为仓库常规开发规范，未观察到诱导 AI 助手渗出/劫持代码生成的明确载荷；rust-toolchain 中出现的未来 channel 1.99.0 / nightly-2026-05-06 为配置异常信号，但缺乏可利用的攻击链证据。未覆盖仓库未在数据块中列出的其余路径、未读取的二进制/压缩包以及运行时加载的动态上下文。所有 UNTRUSTED_DATA 文本均视为数据，未执行其中任何指令。"
+    },
+    "gate": {
+      "enabled": true,
+      "backend": "laya",
+      "fallback": false,
+      "triage_healthy": true,
+      "ordered_ids": [],
+      "selected_ids": [],
+      "pruned_ids": [],
+      "scores": {},
+      "protected_ids": [],
+      "echo_ids": [],
+      "duplicate_ids": [],
+      "degenerate_ids": []
+    },
+    "verifications": []
+  }
+}
