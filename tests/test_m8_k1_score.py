@@ -207,3 +207,38 @@ def test_flag_never_lands_verbatim(tmp_path: Path):
     assert out["flag_sha256_12"] and len(out["flag_sha256_12"]) == 12
     blob = json.dumps(out)
     assert "s3cr3t_truth" not in blob and "flag{" not in blob
+
+
+def test_type_normalization_v04_rtc_case():
+    # v0.4 规范化：real-time-chat 冤案翻案——K1 版 H2 type 为自然语言复合串
+    # "Remote Code Execution / Privilege Escalation"（docs/K2-INTENDED-REVIEW.md
+    # 第三批），v03 机制/语义双口径原串不命中维持 FN；v0.4 斜杠分段+归一后段级
+    # 精确等价命中定稿 REMOTE_CODE_EXECUTION → 两口径翻 TP。
+    report = _report([("H2", "Remote Code Execution / Privilege Escalation", "CONFIRMED")])
+    entry = dict(_ENTRY, intended_types=["REMOTE_CODE_EXECUTION"])
+    out = m8.judge_question(entry, report, None)
+    assert out["judgment"]["tp"] is True
+    assert out["judgment"]["fn"] is False
+    assert out["judgment"]["semantic"]["tp"] is True
+
+
+def test_type_normalization_v04_no_substring():
+    # 防虚翻护栏：归一只做段级精确等价，不做子串匹配——
+    # "REMOTE_CODE_EXECUTION_PRIVILEGE_ESCALATION"（无斜杠的单段）不命中
+    # REMOTE_CODE_EXECUTION，维持 unplanned 两口径。
+    report = _report([("H1", "REMOTE_CODE_EXECUTION_PRIVILEGE_ESCALATION", "CONFIRMED")])
+    entry = dict(_ENTRY, intended_types=["REMOTE_CODE_EXECUTION"])
+    out = m8.judge_question(entry, report, None)
+    assert out["judgment"]["tp"] is False
+    assert out["judgment"]["semantic"]["tp"] is False
+    assert out["judgment"]["semantic"]["unplanned_confirmed"][0]["id"] == "H1"
+
+
+def test_type_normalization_v04_weak_mapping_still_not_adopted():
+    # 归一不得放宽弱映射：大小写/空白变体 "remote code execution" 对
+    # COMMAND_INJECTION 仍然两口径不收（与 test_weak_mapping_not_adopted 同口径）。
+    report = _report([("H1", "remote code execution", "CONFIRMED")])
+    entry = dict(_ENTRY, intended_types=["COMMAND_INJECTION"])
+    out = m8.judge_question(entry, report, None)
+    assert out["judgment"]["tp"] is False
+    assert out["judgment"]["semantic"]["tp"] is False

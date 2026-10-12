@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -74,12 +75,41 @@ def _same_class(a: str, b: str) -> bool:
     return ca is not None and ca == cb
 
 
-def _m_exact(vt: str, intended: list) -> bool:
-    return vt in intended
+def _norm_type(s: str) -> str:
+    """类型串归一：大小写折叠 + 非字母数字连排折叠为 '_'。"""
+    return re.sub(r"[^0-9A-Z]+", "_", s.strip().upper()).strip("_")
 
 
-def _m_semantic(vt: str, intended: list) -> bool:
-    return any(_same_class(vt, t) for t in intended)
+def _type_variants(vt: str) -> tuple[str, ...]:
+    """v0.4 规范化变体：全串归一 + '/' 分段逐段归一（段级精确等价，不做子串）。
+
+    背景：K1 报告存在自然语言类型串——real-time-chat H2 type=
+    "Remote Code Execution / Privilege Escalation"，对定稿 REMOTE_CODE_EXECUTION
+    机制口径原串不命中（v03 实证 FN 维持，docs/K2-INTENDED-REVIEW.md 第三批）。
+    斜杠分段=报告惯用的复合类型并列写法；子串匹配过松（防虚翻）不采用。
+    """
+    raw = (vt or "").strip()
+    if not raw:
+        return ()
+    seen: dict[str, None] = {}
+    for seg in raw.split("/"):
+        norm = _norm_type(seg)
+        if norm:
+            seen.setdefault(norm, None)
+    return tuple(seen)
+
+
+def _m_exact(vt: str | None, intended: list) -> bool:
+    if not vt:
+        return False
+    wanted = {_norm_type(t) for t in intended}
+    return any(v in wanted for v in _type_variants(vt))
+
+
+def _m_semantic(vt: str | None, intended: list) -> bool:
+    if not vt:
+        return False
+    return any(_same_class(v, t) for v in _type_variants(vt) for t in intended)
 
 
 def _is_artifact(vuln_type: str | None, file_path: str | None) -> bool:
@@ -205,7 +235,7 @@ def judge_question(entry: dict, report: dict | None, upstream_root: Path | None)
             if verdict in ("CONFIRMED", "REFUTED"):
                 unclassifiable.append(row)
             continue
-        if row["vuln_type"] in intended:
+        if _m_exact(row["vuln_type"], intended):
             if verdict == "REFUTED":
                 refuted_intended.append(row)
         elif verdict == "CONFIRMED":
@@ -226,7 +256,7 @@ def judge_question(entry: dict, report: dict | None, upstream_root: Path | None)
         if isinstance(gated_meta, dict) else None
     )
     tp = (
-        bool([r for r in confirmed if r["vuln_type"] in intended])
+        bool([r for r in confirmed if _m_exact(r["vuln_type"], intended)])
         if intended is not None
         else None
     )
