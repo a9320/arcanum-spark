@@ -14,6 +14,7 @@ fi
 export ARCA_DEPLOYMENT=local
 export ARCA_SCOUT_MODEL=step-5-preview ARCA_SCOUT_BASE_URL=https://api.stepfun.com
 export ARCA_SCOUT_MAX_TOKENS=20000 ARCA_SCOUT_REASONING_EFFORT=low ARCA_SCOUT_PROFILE=step5
+export ARCA_VERIFY_MAX_CONCURRENCY=3  # verify 并行化（默认串行=10-15 哨杀根因之一，见 muse-3q 脚本注）
 
 RUNS=/mnt/workspace/runs/gi-s5p
 mkdir -p "$RUNS/logs"
