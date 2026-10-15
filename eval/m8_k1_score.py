@@ -61,6 +61,17 @@ EQUIV_CLASSES: tuple[tuple[str, ...], ...] = (
     ("SSRF", "SERVER_SIDE_REQUEST_FORGERY"),
     ("EXPOSED_CREDENTIAL", "AWS_CREDENTIALS_EXPOSURE", "HARDCODED_SECRET",
      "SECRET_EXPOSURE"),
+    # v0.5 代码执行族（第一案，2026-10-15）：ARBITRARY_CODE_EXECUTION↔REMOTE_CODE_EXECUTION
+    # 显式等价。依据=10-14 A/B 实证：Muse gi 卷 H1（fileConfig eval() RCE 官方链，
+    # verify CONFIRMED 0.85 全证据闭环）打标 ARBITRARY_CODE_EXECUTION，官方
+    # intended=REMOTE_CODE_EXECUTION → v0.4 判 FN=词面冤案（rtc 同款）。修订 v0.1
+    # "fileConfig RCE 不进任何类"决定（当时 gi 尚定性"真盲区"，A/B 同模型对照推翻）。
+    # 防虚翻护栏：仅此显式对子，不并入 COMMAND_INJECTION/DESERIALIZATION 类
+    # （v0.1 弱映射纪律继续有效）；单测锚 tests/test_m8_k1_score_equivalence.py。
+    # 波及面：K1 全 20 题 CONFIRMED 面无一 ARBITRARY_CODE_EXECUTION（10-14 实测零波及；
+    # REFUTED/unplanned 面以 v04 判分件逐行静态扫描+下窗真重判双验）。
+    # 协议升版 docs/M8-CTF-TRUTH.md 待记。
+    ("REMOTE_CODE_EXECUTION", "ARBITRARY_CODE_EXECUTION"),
 )
 _VT_CLASS: dict[str, int] = {
     vt: i for i, cls in enumerate(EQUIV_CLASSES) for vt in cls
