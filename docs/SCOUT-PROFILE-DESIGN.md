@@ -48,10 +48,12 @@
 
 | 臂 | 配置 | 状态 |
 |---|---|---|
-| Muse×default | env 不动（本地 muse-scout） | =三题基线臂（在册第一优先，不推迟） |
-| step5×default | 无 REASONING_EFFORT/PROFILE env（=medium、原 prompt） | **已有两晚双杀数据**（对照） |
-| step5×step5-profile | `ARCA_SCOUT_REASONING_EFFORT=low` + `ARCA_SCOUT_PROFILE=step5` | 本设计主验证臂 |
-| step5×medium-profile（可选第二臂） | 仅 `ARCA_SCOUT_PROFILE=step5` | 窗口余量才跑 |
+| Muse×default | env 不动（本地 muse-scout） | 三题探针 10-15：Scout 语义 3/3 全 TP（verify 降级=探针口径）；干净版判读中 |
+| step5×default | 无 REASONING_EFFORT/PROFILE env（=medium、原 prompt） | **两晚双杀数据**（对照） |
+| step5×step5-profile | `ARCA_SCOUT_REASONING_EFFORT=low` + `ARCA_SCOUT_PROFILE=step5` | **✅ 10-15 实测存活**：gi ~1min 正式卷 16105B/5 假设/H1=官方链（含 @admin_only 维度）；泛化待 3q |
+| step5×medium-profile（可选第二臂） | 仅 `ARCA_SCOUT_PROFILE=step5` | 待跑（low 是否牺牲深度=开放问题） |
+
+**10-15 判读**：预注册规则①触发——产出✓+召回≥Muse✓ → step5 Scout 存活，混合臂 v2（并集）重开评估；定案④修正为"medium 档超预算，low 档+收敛纪律不超"。**注意：10-15 两臂 verify 均为规则兜底降级（配方漏 ARCA_DEPLOYMENT=local，已固化为 scripts/run-arm-*.sh），CONFIRMED 判词探针口径，tp/fn 定账待干净重跑。**
 
 **判据（预注册，窗口前不改）**：主判据=正式卷产出（exit=0 且 report bytes>10000 且无 node_errors）；副判据=墙钟 <25min、假设数、判分器 tp/fn（Muse 卷对照）。
 **裁读规则**：①低档卷产出且召回 ≥Muse → step5 Scout 存活，混合臂 v2 重开评估；②低档卷产出但召回塌方（显著劣于 Muse）→ 支持"思考型不适合 Scout 岗"在册定案，step5 转 Verify/Arbiter 岗实验；③低档仍哨杀 → 墙钟是唯一约束，两跳结构（非目标项）升级立项。

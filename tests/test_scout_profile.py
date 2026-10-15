@@ -29,10 +29,22 @@ def test_default_profile_is_byte_identical():
 
 
 def test_step5_profile_has_budget_discipline():
-    """红线 2：step5 档必须含对症条款（岗位收敛/墙钟自警/草稿预算/经济输出）。"""
+    """红线 2：step5 档必须含对症条款（岗位收敛/墙钟自警/数量硬帽/标签词表/分隔格式）。"""
     text = SCOUT_PROFILES["step5"]
-    for kw in ("硬墙钟", "最多 5 条", "2-4 条主线假设", "Verify 节点", "HypothesisSet"):
+    for kw in ("硬墙钟", "硬帽 5", "Verify 节点", "HypothesisSet", "规范词表", '" / "'):
         assert kw in text, f"step5 档缺少关键条款: {kw}"
+
+
+def test_step5_profile_label_vocabulary():
+    """标签纪律：词表覆盖判分器等价类全部成员 + 高频精确类型；无 '约 20 分钟' 类陈旧数字。"""
+    text = SCOUT_PROFILES["step5"]
+    from codeark.agents.scout_agent import _label_vocabulary
+    vocab = _label_vocabulary()
+    assert len(vocab) >= 25
+    for member in ("REMOTE_CODE_EXECUTION", "PATH_TRAVERSAL", "XSS", "DESERIALIZATION",
+                   "SSRF", "CACHE_POISONING", "IDOR", "AUTH_BYPASS"):
+        assert member in vocab, f"词表缺关键类型: {member}"
+    assert "约 20 分钟" not in text
 
 
 def test_profiles_share_keys_and_prompts_differ():

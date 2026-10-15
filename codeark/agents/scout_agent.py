@@ -58,6 +58,37 @@ SCOUT_SYSTEM_PROMPT = """\
 """
 
 
+# ── step5 标签词表（单一数据源：prompt 内嵌块与单测共用本表，防两处漂移）──
+# 通用 web 安全类型系统（判分器等价类成员 + 跨题高频精确类型的并集），
+# 不是任何单场考卷的 intended 列表——防向答案键过拟合。
+_LABEL_VOCABULARY: tuple[str, ...] = (
+    "ACCESS_CONTROL_BYPASS", "AUTH_BYPASS", "PATH_TRAVERSAL", "LOCAL_FILE_INCLUSION",
+    "ARBITRARY_FILE_READ", "SQL_INJECTION", "XSS", "CROSS_SITE_SCRIPTING",
+    "DESERIALIZATION", "INSECURE_DESERIALIZATION", "PICKLE_INSECURE_LOAD", "SSTI",
+    "SERVER_SIDE_TEMPLATE_INJECTION", "SSRF", "REMOTE_CODE_EXECUTION", "COMMAND_INJECTION",
+    "UNRESTRICTED_FILE_UPLOAD", "INFORMATION_DISCLOSURE", "HARDCODED_SECRET",
+    "SECRET_EXPOSURE", "EXPOSED_CREDENTIAL", "IDOR", "PRIVILEGE_ESCALATION", "CSRF",
+    "XXE", "XML_EXTERNAL_ENTITY_INJECTION", "CACHE_POISONING", "WEAK_CRYPTOGRAPHY",
+    "WEAK_CREDENTIALS", "S3_MISCONFIGURATION",
+)
+
+
+def _label_vocabulary() -> tuple[str, ...]:
+    """step5 档标签词表（prompt 内嵌与单测同源）。"""
+    return _LABEL_VOCABULARY
+
+
+def _label_discipline_block() -> str:
+    """标签纪律块：由词表常量生成，保证 prompt 与单测永不漂移。"""
+    return (
+        "\n标签纪律（判分与下游消费依赖，务必遵守）：\n"
+        '- vuln_type 从下列规范词表中选取；复合类型用 " / " 分隔，每段都取自词表：\n'
+        + ", ".join(_LABEL_VOCABULARY)
+        + ".\n"
+        "- 词表确实覆盖不了时才用词表外类型，并在 coverage_notes 说明原因。"
+    )
+
+
 # ── step-5 专设档（双 Scout 设计 docs/SCOUT-PROFILE-DESIGN.md）──
 # 对症 10-13/10-14 两晚死法：思考型把预算烧进草稿梯子（H1-H12）与推理，墙钟哨杀时
 # 正式 HypothesisSet 未发出。核心=岗位收敛（假设集是 Scout 的终点，论证留给 Verify）
@@ -67,10 +98,12 @@ SCOUT_SYSTEM_PROMPT_STEP5 = """\
 
 岗位收敛（最高优先）：
 - 你只负责**产出假设集**，不负责论证终局——深挖与复核是后续 Verify 节点的职责；
-- 本次调用有硬墙钟（约 20 分钟）与有限输出预算，**思考深度必须服从产出纪律**：
+- 本次调用有硬墙钟与有限输出预算，**思考深度必须服从产出纪律**：
   任何时刻被中断，都必须已经产出正式 HypothesisSet；
-- 候选假设草稿**最多 5 条、每条不超过三行要点**；从中收敛 2-4 条主线假设，
-  优先命中"可验证、影响大"的，禁止展开长草稿梯子或穷举式探索。
+- 正式集 **2-4 条主线假设**（确需更多须在 coverage_notes 说明理由，硬帽 5）；
+  候选草稿每条不超过三行要点，禁止展开长草稿梯子或穷举式探索；
+- 行号允许 ±5 估值，不确定时在 suggested_verification 标注 approx，不要逐行清点源码。
+""" + _label_discipline_block() + """
 
 数据与任务：
 1. 数据块中 <agent0-baseline-findings.json> 是确定性规则层的全部命中（已确认基线）；
