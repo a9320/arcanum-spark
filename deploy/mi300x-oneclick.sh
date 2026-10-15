@@ -3,7 +3,7 @@
 # Arcanum MI300X 一键部署脚本（幂等 / 断点续传 / 配额免疫）
 # 用法: bash /mnt/workspace/oneclick-deploy.sh
 # 前提: /mnt/workspace 持久区完好（llama.cpp 构建 + Muse GGUF 随持久区幸存）
-# 流程: 自检 → 二进制缺失则重建 → 补下 3 模型到 /root/models →
+# 流程: 自检 → 二进制缺失则重建 → 三模型+Muse 母带库 copy-first（缺件才下载）→
 #       写启动脚本 → 起 4 服务 → 轮询健康检查
 # 全程 ~15-35 分钟（视 hf-mirror 带宽）；中断后重跑即续传
 # ============================================================
@@ -12,6 +12,7 @@ set -e
 LL_BUILD=/mnt/workspace/llama.cpp
 LL=$LL_BUILD/build/bin/llama-server
 MODELS=/root/models
+MASTERS=/mnt/workspace/models-base
 MIRROR=https://hf-mirror.com
 
 # 0) 持久区自检
@@ -77,33 +78,65 @@ dl() {
   fi
 }
 
-# 3) 三个模型（根盘；实例释放即失，靠本脚本重建；SHA256=2026-10-11 持久区母带库实测，masters-sha256.txt）
-dl $MIRROR/unsloth/gemma-4-26B-A4B-it-qat-GGUF/resolve/main/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf \
-   $MODELS/gemma4-qat/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf 14249047104 a7c5bc715f5ff8e99a3e8901ce7d2b42b402c669bf24f7c5250747633d0f5891
-dl $MIRROR/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-UD-Q4_K_XL.gguf \
-   $MODELS/qwen38/Qwen3.8-27B-UD-Q4_K_XL.gguf 17559178144 3f227079003add2511437e5b1e94812e363385225bf6a9b47b0054a72bc8b01e
-dl $MIRROR/bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf \
-   $MODELS/r1-32b/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf 19851335840 bed9b0f551f5b95bf9da5888a48f0f87c37ad6b72519c4cbd775f54ac0b9fc62
-
-# Muse：优先用持久区原件（免下载），持久区也没有才从镜像补
-MUSE_SHA=ac7023d6a4c704eb9af54ab53e476a66b7f5b6c0ef2fc4a8dde5253c291a6c38
-if [ ! -f $MODELS/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf ]; then
-  if [ -f /mnt/workspace/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf ]; then
-    echo "== 从持久区复制 Muse（~1-2 分钟）=="
-    cp /mnt/workspace/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf \
-       $MODELS/Muse-Glimmer-30B-GGUF/
-    M=$(stat -c %s $MODELS/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf)
-    H=$(sha256sum $MODELS/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf | cut -d' ' -f1)
-    if [ "$M" != "19653960832" ] || [ "$H" != "$MUSE_SHA" ]; then
-      echo "FATAL: Muse 复制后 $M 字节 / $H != 期望 19653960832 / $MUSE_SHA（母带库异常），删除后排查持久区" >&2
-      rm -f $MODELS/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf
-      exit 1
+# seed <src母带> <dest运行> [expected_bytes] [expected_sha256]  母带库优先播种（copy-first，2026-10-15）。
+# 根治"只查运行目录 /root/models 不查母带库 models-base → pod 重建必重下 48GB"老毛病
+# （WORK_LOG:2631/3068/3429 五连踩）。运行目录已有但字节数不符=半截件（下载/cp 中断），
+# 先清再播（R1 清半截件自动化）；母带先过字节+SHA256 双检才 cp（母带异常不播种、绝不改
+# 动持久区母带本身，交 dl 走下载兜底）；播种后的 dest 仍由 dl 复验=双闸。
+# cp 约 2-3 分钟/件 vs 镜像下载 21 分钟且易超时中断。
+seed() {
+  local src=$1 dest=$2
+  if [ -f "$dest" ]; then
+    S=$(stat -c %s "$dest")
+    if [ -n "$3" ] && [ "$S" != "$3" ]; then
+      echo "!! 运行目录 $(basename "$dest") 字节 $S != 期望 $3（半截件），清除待重播" >&2
+      rm -f "$dest"
     fi
-  else
-    dl $MIRROR/unsloth/Muse-Glimmer-30B-GGUF/resolve/main/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf \
-       $MODELS/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf 19653960832 $MUSE_SHA
   fi
-fi
+  [ -f "$dest" ] && return 0
+  if [ ! -f "$src" ]; then
+    echo "== 母带库无 $(basename "$dest")，交 dl 下载 =="
+    return 0
+  fi
+  S=$(stat -c %s "$src"); H=$(sha256sum "$src" | cut -d' ' -f1)
+  if { [ -n "$3" ] && [ "$S" != "$3" ]; } || { [ -n "$4" ] && [ "$H" != "$4" ]; }; then
+    echo "!! 母带 $(basename "$src") 校验不过（$S 字节 / $H），不播种交 dl 下载" >&2
+    return 0
+  fi
+  echo "== 母带命中 $(basename "$dest")，播种（cp 约 2-3 分钟）=="
+  cp "$src" "$dest"
+}
+
+# 3) 三个模型（根盘；实例释放即失，靠本脚本重建；SHA256=2026-10-11 持久区母带库实测，masters-sha256.txt）
+# 每件两步：seed（母带库优先播种）→ dl（缺失才下载；无论来源都复验字节+SHA256）
+GEMMA_DEST=$MODELS/gemma4-qat/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf
+GEMMA_BYTES=14249047104
+GEMMA_SHA=a7c5bc715f5ff8e99a3e8901ce7d2b42b402c669bf24f7c5250747633d0f5891
+QWEN_DEST=$MODELS/qwen38/Qwen3.8-27B-UD-Q4_K_XL.gguf
+QWEN_BYTES=17559178144
+QWEN_SHA=3f227079003add2511437e5b1e94812e363385225bf6a9b47b0054a72bc8b01e
+R1_DEST=$MODELS/r1-32b/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf
+R1_BYTES=19851335840
+R1_SHA=bed9b0f551f5b95bf9da5888a48f0f87c37ad6b72519c4cbd775f54ac0b9fc62
+
+seed $MASTERS/gemma4-qat/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf $GEMMA_DEST $GEMMA_BYTES $GEMMA_SHA
+dl $MIRROR/unsloth/gemma-4-26B-A4B-it-qat-GGUF/resolve/main/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf \
+   $GEMMA_DEST $GEMMA_BYTES $GEMMA_SHA
+seed $MASTERS/qwen38/Qwen3.8-27B-UD-Q4_K_XL.gguf $QWEN_DEST $QWEN_BYTES $QWEN_SHA
+dl $MIRROR/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-UD-Q4_K_XL.gguf \
+   $QWEN_DEST $QWEN_BYTES $QWEN_SHA
+seed $MASTERS/r1-32b/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf $R1_DEST $R1_BYTES $R1_SHA
+dl $MIRROR/bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf \
+   $R1_DEST $R1_BYTES $R1_SHA
+
+# Muse：同款 copy-first（母带库=/mnt/workspace/Muse-Glimmer-30B-GGUF，持久区原件）
+MUSE_DEST=$MODELS/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf
+MUSE_BYTES=19653960832
+MUSE_SHA=ac7023d6a4c704eb9af54ab53e476a66b7f5b6c0ef2fc4a8dde5253c291a6c38
+seed /mnt/workspace/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf \
+     $MUSE_DEST $MUSE_BYTES $MUSE_SHA
+dl $MIRROR/unsloth/Muse-Glimmer-30B-GGUF/resolve/main/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf \
+   $MUSE_DEST $MUSE_BYTES $MUSE_SHA
 
 # 4) 字节校验（qwen 已知基准；dl() 已前置校验，此处为服务起前最后一道闸——硬失败）
 Q=$(stat -c %s $MODELS/qwen38/Qwen3.8-27B-UD-Q4_K_XL.gguf)
