@@ -15,10 +15,13 @@ MODELS=/root/models
 MASTERS=/mnt/workspace/models-base
 MIRROR=https://hf-mirror.com
 
-# 0) 持久区自检
-if [ ! -d /mnt/workspace/ComfyUI ]; then
-  echo "!! /mnt/workspace 持久区异常（无 ComfyUI），确认实例与挂载是否正确"; exit 1
-fi
+# 0) 持久区自检（canary=管线实际依赖的持久区资产）。原 ComfyUI 探针随该资产退役
+#    已失效——2026-10-15 首战误报：ComfyUI 已清（53G 腾容）但持久区完好。
+for d in /mnt/workspace/models-base /mnt/workspace/Muse-Glimmer-30B-GGUF /mnt/workspace/llama.cpp; do
+  if [ ! -d "$d" ]; then
+    echo "!! /mnt/workspace 持久区异常（缺 $d），确认实例与挂载是否正确"; exit 1
+  fi
+done
 
 # 1) llama-server 二进制（正常随持久区幸存，丢失才重建）
 if [ ! -x "$LL" ]; then
