@@ -510,6 +510,10 @@ def _endpoint_from_named_route(name: str) -> EndpointConfig | None:
             _route_override(prefix, "STRUCTURED_OUTPUT_SUPPORT", spec["structured_output_support"])
         ),
         reasoning_effort=str(_route_override(prefix, "REASONING_EFFORT", spec["reasoning_effort"])),
+        # 2026-10-15 透传补齐：ARCA_SCOUT_MAX_TOKENS 此前在 named 路由无消费点（安慰剂旋钮，
+        # 在册"20000 帽未用满"实为帽从未存在）；补上使 env 块在册旋钮真实生效。默认 None=不变。
+        max_tokens=_route_override(prefix, "MAX_TOKENS", None),  # type: ignore[arg-type]
+        temperature=_route_override(prefix, "TEMPERATURE", None),  # type: ignore[arg-type]
     )
 
 
@@ -628,12 +632,17 @@ def _env_endpoint_config(
         stage_timeout,
         float(shared.get("TIMEOUT", _ARCA_DEFAULT_TIMEOUT)),
     )
+    stage_prefix = f"ARCA_{stage.upper()}"
     try:
         return EndpointConfig(
             model_id=str(values["MODEL"]),
             base_url=str(values["BASE_URL"]),
             api_key=str(values["API_KEY"]),
             timeout=float(values["TIMEOUT"]),
+            # 2026-10-15 与 named/local 路由对齐：补 REASONING_EFFORT/MAX_TOKENS/TEMPERATURE 覆盖
+            reasoning_effort=str(_route_override(stage_prefix, "REASONING_EFFORT", "default")),
+            max_tokens=_route_override(stage_prefix, "MAX_TOKENS", None),  # type: ignore[arg-type]
+            temperature=_route_override(stage_prefix, "TEMPERATURE", None),  # type: ignore[arg-type]
         )
     except ValueError as exc:
         raise ValueError(f"invalid model configuration for {stage}: {exc}") from exc
