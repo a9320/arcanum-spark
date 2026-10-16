@@ -66,6 +66,8 @@ def main() -> None:
     parser.add_argument("--n-pairs", type=int, default=200)
     parser.add_argument("--arm", default="both", choices=("both", "malicious"))
     parser.add_argument("--max-chars", type=int, default=12000)
+    parser.add_argument("--max-tokens", type=int, default=0, help="0 = omit (server default)")
+    parser.add_argument("--timeout", type=int, default=180, help="per-request read timeout in seconds")
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--concurrency", type=int, default=1)
     parser.add_argument("--output", help="Write JSON report here")
@@ -89,7 +91,9 @@ def main() -> None:
                 {"role": "user", "content": truncate(page.content)},
             ],
         }
-        with httpx.Client(timeout=180) as client:
+        if args.max_tokens:
+            payload["max_tokens"] = args.max_tokens
+        with httpx.Client(timeout=args.timeout) as client:
             resp = client.post(f"{args.base_url}/chat/completions", headers=headers, json=payload)
             resp.raise_for_status()
         return pair, which, parse_injected(resp.json()["choices"][0]["message"]["content"])
