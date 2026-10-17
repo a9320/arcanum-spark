@@ -3,8 +3,8 @@
 # Arcanum MI300X 一键部署脚本（幂等 / 断点续传 / 配额免疫）
 # 用法: bash /mnt/workspace/oneclick-deploy.sh
 # 前提: /mnt/workspace 持久区完好（llama.cpp 构建 + Muse GGUF 随持久区幸存）
-# 流程: 自检 → 二进制缺失则重建 → 三模型+Muse 母带库 copy-first（缺件才下载）→
-#       写启动脚本 → 起 4 服务 → 轮询健康检查
+# 流程: 自检 → 二进制缺失则重建 → 三模型+Muse+gpt-oss 母带库 copy-first（缺件才下载）→
+#       写启动脚本 → 起 5 服务 → 轮询健康检查
 # 全程 ~15-35 分钟（视 hf-mirror 带宽）；中断后重跑即续传
 # ============================================================
 set -e
@@ -35,7 +35,7 @@ fi
 echo "== llama-server 就位: $($LL --version 2>/dev/null | head -1) =="
 
 # 2) 目录
-mkdir -p $MODELS/gemma4-qat $MODELS/qwen38 $MODELS/r1-32b $MODELS/Muse-Glimmer-30B-GGUF
+mkdir -p $MODELS/gemma4-qat $MODELS/qwen38 $MODELS/r1-32b $MODELS/Muse-Glimmer-30B-GGUF $MODELS/gpt-oss-20b
 
 # dl <url> <dest> [expected_bytes] [expected_sha256]  断点续传 + 字节+SHA256 双硬校验（2026-10-10 外审 P0-④ 字节锚；2026-10-11 DSW 块B 四母带 SHA256 锚定升级）。
 # 给了期望字节数时：已存在的文件也先验尺寸（防半截件被"已有即跳过"放行——pod 重建
@@ -141,6 +141,16 @@ seed /mnt/workspace/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_X
 dl $MIRROR/unsloth/Muse-Glimmer-30B-GGUF/resolve/main/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf \
    $MUSE_DEST $MUSE_BYTES $MUSE_SHA
 
+# gpt-oss-20b MXFP4（2026-10-17 verify 换模固化=第五模型；字节锚=10-16 BYTE-OK 实测
+# 12109566624，sha256=hf-mirror API LFS oid 实查；ggml-org 官方 MXFP4 原生量化——
+# unsloth 系 Q8_0 差 544 字节已排除）。母带库=MASTERS/gpt-oss-20b/。
+GPTOSS_DEST=$MODELS/gpt-oss-20b/gpt-oss-20b-MXFP4.gguf
+GPTOSS_BYTES=12109566624
+GPTOSS_SHA=27cd6c432c7672cb812a92f611cf3ba7bbc35928262bb1e1253ff4ee6ae35901
+seed $MASTERS/gpt-oss-20b/gpt-oss-20b-MXFP4.gguf $GPTOSS_DEST $GPTOSS_BYTES $GPTOSS_SHA
+dl $MIRROR/ggml-org/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-MXFP4.gguf \
+   $GPTOSS_DEST $GPTOSS_BYTES $GPTOSS_SHA
+
 # 4) 字节校验（qwen 已知基准；dl() 已前置校验，此处为服务起前最后一道闸——硬失败）
 Q=$(stat -c %s $MODELS/qwen38/Qwen3.8-27B-UD-Q4_K_XL.gguf)
 if [ "$Q" = "17559178144" ]; then echo "qwen 校验 OK"; else
@@ -163,7 +173,10 @@ nohup $LL -m /root/models/qwen38/Qwen3.8-27B-UD-Q4_K_XL.gguf \
 nohup $LL -m /root/models/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf \
   -a muse-scout -ngl 99 -c 98304 -np 1 --temp 1.0 --top-p 0.95 --top-k 64 --host 127.0.0.1 --port 8081 --jinja \
   > /root/srv_muse.log 2>&1 &
-echo "4 servers launching"
+nohup $LL -m /root/models/gpt-oss-20b/gpt-oss-20b-MXFP4.gguf \
+  -a gpt-oss-verify -ngl 99 -c 65536 -np 4 --host 127.0.0.1 --port 8085 --jinja \
+  > /root/srv_gptoss.log 2>&1 &
+echo "5 servers launching"
 INNER_EOF
 chmod +x /root/start-arcanum.sh
 
@@ -171,21 +184,21 @@ chmod +x /root/start-arcanum.sh
 bash /root/start-arcanum.sh
 
 # 7) 健康检查（轮询，最长 8 分钟）
-echo "== 等待模型加载（根盘每模型约 1 分钟，四路并行）=="
+echo "== 等待模型加载（根盘每模型约 1 分钟，五路并行）=="
 ok=0
 for i in $(seq 1 48); do
   sleep 10
   ok=0
-  for spec in "8081 muse-scout" "8182 qwen-verify" "8083 r1-deepen" "8084 gemma-arbiter"; do
+  for spec in "8081 muse-scout" "8182 qwen-verify" "8083 r1-deepen" "8084 gemma-arbiter" "8085 gpt-oss-verify"; do
     p=${spec%% *}; n=${spec##* }
     if curl -s -m 3 127.0.0.1:$p/v1/models 2>/dev/null | grep -q "\"$n\""; then
       ok=$((ok+1))
     fi
   done
-  echo "[$((i*10))s] $ok/4 就绪"
-  if [ $ok -eq 4 ]; then break; fi
+  echo "[$((i*10))s] $ok/5 就绪"
+  if [ $ok -eq 5 ]; then break; fi
 done
-if [ $ok -eq 4 ]; then
+if [ $ok -eq 5 ]; then
   echo "=== 全部就绪 ==="
 else
   echo "=== 超时未全就绪，排查: tail -20 /root/srv_*.log ==="

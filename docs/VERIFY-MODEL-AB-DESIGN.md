@@ -57,3 +57,15 @@
 - **判分器第二案**（RCE/AUTH_BYPASS 对子）：gpt-oss 若出词表外标签，与 Muse INPUT_VALIDATION 观察同账联动。
 - **排期**：既定两臂（并发化自验证 + step5 v1.1 首战）仍为下窗第一优先 → 本设计三探针 + A/B 串行其后（同窗余量或下窗第二优先）。
 - **对外素材**：SPACE 定性=约束/遏制类（非检测类），与本项目"检测+判分"构成互补分层（关住 vs 找出来）——#3/#4 补注可引用，未证实数字（12 万行/37 场景）禁入。
+
+## 7. 实验结果与拍板（2026-10-17 回填）
+
+**三探针（10-16，全绿）**：P1 MXFP4 on ROCm 原生（短答 146 t/s）；P2 tool_calls 经 llama.cpp --jinja 落地；P3 reasoning_effort 生效（非安慰剂旋钮）。
+
+**A/B（flask_caching 单题，10-16）**：单变量=verify 模型。A 臂 qwen 0/4 CONFIRMED（全 UNCERTAIN）；B 臂 gpt-oss 4/5 CONFIRMED，同一条缓存投毒链机械+语义双 TP=该题史上首 TP；3 个计划外 CONFIRMED 抽查全真零冤案。裁读规则①两判据（判词不劣+tp≥A）全胜。
+
+**FPR 面大样本校验（10-16/17，BrowseSafe++ 检测臂 150 对 markdown 视图）**：gpt-oss FPR 0.68%（1/148 控制页）vs 静态 PITAX 13.7%；recall 0.635。同卷 A 臂 qwen：recall **0.769**/FPR 2.17%/F1 0.859——**qwen 检测岗反超**，保守性系判决任务特异非模型通病。三方终表：静态 0.244/13.7% ∥ gpt-oss 0.635/0.68% ∥ qwen 0.769/2.17%（150 对 train 自划小样，引用带注）。
+
+**旁证（10-17 三真漏报×step5 臂）**：raid_fat_fs_chal 官方链提出+qwen CONFIRMED=双口径 TP 出列；picgram/I Got Id 官方链（或 intended 类）提出但 qwen UNCERTAIN——qwen 保守性判决岗实例累计 4 起，换模紧迫性+1。
+
+**拍板（2026-10-17 用户）**：按裁读规则①固化=**五服务+env 路由**。实施：`_LOCAL_ROUTE_DEFAULTS["verify"]`→gpt-oss-verify :8085（qwen-verify :8182 保留供 A/B 复跑与检测岗，env 覆盖 ARCA_VERIFY_MODEL/BASE_URL 回切）；oneclick 增第五模型 gpt-oss-20b-MXFP4（ggml-org 官方件，字节锚 12109566624=10-16 BYTE-OK 实测+sha256=HF LFS oid 双检，母带库入持久区根治根盘易失）。回归：routing 22 绿+全量 323 passed（5 failed=engine-integration 在册环境差异，与变更前同集）。

@@ -155,7 +155,7 @@ def test_no_arca_env_preserves_existing_fallback(monkeypatch: pytest.MonkeyPatch
 
 _LOCAL_TOPOLOGY = {
     "scout": ("muse-scout", "http://127.0.0.1:8081/v1", 300.0),
-    "verify": ("qwen-verify", "http://127.0.0.1:8182/v1", 300.0),
+    "verify": ("gpt-oss-verify", "http://127.0.0.1:8085/v1", 300.0),
     "deepen": ("r1-deepen", "http://127.0.0.1:8083/v1", 600.0),
     "arbiter": ("gemma-arbiter", "http://127.0.0.1:8084/v1", 300.0),
 }
@@ -215,8 +215,8 @@ def test_local_deployment_env_overrides(monkeypatch: pytest.MonkeyPatch) -> None
     assert routes.deepen.get_config()["params"]["max_tokens"] == 3000
     assert routes.scout.client_args["base_url"] == "http://127.0.0.1:9081/v1"
     assert routes.scout.get_config()["params"]["temperature"] == 0.5
-    # 未覆盖的阶段保持默认端口表
-    assert routes.verify.client_args["base_url"] == "http://127.0.0.1:8182/v1"
+    # 未覆盖的阶段保持默认端口表（2026-10-17 verify 换模固化→gpt-oss :8085）
+    assert routes.verify.client_args["base_url"] == "http://127.0.0.1:8085/v1"
 
 
 def test_local_deployment_rejects_unknown_value(monkeypatch: pytest.MonkeyPatch) -> None:

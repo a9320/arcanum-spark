@@ -517,10 +517,11 @@ def _endpoint_from_named_route(name: str) -> EndpointConfig | None:
     )
 
 
-# Local MI300X topology (2026-09-25 四服务上线): one llama-server per stage on
-# loopback, all started with --jinja so tool calls arrive as standard tool_calls.
-# Ports follow /root/start-arcanum.sh (8082 is taken by a platform process, so
-# verify sits on 8182). api_key is a placeholder — llama-server ignores auth.
+# Local MI300X topology (2026-09-25 四服务上线; 2026-10-17 verify 换模→五服务):
+# one llama-server per stage on loopback, all started with --jinja so tool calls
+# arrive as standard tool_calls. Ports follow /root/start-arcanum.sh (8082 is
+# taken by a platform process; legacy qwen-verify stays on 8182, gpt-oss-verify
+# serves 8085). api_key is a placeholder — llama-server ignores auth.
 _LOCAL_ROUTE_DEFAULTS: dict[str, dict[str, object]] = {
     "scout": {
         "model_id": "muse-scout",
@@ -540,8 +541,12 @@ _LOCAL_ROUTE_DEFAULTS: dict[str, dict[str, object]] = {
         "temperature": 0.2,
     },
     "verify": {
-        "model_id": "qwen-verify",
-        "base_url": "http://127.0.0.1:8182/v1",
+        # 2026-10-17 换模固化（docs/VERIFY-MODEL-AB-DESIGN.md 裁读规则①）：A/B 双 TP
+        # （flask_caching 4/5 CONFIRMED vs qwen 全 UNCERTAIN）+ FPR 大样本校验
+        # （BrowseSafe++ 148 控制页 1 误报）。qwen-verify 保留 :8182 供 A/B 复跑与
+        # 检测岗，env 覆盖 ARCA_VERIFY_MODEL/ARCA_VERIFY_BASE_URL。
+        "model_id": "gpt-oss-verify",
+        "base_url": "http://127.0.0.1:8085/v1",
         "api_style": "chat_completions",
         "tool_format": "standard_json",
         "structured_output_support": "json_schema",
