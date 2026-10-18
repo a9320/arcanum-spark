@@ -81,4 +81,4 @@
 - 2026-09-30 v0（外部审计"手工构造不代表真实分布"整改的长期方案立项；license 实查口径见上表）。
 - 2026-10-04 v0.1（K1-min 20 题首跑复盘：infra_fail 空跑标记 + artifact_confirmed 噪音剥离 + semantic 七类等价类双口径；判分器实现=2b25e46，282 tests）。
 - 2026-10-15 v0.5（第一案：代码执行族并入 `ARBITRARY_CODE_EXECUTION`；依据=gi 卷 fileConfig eval() 官方链 A/B 实证；机制口径逐字不动，翻案只走语义口径）。
-- 2026-10-18 v0.6（第二案，docs/JUDGE-EQUIV-V2-DESIGN.md）：代码执行族加 `RCE` 缩写别名；AUTH_BYPASS 族加 `ACCESS_CONTROL_BYPASS`（gi 跨卷标签漂移实锤）。9 族数不变；单测 5 锚在 tests/test_m8_k1_score_equivalence.py。**同案明确不采纳** `INFO_DISCLOSURE→ACCESS_CONTROL` 中等映射（gatekeeping 案：/admin/key 泄露与官方 SCRIPT_NAME 链是两条不同主张，旧账 TP* 属映射层口径非等价类）。另新增 `degraded` 分列：verify invoke/契约失败的降级记录在 intended_status 中记 degraded（fn 仍 None 不猜），与真实 UNCERTAIN 区分。
+- 2026-10-18 v0.6（第二案，docs/JUDGE-EQUIV-V2-DESIGN.md）：代码执行族加 `RCE` 缩写别名；AUTH_BYPASS 族加 `ACCESS_CONTROL_BYPASS`（gi 跨卷标签漂移实锤）。9 族数不变；单测 5 锚在 tests/test_m8_k1_score_equivalence.py。**同案不新增** `INFO_DISCLOSURE→ACCESS_CONTROL` 映射——K2 定稿 manifest 已把 INFORMATION_DISCLOSURE 收入 gatekeeping intended（字面 TP），10-18 草案 manifest 误记 unplanned 已用定稿重判纠正。另新增 `degraded` 分列：verify invoke/契约失败的降级记录在 intended_status 中记 degraded（fn 仍 None 不猜），与真实 UNCERTAIN 区分。
