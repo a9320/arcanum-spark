@@ -45,8 +45,49 @@ def test_v05_symmetric_and_variant_path():
 
 
 def test_v05_registry_shape():
-    """登记表形状：恰 9 族，新族仅两成员（防后续顺手扩员）。"""
+    """登记表形状：恰 9 族，代码执行族含 v0.5 两名成员（v0.6 再加 RCE）。"""
     assert len(scorer.EQUIV_CLASSES) == 9
-    v05 = ("REMOTE_CODE_EXECUTION", "ARBITRARY_CODE_EXECUTION")
-    assert v05 in scorer.EQUIV_CLASSES
+    assert ("REMOTE_CODE_EXECUTION" in scorer._VT_CLASS
+            and "ARBITRARY_CODE_EXECUTION" in scorer._VT_CLASS)
     assert scorer._VT_CLASS["REMOTE_CODE_EXECUTION"] == scorer._VT_CLASS["ARBITRARY_CODE_EXECUTION"]
+
+
+# ────────────── v0.6 第二案（2026-10-18）：RCE 别名 + ACCESS_CONTROL_BYPASS ──────────────
+
+def test_v06_rce_alias_flips_semantic_not_mechanism():
+    """翻案锚：webhooktester H2 标签 "RCE" 对官方 REMOTE_CODE_EXECUTION 语义翻正。"""
+    assert scorer._m_semantic("RCE", ["REMOTE_CODE_EXECUTION"])
+    assert scorer._m_semantic("RCE", ["ARBITRARY_CODE_EXECUTION"])
+    assert not scorer._m_exact("RCE", ["REMOTE_CODE_EXECUTION"])  # 机制口径严格词面不动
+
+
+def test_v06_access_control_bypass_joins_auth_family():
+    """gi 跨卷漂移锚：ACCESS_CONTROL_BYPASS 与 AUTH_BYPASS 双向同族。"""
+    assert scorer._m_semantic("ACCESS_CONTROL_BYPASS", ["AUTH_BYPASS"])
+    assert scorer._m_semantic("AUTH_BYPASS", ["ACCESS_CONTROL_BYPASS"])
+    assert not scorer._m_exact("ACCESS_CONTROL_BYPASS", ["AUTH_BYPASS"])
+
+
+def test_v06_no_substring_no_cross_family():
+    """防虚翻锚：只做段级精确别名，不做子串；非授权族不得虚并。"""
+    assert not scorer._same_class("RCE", "FORCED_RCE")
+    assert not scorer._same_class("RCE", "DESERIALIZATION_RCE")
+    assert not scorer._same_class("ACCESS_CONTROL_BYPASS", "PRIVILEGE_ESCALATION")
+    assert not scorer._same_class("ACCESS_CONTROL_BYPASS", "PATH_TRAVERSAL")
+
+
+def test_v06_registry_shape():
+    """登记表形状：9 族不变；两处扩员落位且类号一致。"""
+    assert len(scorer.EQUIV_CLASSES) == 9
+    assert ("REMOTE_CODE_EXECUTION", "ARBITRARY_CODE_EXECUTION", "RCE") in scorer.EQUIV_CLASSES
+    assert ("AUTH_BYPASS", "BROKEN_AUTHENTICATION", "AUTHENTICATION_BYPASS",
+            "ACCESS_CONTROL_BYPASS") in scorer.EQUIV_CLASSES
+    assert scorer._VT_CLASS["RCE"] == scorer._VT_CLASS["REMOTE_CODE_EXECUTION"]
+    assert scorer._VT_CLASS["ACCESS_CONTROL_BYPASS"] == scorer._VT_CLASS["AUTH_BYPASS"]
+
+
+def test_v06_gi_semantic_tp_unchanged():
+    """回归：gi 卷 intended 含 ACCESS_CONTROL_BYPASS，v0.5 已翻正的口径不退化。"""
+    assert scorer._m_semantic("ARBITRARY_CODE_EXECUTION", GI_INTENDED)
+    assert scorer._m_semantic("AUTH_BYPASS", GI_INTENDED)
+    assert scorer._m_semantic("ACCESS_CONTROL_BYPASS", GI_INTENDED)

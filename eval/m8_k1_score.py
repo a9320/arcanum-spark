@@ -55,7 +55,8 @@ EQUIV_CLASSES: tuple[tuple[str, ...], ...] = (
     ("PATH_TRAVERSAL", "LOCAL_FILE_INCLUSION", "ARBITRARY_FILE_READ"),
     ("SSTI", "SERVER_SIDE_TEMPLATE_INJECTION", "TEMPLATE_INJECTION"),
     ("XSS", "CROSS_SITE_SCRIPTING", "XSS_STORED"),
-    ("AUTH_BYPASS", "BROKEN_AUTHENTICATION", "AUTHENTICATION_BYPASS"),
+    ("AUTH_BYPASS", "BROKEN_AUTHENTICATION", "AUTHENTICATION_BYPASS",
+     "ACCESS_CONTROL_BYPASS"),
     ("SQL_INJECTION", "BLIND_SQL_INJECTION", "TIME_BASED_SQL_INJECTION",
      "LIKE_INJECTION"),
     ("SSRF", "SERVER_SIDE_REQUEST_FORGERY"),
@@ -71,7 +72,16 @@ EQUIV_CLASSES: tuple[tuple[str, ...], ...] = (
     # 波及面：K1 全 20 题 CONFIRMED 面无一 ARBITRARY_CODE_EXECUTION（10-14 实测零波及；
     # REFUTED/unplanned 面以 v04 判分件逐行静态扫描+下窗真重判双验）。
     # 协议升版 docs/M8-CTF-TRUTH.md 待记。
-    ("REMOTE_CODE_EXECUTION", "ARBITRARY_CODE_EXECUTION"),
+    #
+    # v0.6 第二案（2026-10-18，docs/JUDGE-EQUIV-V2-DESIGN.md）：恰两处扩员——
+    # (A) 代码执行族加第三成员 "RCE"（缩写别名，精确全等；webhooktester H2 实弹：
+    #     标题 "SCRIPT_FILENAME override for RCE"=官方链后半真主张，v0.5 仍词面冤案）；
+    # (B) AUTH_BYPASS 族加 "ACCESS_CONTROL_BYPASS"（gi 跨卷标签漂移实锤：同一官方链
+    #     10-15 卷 AUTH_BYPASS vs 10-16 卷 ACCESS_CONTROL_BYPASS，两词都在 Scout 30
+    #     词表内=词表纪律治不了这对竞品）。防虚翻护栏继续有效：PRIVILEGE_ESCALATION/
+    #     IDOR 不入族（webhooktester H2 PRIVILEGE_ESCALATION 是真不同主张）。
+    # 单测锚 tests/test_m8_k1_score_equivalence.py v0.6 组。
+    ("REMOTE_CODE_EXECUTION", "ARBITRARY_CODE_EXECUTION", "RCE"),
 )
 _VT_CLASS: dict[str, int] = {
     vt: i for i, cls in enumerate(EQUIV_CLASSES) for vt in cls

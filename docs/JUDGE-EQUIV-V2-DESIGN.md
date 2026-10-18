@@ -19,10 +19,14 @@
 | 1 | webhooktester H2 | runs/20261015-3q（探针） | `RCE` | 含 REMOTE_CODE_EXECUTION | 冤案 | 冤案（不入类） |
 | 2 | good_intentions H4 | runs/20261015-gi-s5p | `AUTH_BYPASS` | 含 ACCESS_CONTROL_BYPASS | 冤案 | 冤案（不入类） |
 | 3 | 同题跨卷标签漂移 | 10-15 卷 vs 10-16 卷 | 同官方链 10-15=AUTH_BYPASS；10-16 v1.1 卷 H3 段=AUTH_BYPASS、H4=ACCESS_CONTROL_BYPASS | — | — | — |
+| 4 | gatekeeping 并行卷 H1（10-18 补） | runs/20261018-new2q/gatekeeping.par3-bak | `ACCESS_CONTROL_BYPASS`（标题=SECTION SCRIPT_NAME 头绕过 nginx admin deny） | AUTH_BYPASS / ACCESS_CONTROL / LOGIC_ERROR / JWT_VULNERABILITY（manifest-gk 草拟） | 同族，扩员后语义口径可容 | 判决=UNCERTAIN 0.5（未出 CONFIRMED，扩员不改变本题分数） |
+| 5 | gatekeeping 串行卷 H3（10-18 补） | runs/20261018-new2q/gatekeeping | `INFORMATION_DISCLOSURE`（/admin/key 未授权密钥泄露） | 同上（官方链=SCRIPT_NAME 绕过） | **不同主张**（同仓另一条真发现） | **不映射**：v0.6 不采用 INFO_DISCLOSURE→ACCESS_CONTROL 中等映射 |
 
 - 案 1 标题实引："Caddy admin API reachable from challenge container allows SCRIPT_FILENAME override for RCE"——官方链后半真主张，纯缩写词面差。
 - 案 2 标题实引："run_command/remote_exec 隐藏端点 + admin_only 设计缺陷与凭据明文存储"——admin_only 绕过即官方链本体。
 - 案 3 是案 2 的活体补强：**同一模型族对同一代码库的同一类主张，跨卷在 AUTH_BYPASS / ACCESS_CONTROL_BYPASS 两标签间自由漂移**——词表纪律（两词都在表内、各自合法）反而保住了这种漂移的合法性。
+- 案 4 是案 2/3 的活体新素材：同一官方链在 10-18 并行卷仍打 `ACCESS_CONTROL_BYPASS`，扩员后语义口径已可容纳；但该卷 verify 判决=UNCERTAIN 0.5（且属 10-18 verify 契约缺陷卷），**只能作标签面证据，不能作翻案终账**。
+- 案 5 是**反例素材**（防顺手扩员）：旧账 K1 的 TP* 来自映射层口径（INFO_DISCLOSURE 在绕过语境按中等映射算 ACCESS_CONTROL），不是等价类；若把它并进家族 5，会把"同仓另一条真发现"误当官方链命中——gatekeeping 官方链是 SCRIPT_NAME 头绕过，/admin/key 泄露是另一条 unplanned。故 v0.6 明确不采纳，留第三案单独评估。
 
 **词表联动关键事实**（codeark/agents/scout_agent.py:64-73 实读）：
 - `AUTH_BYPASS` 与 `ACCESS_CONTROL_BYPASS` **都在 30 词表内**→ step5 v1.1 纪律治不了这对竞品，判分侧等价类是唯一兜底位；
