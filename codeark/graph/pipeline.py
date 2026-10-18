@@ -385,6 +385,10 @@ class CodeRiskGraph:
                 "gated_hypothesis_set": _jsonable(res.gated_hypothesis_set),
                 "gate": res.gate,
                 "verifications": _jsonable(res.verifications),
+                # 10-18 T3：降级记录显式计数（degraded=True 的裁决不得当真实 UNCERTAIN 采信）
+                "verify_degraded": sum(
+                    1 for v in res.verifications if getattr(v, "degraded", False)
+                ),
             },
         )
 

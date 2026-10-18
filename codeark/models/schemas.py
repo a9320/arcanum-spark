@@ -89,6 +89,11 @@ class VerificationResult(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     evidence: str = Field(description="工具验证证据原文")
     verification_method: str = Field(description="实际使用的验证方法")
+    degraded: bool = Field(
+        default=False,
+        description="True=invoke/输出契约失败后的降级记录；verdict 的 UNCERTAIN "
+        "不代表模型真实判断，聚合与判分不得与真实 UNCERTAIN 混同",
+    )
 
 
 # ── id 对齐（确定性，替代 title 字符串匹配）──

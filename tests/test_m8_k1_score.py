@@ -242,3 +242,14 @@ def test_type_normalization_v04_weak_mapping_still_not_adopted():
     out = m8.judge_question(entry, report, None)
     assert out["judgment"]["tp"] is False
     assert out["judgment"]["semantic"]["tp"] is False
+
+
+def test_degraded_uncertain_is_distinct_from_real_uncertain():
+    # 10-18 T3：invoke/契约失败的降级记录（degraded=True）与真实 UNCERTAIN
+    # 同为"不猜"（fn=None），但在 intended_status 与 pipeline 计数中分列。
+    report = _report([("H1", "PIT-T-46", "UNCERTAIN")])
+    report["meta"]["verifications"][0]["degraded"] = True
+    out = m8.judge_question(_ENTRY, report, None)
+    assert out["judgment"]["fn"] is None
+    assert out["judgment"]["intended_status"] == {"degraded": 1}
+    assert out["pipeline"]["verify_degraded"] == 1

@@ -271,6 +271,7 @@ def _degraded_verification(hyp, detail: str) -> VerificationResult:
         confidence=0.3,
         evidence=f"[verify 降级人工复核] {detail}",
         verification_method="none(degraded)",
+        degraded=True,
     )
 
 
@@ -411,6 +412,7 @@ def _coerce_verification(obj: dict, hyp) -> VerificationResult:
             confidence=0.3,
             evidence=f"[verify 归一化失败，降级人工复核] {str(obj)[:300]!r}",
             verification_method="none(degraded)",
+            degraded=True,
         )
 
 

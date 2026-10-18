@@ -172,11 +172,12 @@ def _judge_fn(
         return True, None
     status: list[str] = []
     for hid in intended_ids:
-        verdict = next(
-            (str(v.get("verdict") or "").upper() for v in verifications
+        record = next(
+            (v for v in verifications
              if isinstance(v, dict) and str(v.get("hypothesis_id")) == hid),
-            "",
+            {},
         )
+        verdict = str(record.get("verdict") or "").upper()
         if verdict == "REFUTED":
             status.append("refuted")
         elif verdict == "CONFIRMED":
@@ -184,12 +185,15 @@ def _judge_fn(
         elif gated_ids is not None and hid not in gated_ids:
             status.append("pruned")
         elif verdict == "UNCERTAIN":
-            status.append("indeterminate")
+            # 10-18 T3：invoke/契约失败的降级记录与真实 UNCERTAIN 分列
+            # （两者 fn 同为 None 不猜，但根因不同；degraded 可被聚合层直接计数）
+            status.append("degraded" if record.get("degraded") else "indeterminate")
         else:
             status.append("unverified")
     counts = {
         s: status.count(s)
-        for s in ("confirmed", "refuted", "pruned", "indeterminate", "unverified")
+        for s in ("confirmed", "refuted", "pruned", "indeterminate", "degraded",
+                  "unverified")
     }
     intended_status = {k: v for k, v in counts.items() if v}
     fn = True if all(s in ("refuted", "pruned") for s in status) else None
@@ -287,6 +291,9 @@ def judge_question(entry: dict, report: dict | None, upstream_root: Path | None)
         "hypotheses": len(hyps),
         "verifications": len(verifications),
         "confirmed": confirmed,
+        "verify_degraded": sum(
+            1 for v in verifications if isinstance(v, dict) and v.get("degraded")
+        ),
     }
     out["judgment"] = {
         "tp": tp,

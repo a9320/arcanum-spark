@@ -60,6 +60,7 @@ async def test_missing_id_triggers_repair_retry_and_recovers():
     assert "契约修复" in agent.calls[1] and "H1" in agent.calls[1]
     assert out.hypothesis_id == "H1"
     assert out.verification_method == "m"  # 真裁决，不是降级记录
+    assert out.degraded is False
 
 
 async def test_persistent_missing_id_degrades_without_backfill():
@@ -71,6 +72,7 @@ async def test_persistent_missing_id_degrades_without_backfill():
     assert out.verification_method == "none(degraded)"
     assert "禁止按序回填" in out.evidence
     assert out.hypothesis_id == "H1"  # 降级记录绑定调用目标，非模型自报
+    assert out.degraded is True
 
 
 async def test_wrong_id_is_not_silently_realigned():
@@ -101,3 +103,4 @@ async def test_invoke_failure_degrades_explicitly():
     assert out.verdict == "UNCERTAIN"
     assert out.verification_method == "none(degraded)"
     assert "invoke 失败" in out.evidence
+    assert out.degraded is True
