@@ -25,5 +25,9 @@ pytest-asyncio>=0.24   # codeark degrade 测试为 async def；缺失时 pytest 
 gradio>=5.0
 
 # ── 6-agent 流水线（codeark/，verify.sh 一键验证所需）──
-strands-agents>=1.55
+# 精确钉版破例（与顶部范围策略相反，证据=10-18 单变量对照）：新 pod 按 >=1.55 装到
+# 1.61.1 后，固定假设集 GK 验收卷 verify 出现 2/4 peg-native 降级；同卷回钉 1.56.0
+# 降为 0/4 全真实裁决（runs/20261018-accept/gatekeeping-pinned{,.v1611}）。
+# 1.61.1 的 structured-output/工具循环形态触发 llama.cpp Harmony PEG 整轮拒绝。
+strands-agents==1.56.0
 openai>=3.0
