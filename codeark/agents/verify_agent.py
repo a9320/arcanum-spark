@@ -10,6 +10,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 
 from strands import Agent
 from strands.models import OpenAIModel
@@ -209,7 +211,14 @@ VERIFY_ONE_SYSTEM_PROMPT = """\
 - taint_flow：污点源→危险 sink 追踪；
 - dep_scan：依赖清单已知漏洞比对。
 
-数据块已内嵌：该假设、假设所指文件的原文、以及该文件上四个工具的**确定性预跑结果**。
+数据块已内嵌：该假设、假设所指文件的原文、**证据包**（同目录兄弟文件与攻击路径点名
+文件的原文）、以及四个工具的**确定性预跑结果**。
+证据分层（2026-10-18 T4 案甲）：
+- **E1**=工具实际返回原文；**E2**=仓内文件原文逐字引用（必须写 `path:line` 并原样
+  复制片段，不得改写/概括）；**E3**=你的推理或常识。
+- **CONFIRMED 必须有 E1 或 E2**；只有 E3 → 必须 UNCERTAIN。
+- **REFUTED 需 E1 直接反证或 E2 逐字反证**；工具未命中且无 E2 反证时，不得仅凭
+  推理判 REFUTED（用 UNCERTAIN 写明缺什么证据）——2026-10-18 自信错驳实锤。
 铁律：
 - 预跑结果只是起点，你可以再调工具取证；CONFIRMED 必须附工具实际返回的证据原文；
 - **每轮只发起一次工具调用**，等工具返回后再决定下一步；单轮多个工具调用会被
@@ -237,6 +246,113 @@ def _match_file(finding: object, file_path: str) -> bool:
             if v and _norm_path(str(v)) == _norm_path(file_path):
                 return True
     return False
+
+
+# ────────────────────────── T4 案甲：证据包 + E2 引文校验 ──────────────────────────
+_EVIDENCE_PATH_RE = re.compile(r"[A-Za-z0-9_./\\-]+\.[A-Za-z0-9]{1,6}")
+
+
+def _est_tokens(text: str) -> int:
+    """与 codeark/cli.py 同口径的粗估：ASCII ~4 字符/token，非 ASCII ~1 字符/token。"""
+    nonascii = sum(1 for ch in text if ord(ch) > 127)
+    return (len(text) - nonascii) // 4 + nonascii
+
+
+def _evidence_strict() -> bool:
+    return os.getenv("ARCA_VERIFY_EVIDENCE_STRICT", "0") == "1"
+
+
+def _evidence_pack(files: dict[str, str], hyp, fp: str) -> dict[str, str]:
+    """给单条假设组装证据包（案甲）：假设文件 → 同目录兄弟 → 攻击路径点名 → 预算内补全。
+
+    确定性顺序（可复现）：假设文件无条件在内；同目录兄弟 ≤8 按 (字节, 路径)；
+    attack_path/suggested_verification 中点名的仓内路径；其余按 (字节, 路径) 装填。
+    预算 ARCA_VERIFY_EVIDENCE_MAX_TOKENS（默认 60000，0=不设限）；solution/ 目录
+    默认包含（Scout 侧同一 files 集已可见），
+    ARCA_VERIFY_EVIDENCE_EXCLUDE_SOLUTION=1 时排除。
+    """
+    budget = int(os.getenv("ARCA_VERIFY_EVIDENCE_MAX_TOKENS", "60000"))
+    exclude_solution = os.getenv("ARCA_VERIFY_EVIDENCE_EXCLUDE_SOLUTION", "0") == "1"
+    by_norm = {_norm_path(k): (k, v) for k, v in files.items()}
+    norm_fp = _norm_path(fp)
+
+    def _is_solution(path: str) -> bool:
+        np = "/" + _norm_path(path)
+        return "/solution/" in np or np.startswith("/solution/")
+
+    pack: dict[str, str] = {}
+    used = 0
+
+    def _add(path: str, content: str, *, force: bool = False) -> None:
+        nonlocal used
+        if _norm_path(path) in {_norm_path(k) for k in pack}:
+            return
+        if exclude_solution and _is_solution(path):
+            return
+        cost = _est_tokens(content)
+        if not force and budget and used + cost > budget:
+            return
+        pack[path] = content
+        used += cost
+
+    # 1) 假设所指文件（无条件，保持既有行为）
+    hit = by_norm.get(norm_fp)
+    if hit:
+        _add(hit[0], hit[1], force=True)
+    else:
+        return dict(files)  # 幻觉路径→沿用旧口径：全量交给工具裁决
+
+    # 2) 同目录兄弟（≤8）
+    dir_prefix = norm_fp.rsplit("/", 1)[0] if "/" in norm_fp else ""
+    siblings = [
+        (len(v), k, v) for k, v in files.items()
+        if _norm_path(k) != norm_fp
+        and (("" if "/" not in _norm_path(k) else _norm_path(k).rsplit("/", 1)[0]) == dir_prefix)
+    ]
+    for _n, k, v in sorted(siblings)[:8]:
+        _add(k, v)
+
+    # 3) 攻击路径/建议验证里点名的仓内路径
+    hints = " ".join([
+        str(getattr(hyp, "attack_path", "") or ""),
+        str(getattr(hyp, "suggested_verification", "") or ""),
+    ])
+    for raw in _EVIDENCE_PATH_RE.findall(hints):
+        found = by_norm.get(_norm_path(raw))
+        if found:
+            _add(found[0], found[1])
+
+    # 4) 预算内按 (字节, 路径) 补全
+    for _n, k, v in sorted((len(v), k, v) for k, v in files.items() if _norm_path(k) != norm_fp):
+        _add(k, v)
+    return pack
+
+
+def _check_evidence_quote(evidence: str, files: dict[str, str]) -> tuple[bool, str]:
+    """E2 引文校验：evidence 提到仓内文件时，必须含该文件 ≥12 字符的逐字片段。
+
+    未提任何路径 → 视为 E1（工具证据），不在此处判伪（交给 method/回归对照）；
+    提到路径但找不到逐字片段 → 引文不可信，严格模式下该条 CONFIRMED 降级。
+    """
+    ev = evidence or ""
+    ev_norm = _norm_path(ev)
+    cited: list[tuple[str, str]] = []
+    for path, content in files.items():
+        np = _norm_path(path)
+        base = np.rsplit("/", 1)[-1]
+        # 全路径出现，或"文件名:行号"形态，才视为引用了该文件（避免泛提文件名误判）
+        if (np and np in ev_norm) or (
+            len(base) > 3 and re.search(re.escape(base) + r"\s*:\s*\d+", ev_norm)
+        ):
+            cited.append((path, content))
+    if not cited:
+        return True, ""
+    for path, content in cited:
+        for line in content.splitlines():
+            frag = line.strip()
+            if len(frag) >= 12 and frag in ev:
+                return True, ""
+    return False, f"引文校验失败：未在 evidence 中找到 {cited[0][0]} 的逐字片段"
 
 
 def build_verify_one_agent(
@@ -464,9 +580,8 @@ async def run_verify_split(
             # 会互相串话；model 对象（HTTP 客户端）无状态，可安全共享。
             agent = build_verify_one_agent(model, files)
             fp = getattr(hyp, "file_path", "")
-            data = {k: v for k, v in safe.items() if _norm_path(k) == _norm_path(fp)}
-            if not data:  # 假设文件不在仓库集（模型幻觉路径）→ 给全量让工具裁决
-                data = dict(safe)
+            pack = _evidence_pack(safe, hyp, fp)
+            data = dict(pack)
             data[f"<hypothesis-{getattr(hyp, 'id', i + 1)}.json>"] = quarantine_text(
                 hyp.model_dump_json(indent=2)
             )[0]
@@ -475,8 +590,28 @@ async def run_verify_split(
                 data[f"<precomputed-{tool}-results.json>"] = quarantine_text(
                     json.dumps(hits, ensure_ascii=False, indent=2)
                 )[0]
-            return await _verify_one(agent, hyp, render_data_block(data),
-                                     per_invoke_timeout=per_invoke_timeout)
+            result = await _verify_one(agent, hyp, render_data_block(data),
+                                       per_invoke_timeout=per_invoke_timeout)
+            # T4 案甲 E2 校验：严格模式只拒"引了路径但引文不逐字"的 CONFIRMED；
+            # 这是判决降级，不是 invoke 失败，故不置 degraded（degraded 专指契约/调用失败）。
+            if (_evidence_strict() and not getattr(result, "degraded", False)
+                    and str(getattr(result, "verdict", "")) == "CONFIRMED"):
+                ok, why = _check_evidence_quote(
+                    str(getattr(result, "evidence", "") or ""), pack
+                )
+                if not ok:
+                    result = VerificationResult(
+                        hypothesis_id=result.hypothesis_id,
+                        hypothesis_title=result.hypothesis_title,
+                        verdict="UNCERTAIN",
+                        confidence=min(float(getattr(result, "confidence", 0.3) or 0.3), 0.3),
+                        evidence=f"[{why}] {str(getattr(result, 'evidence', '') or '')[:400]}",
+                        verification_method=(
+                            str(getattr(result, "verification_method", "") or "")
+                            + " (quote-check-failed)"
+                        ),
+                    )
+            return result
 
     results = await asyncio.gather(*[_run(i, h) for i, h in enumerate(hyps)])
     # 按假设顺序回排，保证 hypothesis_id 单调

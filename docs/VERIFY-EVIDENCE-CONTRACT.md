@@ -1,6 +1,7 @@
 # verify 证据契约设计稿（T4）——甲"放行仓内文件证据" / 乙"动态验证工具"
 
-状态：设计稿（纯文档零代码，待拍板实施）｜拟稿：2026-10-18
+状态：**案甲已实施（2026-10-18）**：默认宽松（不拒判，只组装证据包+prompt E1/E2/E3）；
+验收臂开严格（E2 引文校验）。案乙（exec_sandbox）待另窗立项。｜拟稿：2026-10-18
 前置：10-18 四缺陷收束（根因=verify×gpt-oss 结构化契约不匹配；②=证据契约锁运行类假设，③=契约解释方差）
 联动：`docs/JUDGE-EQUIV-V2-DESIGN.md`（判分侧词面口径）｜`docs/VERIFY-MODEL-AB-DESIGN.md`（换模后判决面放大）
 
@@ -54,3 +55,15 @@
   2. 甲的 `solution/` 默认包含还是排除（默认包含，理由见 §三）；
   3. 引文校验默认严格还是宽松（建议默认宽松、验收臂严格，避免历史卷口径突变）。
 - 验收线（与 T6 共用）：固定假设集重跑 GK 串行——官方链 H2 不再 `degraded`；若仍 UNCERTAIN，evidence 必须能指出"缺哪一层证据"，而不是契约缺证。
+
+## 六、实施记录（案甲，2026-10-18）
+
+- **证据包**（`codeark/agents/verify_agent.py::_evidence_pack`）：假设文件（无条件）→ 同目录兄弟 ≤8（按字节/路径）→ `attack_path`/`suggested_verification` 点名的仓内路径 → 预算内按 (字节, 路径) 补全；幻觉路径沿用旧口径（全量）。
+- **开关**：
+  - `ARCA_VERIFY_EVIDENCE_MAX_TOKENS`（默认 60000，0=不设限）；
+  - `ARCA_VERIFY_EVIDENCE_EXCLUDE_SOLUTION`（默认 0=包含 `solution/`；=1 排除）；
+  - `ARCA_VERIFY_EVIDENCE_STRICT`（默认 0=宽松；=1 开 E2 校验，验收臂已开）。
+- **E2 校验**（`_check_evidence_quote`）：evidence 提到仓内路径时，必须含该文件 ≥12 字符逐字片段；失败→CONFIRMED 降为 UNCERTAIN（`method` 加 `quote-check-failed`），**不置 degraded**（判决降级≠调用失败）。未提路径视为 E1，不在本层判伪。
+- **prompt**：VERIFY_ONE 增加 E1/E2/E3 分层；CONFIRMED 需 E1/E2；REFUTED 需 E1/E2 反证，只有 E3 推理→UNCERTAIN（对齐"自信错驳"台账）。
+- **单测**：`codeark/tests/test_verify_evidence.py` 8 锚（证据包兄弟/点名/solution 开关/预算/E2 通过/伪造/无路径/E1、严格降级、宽松保留）。
+- **效果验收待 DSW**：固定假设集重跑 GK，判据见 `eval/check_verify_acceptance.py` + `docs/JUDGE-CONFIDENT-REFUTATION.md` §五。

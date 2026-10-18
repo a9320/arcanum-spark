@@ -14,6 +14,7 @@ export ARCA_DEPLOYMENT=local
 export ARCA_VERIFY_MAX_CONCURRENCY=1          # T1 定案：串行（10-18 实测并行零速益）
 export ARCA_VERIFY_MODEL=gpt-oss-verify       # 单变量：只验判决契约修复，不换岗
 export ARCA_VERIFY_BASE_URL=http://127.0.0.1:8085/v1
+export ARCA_VERIFY_EVIDENCE_STRICT=1          # T4 案甲：验收臂开 E2 逐字引文校验（日常默认宽松）
 
 SRC=${SRC:-/mnt/workspace/runs/20261018-new2q/gatekeeping/report.json}
 GK=${GK:-/mnt/workspace/NYU_CTF_Bench/test/2021/CSAW-Quals/web/gatekeeping}
