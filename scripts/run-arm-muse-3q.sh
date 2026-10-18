@@ -9,9 +9,9 @@ cd "$(dirname "$0")/.." || exit 1
 export ARCA_DEPLOYMENT=local
 export ARCA_SCOUT_MODEL=muse-scout ARCA_SCOUT_BASE_URL=http://127.0.0.1:8081/v1
 export ARCA_SCOUT_MAX_TOKENS=20000
-# verify 并行化（2026-10-15 哨杀定案：默认串行 concurrency=1，5 假设题 verify 段 ~20min 撞 25min 帽；
-# qwen-verify -np 4 槽位闲置，开 3 并行=留 1 槽给 Scout 兜底）
-export ARCA_VERIFY_MAX_CONCURRENCY=3
+# verify 并发=1（10-18 实证回退：并行在 gpt-oss 上零速度收益——GK 串行 3'18" vs 并行 3'28"，
+# 且并行下 verify 判决串线/错配风险待隔双变量；旧 10-15 并行=3 的提速动机随 verify 换模消失）
+export ARCA_VERIFY_MAX_CONCURRENCY=1
 unset ARCA_SCOUT_REASONING_EFFORT ARCA_SCOUT_PROFILE
 
 RUNS=/mnt/workspace/runs/20261015-3q-local
