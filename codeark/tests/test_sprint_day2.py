@@ -105,15 +105,16 @@ class FakeAgent:
         return _FakeResult(payload)
 
 
-def _verdict_json(verdict: str) -> str:
-    # 模拟真实模型：不带 hypothesis_id（由 _coerce_verification 从假设对象补齐）
+def _verdict_json(verdict: str, hid: str) -> str:
+    # 2026-10-18 契约收紧：hypothesis_id 必填且必须等于本次调用假设 id
+    # （缺失/不符会触发修复重试，仍失败则显式降级——不再静默补齐）
     return json.dumps({
-        "hypothesis_title": "t", "verdict": verdict,
+        "hypothesis_id": hid, "hypothesis_title": "t", "verdict": verdict,
         "confidence": 0.8, "evidence": "工具证据", "verification_method": "pitax_scan",
     }, ensure_ascii=False)
 
 
-def test_run_verify_split_id_alignment_and_order(monkeypatch):
+def test_run_verify_split_id_contract_and_order(monkeypatch):
     import codeark.agents.verify_agent as va
 
     files = {"src/a.py": "x = 1\n", "src/b.py": "y = 2\n"}
@@ -123,8 +124,9 @@ def test_run_verify_split_id_alignment_and_order(monkeypatch):
     hs.hypotheses[2].file_path = "src/missing.py"   # 仓库外路径 → 全量兜底
     assign_hypothesis_ids(hs)
 
-    fake = FakeAgent(payloads=[_verdict_json("CONFIRMED"), _verdict_json("REFUTED"),
-                               _verdict_json("UNCERTAIN")])
+    fake = FakeAgent(payloads=[_verdict_json("CONFIRMED", "H1"),
+                               _verdict_json("REFUTED", "H2"),
+                               _verdict_json("UNCERTAIN", "H3")])
     monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files: fake)
     results = _run(run_verify_split, hs, files)
 
@@ -144,7 +146,7 @@ def test_run_verify_split_invoke_retry_recovers(monkeypatch):
     hs.hypotheses = hs.hypotheses[:1]
     assign_hypothesis_ids(hs)
 
-    fake = FakeAgent(payloads=[_verdict_json("CONFIRMED")], fail_times=1)
+    fake = FakeAgent(payloads=[_verdict_json("CONFIRMED", "H1")], fail_times=1)
     monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files: fake)
     results = _run(run_verify_split, hs, files)
     assert len(results) == 1
