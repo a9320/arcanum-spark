@@ -127,7 +127,7 @@ def test_run_verify_split_id_contract_and_order(monkeypatch):
     fake = FakeAgent(payloads=[_verdict_json("CONFIRMED", "H1"),
                                _verdict_json("REFUTED", "H2"),
                                _verdict_json("UNCERTAIN", "H3")])
-    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files: fake)
+    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files, **kw: fake)
     results = _run(run_verify_split, hs, files)
 
     assert [r.hypothesis_id for r in results] == ["H1", "H2", "H3"]
@@ -147,7 +147,7 @@ def test_run_verify_split_invoke_retry_recovers(monkeypatch):
     assign_hypothesis_ids(hs)
 
     fake = FakeAgent(payloads=[_verdict_json("CONFIRMED", "H1")], fail_times=1)
-    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files: fake)
+    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files, **kw: fake)
     results = _run(run_verify_split, hs, files)
     assert len(results) == 1
     assert results[0].verdict == "CONFIRMED"     # 第 1 次失败，重试恢复
@@ -163,7 +163,7 @@ def test_run_verify_split_invoke_failure_degrades(monkeypatch):
     assign_hypothesis_ids(hs)
 
     fake = FakeAgent(fail_times=99)              # 重试后仍失败 → 降级
-    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files: fake)
+    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files, **kw: fake)
     results = _run(run_verify_split, hs, files)
     assert len(results) == 1
     assert results[0].verdict == "UNCERTAIN"
@@ -294,7 +294,7 @@ def test_run_verify_split_watchdog_timeout_degrades(monkeypatch):
     assign_hypothesis_ids(hs)
 
     slow = SlowAgent()
-    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files: slow)
+    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files, **kw: slow)
     results = _run(run_verify_split, hs, files, None, None, 0.0, 1, 0.05)
     assert len(results) == 1
     assert results[0].verdict == "UNCERTAIN"

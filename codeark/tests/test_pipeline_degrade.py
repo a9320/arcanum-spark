@@ -141,7 +141,7 @@ async def test_verify_split_concurrency_caps_inflight_and_keeps_order(monkeypatc
         hypothesis_id="", hypothesis_title="t", verdict="CONFIRMED",
         confidence=0.9, evidence="e", verification_method="m",
     ))
-    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files: probe)
+    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files, **kw: probe)
 
     out = await va.run_verify_split(
         _hypotheses(4), FILES, model=object(), prompt_files=FILES,

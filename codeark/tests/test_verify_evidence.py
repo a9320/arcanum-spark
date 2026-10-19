@@ -103,7 +103,7 @@ def _hs() -> HypothesisSet:
 async def test_strict_mode_demotes_fabricated_quote(monkeypatch):
     monkeypatch.setenv("ARCA_VERIFY_EVIDENCE_STRICT", "1")
     fake = _FakeAgent("app/server.py:1 原文 `def totally_secure():` 有鉴权")
-    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files: fake)
+    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files, **kw: fake)
     out = await va.run_verify_split(
         _hs(), _files(), model=object(), prompt_files=_files(),
         max_concurrency=1, inter_call_delay=0.0,
@@ -116,7 +116,7 @@ async def test_strict_mode_demotes_fabricated_quote(monkeypatch):
 async def test_lenient_mode_keeps_confirmed(monkeypatch):
     monkeypatch.delenv("ARCA_VERIFY_EVIDENCE_STRICT", raising=False)
     fake = _FakeAgent("app/server.py:1 原文 `def totally_secure():` 有鉴权")
-    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files: fake)
+    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files, **kw: fake)
     out = await va.run_verify_split(
         _hs(), _files(), model=object(), prompt_files=_files(),
         max_concurrency=1, inter_call_delay=0.0,
@@ -198,7 +198,7 @@ async def test_strict_mode_demotes_refuted_fabricated_quote(monkeypatch):
     monkeypatch.setenv("ARCA_VERIFY_EVIDENCE_STRICT", "1")
     fake = _FakeAgent(
         "app/server.py:1 原文 `def totally_secure():` 有鉴权", verdict="REFUTED")
-    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files: fake)
+    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files, **kw: fake)
     out = await va.run_verify_split(
         _hs(), _files(), model=object(), prompt_files=_files(),
         max_concurrency=1, inter_call_delay=0.0,
@@ -206,3 +206,43 @@ async def test_strict_mode_demotes_refuted_fabricated_quote(monkeypatch):
     assert out[0].verdict == "UNCERTAIN"
     assert "quote-check-failed" in out[0].verification_method
     assert out[0].degraded is False
+
+
+# -- peg-native 无工具兜底（10-19 复跑实证：温度=0 仍有随机 parser 拒绝） --
+
+
+class _PegFailAgent:
+    def __init__(self):
+        self.calls = 0
+
+    async def invoke_async(self, prompt: str):
+        self.calls += 1
+        raise RuntimeError(
+            "The model produced output that does not match the expected peg-native format"
+        )
+
+
+class _AlwaysFailAgent:
+    async def invoke_async(self, prompt: str):
+        raise RuntimeError("still peg-native failure")
+
+
+async def test_peg_native_falls_back_to_no_tools(monkeypatch):
+    monkeypatch.setattr(va, "_VERIFY_RETRY_BACKOFF", 0)
+    failing = _PegFailAgent()
+    retry = _FakeAgent("app/server.py:1 原文 `def get_key():`")
+    out = await va._verify_one(
+        failing, _hyp(), "data", per_invoke_timeout=5, retry_agent=retry)
+    assert out.verdict == "CONFIRMED"
+    assert out.degraded is False
+    assert failing.calls == 2       # 带工具路径两次都失败
+    assert len(retry.calls) == 1     # 无工具兜底一次成功
+
+
+async def test_peg_native_fallback_failure_degrades(monkeypatch):
+    monkeypatch.setattr(va, "_VERIFY_RETRY_BACKOFF", 0)
+    out = await va._verify_one(
+        _PegFailAgent(), _hyp(), "data", per_invoke_timeout=5,
+        retry_agent=_AlwaysFailAgent())
+    assert out.verdict == "UNCERTAIN"
+    assert out.degraded is True

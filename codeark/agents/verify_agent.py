@@ -366,9 +366,17 @@ def _check_evidence_quote(evidence: str, files: dict[str, str]) -> tuple[bool, s
 def build_verify_one_agent(
     model: OpenAIModel | None = None,
     files: dict[str, str] | None = None,
+    *,
+    tools_enabled: bool = True,
 ) -> Agent:
-    """构造单假设验证 Agent：同四个绑定工具，structured_output=单条 VerificationResult。"""
-    if files is not None:
+    """构造单假设验证 Agent：默认绑四个工具，structured_output=单条 VerificationResult。
+
+    tools_enabled=False 用于 peg-native 兜底：llama.cpp 的 Harmony PEG 解析器对
+    单轮多工具调用整轮拒绝；无工具重试只允许结构化输出，不再给模型工具循环。
+    """
+    if not tools_enabled:
+        tools = []
+    elif files is not None:
         tools = [_bind_pitax(files), _bind_static(files), _bind_taint(files), _bind_dep(files)]
     else:
         tools = [pitax_scan, static_scan, taint_flow, dep_scan]
@@ -432,13 +440,19 @@ def _extract_checked(result: object, hyp) -> tuple[VerificationResult | None, st
 async def _verify_one(
     agent: Agent, hyp: "VulnHypothesisLike", data_block: str,
     per_invoke_timeout: float = 360.0,
+    retry_agent: Agent | None = None,
 ) -> VerificationResult:
-    """单假设裁决：硬看门狗超时 + 失败退避重试一次 + id 契约修复重试一次。
+    """单假设裁决：硬看门狗超时 + 失败退避重试一次 + peg-native 无工具兜底 + id 契约修复一次。
 
     绝不抛异常、绝不挂死；任何契约失败都产出**显式降级记录**，不静默回填：
     2026-10-18 GK 串行卷 H2 实锤——invoke 抛 "peg-native format" 后被伪装成
     正常 UNCERTAIN 0.3，官方链零判决且账面不可见；并行跑 hypothesis_id 恒空
     靠按序回填，串线错配同样无声。
+
+    2026-10-19 复跑实证：同一固定假设集在 strands 1.56.0 下仍会随机出现
+    peg-native（不同卷挂不同假设），温度=0 也未完全消除。带工具重试仍可能
+    继续多工具调用，故增加 retry_agent（tools_enabled=False）纯 JSON 兜底；
+    只在 peg-native 失败后触发，不改变正常路径。
 
     per_invoke_timeout 必须存在：2026-09-12 e2e 实测某免费端点会无限挂起且
     客户端 timeout 参数不触发（H2 静默 18 分钟），代码层 wait_for 是最后防线。
@@ -473,6 +487,26 @@ async def _verify_one(
                         "直接输出结构化裁决，不要重复调用工具。"
                     )
                 await _aio.sleep(_VERIFY_RETRY_BACKOFF)
+
+    used_no_tools = False
+    if (result is None and retry_agent is not None and last_exc is not None
+            and "peg-native" in str(last_exc)):
+        no_tool_prompt = (
+            "【无工具兜底】上一轮输出未通过服务端 PEG 解析，且带工具重试仍失败。"
+            "本次禁止调用任何工具：只根据下方数据块直接输出单个 VerificationResult JSON。\n"
+            + data_block
+        )
+        try:
+            result = await _aio.wait_for(
+                retry_agent.invoke_async(no_tool_prompt),
+                timeout=per_invoke_timeout,
+            )
+            last_exc = None
+            used_no_tools = True
+            print(f"[Verify] ✓ {expected} peg-native 无工具兜底成功")
+        except Exception as exc:
+            last_exc = exc
+
     if result is None:
         reason = "invoke 超时" if isinstance(last_exc, _aio.TimeoutError) else "invoke 失败"
         return _degraded_verification(hyp, f"{reason}（含 1 次重试）：{last_exc}")
@@ -488,9 +522,10 @@ async def _verify_one(
             f"本次只裁决 {expected}，hypothesis_id 必须原样输出 \"{expected}\"，"
             "不得省略、不得改写为其他假设的 id。"
         )
+        repair_agent = retry_agent if (used_no_tools and retry_agent is not None) else agent
         try:
             retry = await _aio.wait_for(
-                agent.invoke_async(repair_prompt),
+                repair_agent.invoke_async(repair_prompt),
                 timeout=per_invoke_timeout,
             )
         except Exception as exc:
@@ -587,6 +622,7 @@ async def run_verify_split(
             # 每次调用独立 Agent：Agent 实例持有会话消息历史，跨并发调用共享
             # 会互相串话；model 对象（HTTP 客户端）无状态，可安全共享。
             agent = build_verify_one_agent(model, files)
+            retry_agent = build_verify_one_agent(model, files, tools_enabled=False)
             fp = getattr(hyp, "file_path", "")
             pack = _evidence_pack(safe, hyp, fp)
             data = dict(pack)
@@ -599,7 +635,8 @@ async def run_verify_split(
                     json.dumps(hits, ensure_ascii=False, indent=2)
                 )[0]
             result = await _verify_one(agent, hyp, render_data_block(data),
-                                       per_invoke_timeout=per_invoke_timeout)
+                                       per_invoke_timeout=per_invoke_timeout,
+                                       retry_agent=retry_agent)
             # T4 案甲 E2 校验：严格模式只拒"引了路径但引文不逐字"的 CONFIRMED/REFUTED；
             # 这是判决降级，不是 invoke 失败，故不置 degraded（degraded 专指契约/调用失败）。
             if (_evidence_strict() and not getattr(result, "degraded", False)

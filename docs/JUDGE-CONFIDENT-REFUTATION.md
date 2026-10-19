@@ -64,3 +64,23 @@ python eval/check_verify_acceptance.py <OUT>/e2e_report.json --target H2
 - 记录 strands 版本、verify 路由、假设集来源；能导出证据包文件列表就导出。
 - H2 未出现在假设集 → 实验装配错误，不进入 A–E 判定。
 - 若结果为 D，第三案仍按 §五单变量纪律：提示词、证据包预算、verify 模型三选一，不同时动。
+
+## 七、10-19 复跑实证：单次 PASS 不成立，peg-native 是随机事件
+
+同一固定假设集、同一 `gpt-oss-verify`、`strands-agents 1.56.0`，四卷实拍：
+
+| 卷 | 代码 | 证据包 | temp | `verify_degraded` | 降级/判决 |
+|---|---|---|---|---|---|
+| `gatekeeping-pinned-t4` | c8bdac6 | 默认 60000 | 服务端默认 | 3 | H2/H3/H4 降级；H1 CONFIRMED |
+| `gatekeeping-pinned-t4-minpack` | c8bdac6 | `MAX_TOKENS=1` | 服务端默认 | 2 | H2/H3 降级；H1 CONFIRMED；H4 `quote-check-failed` |
+| `gatekeeping-pinned-preT4` | c638cf6（T4 之前） | 旧最小包 | 服务端默认 | 2 | H1/H2 降级；H3 CONFIRMED；H4 REFUTED |
+| `gatekeeping-pinned-t4-temp0-r1` | c8bdac6 | 默认 60000 | 0 | 2 | H1/H3 降级；H2 CONFIRMED；H4 `quote-check-failed` |
+| `gatekeeping-pinned-t4-temp0-r2` | c8bdac6 | 默认 60000 | 0 | 待 dump | 日志：2 CONFIRMED / 2 UNCERTAIN，213.7s |
+
+**结论**：
+
+1. **不是 T4 回归**：T4 之前的 `c638cf6` 同一固定集也出现 2/4 降级；而 10-18 同提交曾 0/4。同一代码、同一模型路由，结果不同。
+2. **温度=0 不足以钉住**：r1 与 r2 的判决集不同，说明 llama.cpp/工具调用层仍有非确定性；`peg-native` 会在不同假设上随机出现。
+3. **10-18 的 T6 PASS 必须降级为“单次成功样本”**，不能作为稳定验收；凡“verify_degraded=0”宣称都必须附 N≥3 复跑与降级率。
+4. **已实施兜底**（本次提交；见 `codeark/agents/verify_agent.py::_verify_one`）：`_verify_one` 在 peg-native 两次失败后，用 `tools_enabled=False` 的无工具 Agent 做一次纯 JSON 裁决；仅失败路径触发，不改变正常路径。验收脚本同时钉 `ARCA_VERIFY_TEMPERATURE=0`。
+5. **T4 证据包结论**：尚不能定罪，也不能宣称有效；在 parser 稳定前，T4 效果实验全部暂停，先跑无工具兜底 N≥3 的稳定率。

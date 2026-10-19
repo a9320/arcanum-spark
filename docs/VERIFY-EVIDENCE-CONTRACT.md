@@ -66,5 +66,6 @@
 - **E2 校验**（`_check_evidence_quote`）：evidence 提到仓内路径时，必须含该文件 ≥12 字符逐字片段；失败→`CONFIRMED`/`REFUTED` 降为 UNCERTAIN（`method` 加 `quote-check-failed`），**不置 degraded**（判决降级≠调用失败）。未提路径视为 E1，不在本层判伪。
 - **已知宽松点（明写不掩盖）**：①同一 evidence 引用多个文件时，任一条引文可验证即通过（是否要求全部引用待拍板）；②只校验逐字片段，不校验 `path:line` 行号；③`REFUTED` 若完全不提仓内路径（纯推理），当前无法与 E1 工具证据自动区分，E2 不会降级——这是第三案的候选入口，不在案甲内宣称解决。
 - **prompt**：VERIFY_ONE 增加 E1/E2/E3 分层；CONFIRMED 需 E1/E2；REFUTED 需 E1/E2 反证，只有 E3 推理→UNCERTAIN（对齐"自信错驳"台账）。
-- **单测**：`codeark/tests/test_verify_evidence.py` 16 锚（证据包兄弟/点名/solution 优先/预算 0 不设限/幻觉全量/E2 通过/伪造/无路径/CRLF/行号错/多引文宽松点；严格降级 CONFIRMED+REFUTED；宽松保留）。
-- **效果验收待 DSW**：固定假设集重跑 GK，判据见 `eval/check_verify_acceptance.py` + `docs/JUDGE-CONFIDENT-REFUTATION.md` §六（预注册判定表）。
+- **单测**：`codeark/tests/test_verify_evidence.py` 18 锚（证据包兄弟/点名/solution 优先/预算 0 不设限/幻觉全量/E2 通过/伪造/无路径/CRLF/行号错/多引文宽松点；严格降级 CONFIRMED+REFUTED；宽松保留；peg-native 无工具兜底成功/失败）。
+- **10-19 复跑修正（重要）**：同一固定假设集在 `strands-agents 1.56.0` 下仍随机出现 peg-native（不同卷挂不同假设）；T4 之前的 `c638cf6` 同集也复现 2/4 降级，`temp=0` 仍 r1/r2 不一致。→ **单次 `verify_degraded=0` 不能作为稳定 PASS**；10-18 T6 PASS 降级为“单次成功样本”。已加 `_verify_one` 无工具纯 JSON 兜底（`build_verify_one_agent(..., tools_enabled=False)`，仅 peg-native 两次失败后触发），验收脚本钉 `ARCA_VERIFY_TEMPERATURE=0`；验收协议改为 N≥3 并报降级率。T4 证据包效果实验在 parser 稳定前暂停。
+- **效果验收待 DSW**：先用无工具兜底跑 N≥3 看稳定率，再回到固定假设集 H2 判定；判据见 `eval/check_verify_acceptance.py` + `docs/JUDGE-CONFIDENT-REFUTATION.md` §七。

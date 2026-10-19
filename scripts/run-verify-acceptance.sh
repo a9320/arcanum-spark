@@ -13,6 +13,7 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 export ARCA_DEPLOYMENT=local
 export ARCA_VERIFY_MAX_CONCURRENCY=1          # T1 定案：串行（10-18 实测并行零速益）
+export ARCA_VERIFY_TEMPERATURE=0              # 10-19：验收固定采样温度（仍随机，靠 no-tools 兜底）
 export ARCA_VERIFY_MODEL=gpt-oss-verify       # 单变量：只验判决契约修复，不换岗
 export ARCA_VERIFY_BASE_URL=http://127.0.0.1:8085/v1
 export ARCA_VERIFY_EVIDENCE_STRICT=1          # T4 案甲：验收臂开 E2 逐字引文校验（日常默认宽松）
