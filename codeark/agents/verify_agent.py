@@ -529,6 +529,33 @@ async def _verify_one(
                 timeout=per_invoke_timeout,
             )
         except Exception as exc:
+            # 2026-10-19 r2 实锤：首次 invoke 成功但缺 id，契约修复调用本身
+            # 被 peg-native 拒绝——无工具兜底此前只覆盖首次 invoke，这里补上。
+            if (retry_agent is not None and not used_no_tools
+                    and "peg-native" in str(exc)):
+                no_tool_repair_prompt = repair_prompt + (
+                    "\n\n【无工具兜底】上一轮契约修复调用未通过服务端 PEG 解析。"
+                    "本次禁止调用任何工具，只输出一个 VerificationResult JSON；"
+                    f"hypothesis_id 必须原样输出 \"{expected}\"。"
+                )
+                try:
+                    retry = await _aio.wait_for(
+                        retry_agent.invoke_async(no_tool_repair_prompt),
+                        timeout=per_invoke_timeout,
+                    )
+                    v3, contract_error3 = _extract_checked(retry, hyp)
+                    if v3 is not None and not contract_error3:
+                        print(f"[Verify] ✓ {expected} id 契约无工具兜底成功")
+                        return v3
+                    return _degraded_verification(
+                        hyp,
+                        "id 契约无工具兜底失败："
+                        f"{contract_error3 or '未产出结构化裁决'}",
+                    )
+                except Exception as exc2:
+                    return _degraded_verification(
+                        hyp, f"id 契约修复调用失败（{contract_error}）：{exc2}"
+                    )
             return _degraded_verification(
                 hyp, f"id 契约修复调用失败（{contract_error}）：{exc}"
             )

@@ -246,3 +246,41 @@ async def test_peg_native_fallback_failure_degrades(monkeypatch):
         retry_agent=_AlwaysFailAgent())
     assert out.verdict == "UNCERTAIN"
     assert out.degraded is True
+
+
+class _MissingIdThenPegAgent:
+    def __init__(self):
+        self.calls = 0
+
+    async def invoke_async(self, prompt: str):
+        self.calls += 1
+        if self.calls == 1:
+            return _R(VerificationResult(
+                hypothesis_id="", hypothesis_title="t", verdict="CONFIRMED",
+                confidence=0.9, evidence="e", verification_method="manual",
+            ))
+        raise RuntimeError(
+            "The model produced output that does not match the expected peg-native format"
+        )
+
+
+async def test_id_repair_peg_native_falls_back_to_no_tools(monkeypatch):
+    """10-19 r2 实锤：首次 invoke 成功但缺 id，契约修复调用被 peg-native 拒绝。"""
+    monkeypatch.setattr(va, "_VERIFY_RETRY_BACKOFF", 0)
+    main = _MissingIdThenPegAgent()
+    retry = _FakeAgent("app/server.py:1 原文 `def get_key():`")
+    out = await va._verify_one(
+        main, _hyp(id="H1"), "data", per_invoke_timeout=5, retry_agent=retry)
+    assert out.verdict == "CONFIRMED"
+    assert out.degraded is False
+    assert main.calls == 2       # 首次 invoke + 契约修复尝试
+    assert len(retry.calls) == 1  # 无工具契约兜底一次成功
+
+
+async def test_id_repair_fallback_failure_degrades(monkeypatch):
+    monkeypatch.setattr(va, "_VERIFY_RETRY_BACKOFF", 0)
+    out = await va._verify_one(
+        _MissingIdThenPegAgent(), _hyp(id="H1"), "data", per_invoke_timeout=5,
+        retry_agent=_AlwaysFailAgent())
+    assert out.verdict == "UNCERTAIN"
+    assert out.degraded is True

@@ -82,5 +82,5 @@ python eval/check_verify_acceptance.py <OUT>/e2e_report.json --target H2
 1. **不是 T4 回归**：T4 之前的 `c638cf6` 同一固定集也出现 2/4 降级；而 10-18 同提交曾 0/4。同一代码、同一模型路由，结果不同。
 2. **温度=0 不足以钉住**：r1 与 r2 的判决集不同，说明 llama.cpp/工具调用层仍有非确定性；`peg-native` 会在不同假设上随机出现。
 3. **10-18 的 T6 PASS 必须降级为“单次成功样本”**，不能作为稳定验收；凡“verify_degraded=0”宣称都必须附 N≥3 复跑与降级率。
-4. **已实施兜底**（本次提交；见 `codeark/agents/verify_agent.py::_verify_one`）：`_verify_one` 在 peg-native 两次失败后，用 `tools_enabled=False` 的无工具 Agent 做一次纯 JSON 裁决；仅失败路径触发，不改变正常路径。验收脚本同时钉 `ARCA_VERIFY_TEMPERATURE=0`。
+4. **已实施兜底**（`e30612f` + 契约修复阶段补丁）：首次 invoke 两次 peg-native 失败，或“首次成功但缺 id、契约修复调用被 peg-native 拒绝”时，都用 `tools_enabled=False` 的无工具 Agent 做一次纯 JSON 裁决；仅失败路径触发，不改变正常路径。验收脚本钉 `ARCA_VERIFY_TEMPERATURE=0`。**N=3 实拍：r1/r2/r3 = 0/1/0 降级，但 `无工具兜底成功` grep=0**——r1/r3 的零降级是采样运气，不是兜底生效；r2 的 H3 正是契约修复阶段被 peg-native 拒绝，已由本补丁覆盖，待下一轮 N=3 验证。
 5. **T4 证据包结论**：尚不能定罪，也不能宣称有效；在 parser 稳定前，T4 效果实验全部暂停，先跑无工具兜底 N≥3 的稳定率。
