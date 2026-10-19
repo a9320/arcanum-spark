@@ -35,3 +35,32 @@
 - **不定罪**（当前 2 样本、同题同链）。升为"机制性错驳"需满足其一：跨 ≥2 题复现，或固定假设集 ≥3 卷复现。
 - T4 案甲落地后固定假设集复测 gatekeeping：若 H2 仍 REFUTED 0.9（证据包已含 solve.py 仍判错），转判决层第三案（提示词/证据包预算/verify 模型三选一单变量）。
 - 若复测变为 UNCERTAIN 或 CONFIRMED：本条关闭，归因证据契约修复。
+
+## 六、预注册实验 v1（2026-10-19，T4 案甲后固定假设集复测）
+
+**目标**：单变量验证“证据包 + E2 严格引文”是否让 H2 从自信错驳变为有据判决。判据在看到结果前固定，不允许事后改判。
+
+**输入**：10-18 串行卷固定假设集（§二样本 2）；gatekeeping 仓；`verify=gpt-oss-verify`；`ARCA_VERIFY_MAX_CONCURRENCY=1`；`ARCA_VERIFY_EVIDENCE_STRICT=1`；strands-agents 1.56.0。
+
+**命令**：
+```bash
+PREFLIGHT=1 bash scripts/run-verify-acceptance.sh   # 只查仓/模型服务
+bash scripts/run-verify-acceptance.sh               # 正式跑
+python eval/check_verify_acceptance.py <OUT>/e2e_report.json --target H2
+```
+
+**判定表（只看 H2）**：
+
+| 结果 | 判定 | 台账处置 |
+|---|---|---|
+| A. `CONFIRMED`（任意置信） | 证据契约修复生效 | 样本 2 关闭 |
+| B. `UNCERTAIN` 且 method 含 `quote-check-failed`，或无 E1/E2 | 契约按设计拒绝“无据错驳” | 样本 2 关闭，归“证据不足”口径 |
+| C. `UNCERTAIN` 非降级、非 quote-check-failed | 判决仍保守，需看证据包实际内容 | 样本保留，判“证据仍不足” |
+| D. `REFUTED` ≥0.8，且日志/证据包确认含 `solution/solve.py` | 自信错驳升级为机制性错驳**候选** | 还差跨 ≥2 题或第 3 卷 |
+| E. `degraded=True` 或出现 `peg-native` | 不是判决结果，本卷作废 | 先修基建，再复测 |
+
+**附加纪律**：
+- 只改一个变量（T4 证据包/E2），不换模型、不改并发、不改假设集。
+- 记录 strands 版本、verify 路由、假设集来源；能导出证据包文件列表就导出。
+- H2 未出现在假设集 → 实验装配错误，不进入 A–E 判定。
+- 若结果为 D，第三案仍按 §五单变量纪律：提示词、证据包预算、verify 模型三选一，不同时动。

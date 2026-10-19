@@ -83,14 +83,15 @@ class _R:
 
 
 class _FakeAgent:
-    def __init__(self, evidence: str):
+    def __init__(self, evidence: str, verdict: str = "CONFIRMED"):
         self.evidence = evidence
+        self.verdict = verdict
         self.calls = []
 
     async def invoke_async(self, prompt: str):
         self.calls.append(prompt)
         return _R(VerificationResult(
-            hypothesis_id="H1", hypothesis_title="t", verdict="CONFIRMED",
+            hypothesis_id="H1", hypothesis_title="t", verdict=self.verdict,
             confidence=0.9, evidence=self.evidence, verification_method="manual",
         ))
 
@@ -121,3 +122,87 @@ async def test_lenient_mode_keeps_confirmed(monkeypatch):
         max_concurrency=1, inter_call_delay=0.0,
     )
     assert out[0].verdict == "CONFIRMED"
+
+
+# -- P0 补强（10-19）：solution 优先层 / 预算边界 / 已知宽松点锚 ----------
+
+
+def _many_files() -> dict[str, str]:
+    files = {"app/server.py": "x=1\n"}
+    files.update({f"app/f{i:03d}.py": "y" * 20 for i in range(200)})
+    files["solution/solve.py"] = "print('official exploit')\n" * 15
+    return files
+
+
+def test_pack_prioritizes_solution_before_general_fill(monkeypatch):
+    """T4 验收依赖官方 solve.py 在证据链：紧预算下 solution 必须先于小文件装填。"""
+    monkeypatch.setenv("ARCA_VERIFY_EVIDENCE_MAX_TOKENS", "150")
+    monkeypatch.delenv("ARCA_VERIFY_EVIDENCE_EXCLUDE_SOLUTION", raising=False)
+    pack = va._evidence_pack(_many_files(), _hyp(), "app/server.py")
+    assert any(k.replace("\\", "/").startswith("solution/") for k in pack)
+    assert len(pack) < len(_many_files())        # 预算仍然生效
+
+
+def test_pack_budget_zero_is_unlimited(monkeypatch):
+    monkeypatch.setenv("ARCA_VERIFY_EVIDENCE_MAX_TOKENS", "0")
+    monkeypatch.delenv("ARCA_VERIFY_EVIDENCE_EXCLUDE_SOLUTION", raising=False)
+    pack = va._evidence_pack(_files(), _hyp(), "app/server.py")
+    assert set(_keys(pack)) == set(_keys(_files()))
+
+
+def test_pack_excludes_solution_even_when_prioritized(monkeypatch):
+    monkeypatch.setenv("ARCA_VERIFY_EVIDENCE_MAX_TOKENS", "150")
+    monkeypatch.setenv("ARCA_VERIFY_EVIDENCE_EXCLUDE_SOLUTION", "1")
+    pack = va._evidence_pack(
+        _many_files(), _hyp(attack_path="solution/solve.py"), "app/server.py")
+    assert not any("solution" in k for k in _keys(pack))
+
+
+def test_pack_hallucinated_path_returns_all_files(monkeypatch):
+    """幻觉路径沿用旧口径：全量交给工具裁决（预算不截断）。"""
+    monkeypatch.setenv("ARCA_VERIFY_EVIDENCE_MAX_TOKENS", "10")
+    pack = va._evidence_pack(
+        _files(), _hyp(file_path="nope/missing.py"), "nope/missing.py")
+    assert set(_keys(pack)) == set(_keys(_files()))
+
+
+def test_quote_check_crlf_verbatim():
+    files = {"app/server.py": "def get_key():\r\n    return key\r\n"}
+    ok, why = va._check_evidence_quote(
+        "app/server.py:1 原文 `def get_key():`", files)
+    assert ok and not why
+
+
+def test_quote_check_line_number_mismatch_still_passes():
+    """已知宽松点：只校验逐字片段，不校验行号（文档已记）。"""
+    files = {"app/server.py": "def get_key():\n    return 1\n"}
+    ok, _ = va._check_evidence_quote(
+        "app/server.py:999 原文 `def get_key():`", files)
+    assert ok
+
+
+def test_quote_check_multi_citation_partial_fake_passes_current_semantics():
+    """已知宽松点：任一条引用可验证即通过；是否要求“全部引用”待拍板。"""
+    files = {
+        "app/server.py": "def get_key():\n    return 1\n",
+        "app/other.py": "OTHER = 2\n",
+    }
+    ok, why = va._check_evidence_quote(
+        "app/server.py:1 原文 `def get_key():` 且 "
+        "app/other.py:1 原文 `fabricated_quote`", files)
+    assert ok and not why
+
+
+async def test_strict_mode_demotes_refuted_fabricated_quote(monkeypatch):
+    """自信错驳护栏：REFUTED 也必须过 E2，伪造引文在严格模式下降 UNCERTAIN。"""
+    monkeypatch.setenv("ARCA_VERIFY_EVIDENCE_STRICT", "1")
+    fake = _FakeAgent(
+        "app/server.py:1 原文 `def totally_secure():` 有鉴权", verdict="REFUTED")
+    monkeypatch.setattr(va, "build_verify_one_agent", lambda model, files: fake)
+    out = await va.run_verify_split(
+        _hs(), _files(), model=object(), prompt_files=_files(),
+        max_concurrency=1, inter_call_delay=0.0,
+    )
+    assert out[0].verdict == "UNCERTAIN"
+    assert "quote-check-failed" in out[0].verification_method
+    assert out[0].degraded is False

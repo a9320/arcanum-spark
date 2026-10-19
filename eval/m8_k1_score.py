@@ -352,22 +352,40 @@ def _aggregate(rows: list[dict]) -> dict:
     }
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="M8/K1 truth scoring (docs/M8-CTF-TRUTH.md v0)")
     ap.add_argument("--manifest", required=True, help="选题清单 JSON（数组）")
     ap.add_argument("--reports-dir", required=True,
                     help="e2e 报告目录（按 <challenge_id>/report.json 或 <challenge_id>.json 组织）")
     ap.add_argument("--upstream-root", default=None, help="NYU_CTF_Bench 克隆根（flag 原位读取）")
     ap.add_argument("--out", default=None, help="输出 JSON（缺省 stdout）")
-    args = ap.parse_args()
+    ap.add_argument("--require-all", action="store_true",
+                    help="清单内每题都须有报告；缺失则报错退出（K1 全量重判用）")
+    ap.add_argument("--expected-manifest-sha256", default=None,
+                    help="期望的 manifest SHA-256（防旧草案误用）")
+    args = ap.parse_args(argv)
 
-    entries = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
+    manifest_bytes = Path(args.manifest).read_bytes()
+    manifest_sha = hashlib.sha256(manifest_bytes).hexdigest()
+    print(f"manifest: {args.manifest} sha256={manifest_sha}", file=sys.stderr)
+    if args.expected_manifest_sha256 and manifest_sha.lower() != args.expected_manifest_sha256.lower():
+        print(
+            "manifest sha256 mismatch: expected "
+            f"{args.expected_manifest_sha256.lower()} got {manifest_sha}",
+            file=sys.stderr,
+        )
+        return 2
+    entries = json.loads(manifest_bytes.decode("utf-8"))
     if not isinstance(entries, list):
         print("manifest must be a JSON array", file=sys.stderr)
+        return 2
+    if not entries:
+        print("manifest is empty", file=sys.stderr)
         return 2
     root = Path(args.upstream_root) if args.upstream_root else None
     reports_dir = Path(args.reports_dir)
     rows = []
+    missing: list[str] = []
     for entry in entries:
         cid = entry.get("challenge_id")
         report = None
@@ -375,7 +393,15 @@ def main() -> int:
             if candidate.is_file():
                 report = json.loads(candidate.read_text(encoding="utf-8"))
                 break
+        if report is None:
+            missing.append(str(cid))
         rows.append(judge_question(entry, report, root))
+    if args.require_all and missing:
+        print(
+            f"missing reports ({len(missing)}/{len(entries)}): {', '.join(missing)}",
+            file=sys.stderr,
+        )
+        return 2
     print("aggregate: " + json.dumps(_aggregate(rows), ensure_ascii=False), file=sys.stderr)
     payload = json.dumps(rows, ensure_ascii=False, indent=1)
     if args.out:

@@ -58,12 +58,13 @@
 
 ## 六、实施记录（案甲，2026-10-18）
 
-- **证据包**（`codeark/agents/verify_agent.py::_evidence_pack`）：假设文件（无条件）→ 同目录兄弟 ≤8（按字节/路径）→ `attack_path`/`suggested_verification` 点名的仓内路径 → 预算内按 (字节, 路径) 补全；幻觉路径沿用旧口径（全量）。
+- **证据包**（`codeark/agents/verify_agent.py::_evidence_pack`）：假设文件（无条件）→ 同目录兄弟 ≤8（按字节/路径）→ `attack_path`/`suggested_verification` 点名的仓内路径 → **`solution/` 优先层**（通用补全之前，防小文件先吃光预算）→ 预算内按 (字节, 路径) 补全；幻觉路径沿用旧口径（全量）。
 - **开关**：
   - `ARCA_VERIFY_EVIDENCE_MAX_TOKENS`（默认 60000，0=不设限）；
   - `ARCA_VERIFY_EVIDENCE_EXCLUDE_SOLUTION`（默认 0=包含 `solution/`；=1 排除）；
   - `ARCA_VERIFY_EVIDENCE_STRICT`（默认 0=宽松；=1 开 E2 校验，验收臂已开）。
-- **E2 校验**（`_check_evidence_quote`）：evidence 提到仓内路径时，必须含该文件 ≥12 字符逐字片段；失败→CONFIRMED 降为 UNCERTAIN（`method` 加 `quote-check-failed`），**不置 degraded**（判决降级≠调用失败）。未提路径视为 E1，不在本层判伪。
+- **E2 校验**（`_check_evidence_quote`）：evidence 提到仓内路径时，必须含该文件 ≥12 字符逐字片段；失败→`CONFIRMED`/`REFUTED` 降为 UNCERTAIN（`method` 加 `quote-check-failed`），**不置 degraded**（判决降级≠调用失败）。未提路径视为 E1，不在本层判伪。
+- **已知宽松点（明写不掩盖）**：①同一 evidence 引用多个文件时，任一条引文可验证即通过（是否要求全部引用待拍板）；②只校验逐字片段，不校验 `path:line` 行号；③`REFUTED` 若完全不提仓内路径（纯推理），当前无法与 E1 工具证据自动区分，E2 不会降级——这是第三案的候选入口，不在案甲内宣称解决。
 - **prompt**：VERIFY_ONE 增加 E1/E2/E3 分层；CONFIRMED 需 E1/E2；REFUTED 需 E1/E2 反证，只有 E3 推理→UNCERTAIN（对齐"自信错驳"台账）。
-- **单测**：`codeark/tests/test_verify_evidence.py` 8 锚（证据包兄弟/点名/solution 开关/预算/E2 通过/伪造/无路径/E1、严格降级、宽松保留）。
-- **效果验收待 DSW**：固定假设集重跑 GK，判据见 `eval/check_verify_acceptance.py` + `docs/JUDGE-CONFIDENT-REFUTATION.md` §五。
+- **单测**：`codeark/tests/test_verify_evidence.py` 16 锚（证据包兄弟/点名/solution 优先/预算 0 不设限/幻觉全量/E2 通过/伪造/无路径/CRLF/行号错/多引文宽松点；严格降级 CONFIRMED+REFUTED；宽松保留）。
+- **效果验收待 DSW**：固定假设集重跑 GK，判据见 `eval/check_verify_acceptance.py` + `docs/JUDGE-CONFIDENT-REFUTATION.md` §六（预注册判定表）。

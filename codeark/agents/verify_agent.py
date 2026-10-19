@@ -268,7 +268,7 @@ def _evidence_pack(files: dict[str, str], hyp, fp: str) -> dict[str, str]:
     确定性顺序（可复现）：假设文件无条件在内；同目录兄弟 ≤8 按 (字节, 路径)；
     attack_path/suggested_verification 中点名的仓内路径；其余按 (字节, 路径) 装填。
     预算 ARCA_VERIFY_EVIDENCE_MAX_TOKENS（默认 60000，0=不设限）；solution/ 目录
-    默认包含（Scout 侧同一 files 集已可见），
+    默认包含且在通用补全前优先装填（预算内，防小文件先吃光预算），
     ARCA_VERIFY_EVIDENCE_EXCLUDE_SOLUTION=1 时排除。
     """
     budget = int(os.getenv("ARCA_VERIFY_EVIDENCE_MAX_TOKENS", "60000"))
@@ -281,11 +281,13 @@ def _evidence_pack(files: dict[str, str], hyp, fp: str) -> dict[str, str]:
         return "/solution/" in np or np.startswith("/solution/")
 
     pack: dict[str, str] = {}
+    seen: set[str] = set()
     used = 0
 
     def _add(path: str, content: str, *, force: bool = False) -> None:
         nonlocal used
-        if _norm_path(path) in {_norm_path(k) for k in pack}:
+        np = _norm_path(path)
+        if np in seen:
             return
         if exclude_solution and _is_solution(path):
             return
@@ -293,6 +295,7 @@ def _evidence_pack(files: dict[str, str], hyp, fp: str) -> dict[str, str]:
         if not force and budget and used + cost > budget:
             return
         pack[path] = content
+        seen.add(np)
         used += cost
 
     # 1) 假设所指文件（无条件，保持既有行为）
@@ -321,6 +324,11 @@ def _evidence_pack(files: dict[str, str], hyp, fp: str) -> dict[str, str]:
         found = by_norm.get(_norm_path(raw))
         if found:
             _add(found[0], found[1])
+
+    # 3.5) solution/ 优先（在通用补全之前，防小文件先把预算吃光）
+    if not exclude_solution:
+        for _n, k, v in sorted((len(v), k, v) for k, v in files.items() if _is_solution(k)):
+            _add(k, v)
 
     # 4) 预算内按 (字节, 路径) 补全
     for _n, k, v in sorted((len(v), k, v) for k, v in files.items() if _norm_path(k) != norm_fp):
@@ -592,10 +600,10 @@ async def run_verify_split(
                 )[0]
             result = await _verify_one(agent, hyp, render_data_block(data),
                                        per_invoke_timeout=per_invoke_timeout)
-            # T4 案甲 E2 校验：严格模式只拒"引了路径但引文不逐字"的 CONFIRMED；
+            # T4 案甲 E2 校验：严格模式只拒"引了路径但引文不逐字"的 CONFIRMED/REFUTED；
             # 这是判决降级，不是 invoke 失败，故不置 degraded（degraded 专指契约/调用失败）。
             if (_evidence_strict() and not getattr(result, "degraded", False)
-                    and str(getattr(result, "verdict", "")) == "CONFIRMED"):
+                    and str(getattr(result, "verdict", "")) in {"CONFIRMED", "REFUTED"}):
                 ok, why = _check_evidence_quote(
                     str(getattr(result, "evidence", "") or ""), pack
                 )
