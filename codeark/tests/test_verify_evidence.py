@@ -406,6 +406,47 @@ async def test_plain_json_default_keeps_primary_structured(monkeypatch):
     assert seen[0].get("structured") is True
 
 
+def test_json_object_from_text_unwraps_verification_result():
+    """10-20 plain-json 实况形状：verification_result 包层 + status + evidence 数组。"""
+    text = ('{"verification_result": {"hypothesis_id": "H4", "status": "REFUTED",'
+            ' "confidence": 1.0, "evidence": [{"type": "E2",'
+            ' "description": "readme.md:38: <!--Spoilers!  8;41;31m/-->"}],'
+            ' "verification_method": "manual"}}')
+    obj = va._json_object_from_text(text)
+    assert obj is not None
+    assert obj["verdict"] == "REFUTED"
+    assert obj["hypothesis_id"] == "H4"
+    assert "Spoilers" in obj["evidence"]
+
+
+async def test_plain_primary_wrapped_json_parses(monkeypatch):
+    wrapped = _TextAgent(
+        '{"verification_result": {"hypothesis_id": "H1", "status": "CONFIRMED",'
+        ' "confidence": 0.9, "evidence": [{"type": "E2",'
+        ' "description": "app/server.py:1: `def get_key():`"}],'
+        ' "verification_method": "manual"}}'
+    )
+    out = await va._verify_one(
+        wrapped, _hyp(id="H1"), "data", per_invoke_timeout=5)
+    assert out.verdict == "CONFIRMED"
+    assert out.degraded is False
+
+
+def test_plain_json_contract_appended_only_when_unstructured(monkeypatch):
+    captured = {}
+
+    class _DummyAgent:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(va, "Agent", _DummyAgent)
+    va.build_verify_one_agent(object(), _files(), structured=False)
+    assert captured["system_prompt"].endswith(va.PLAIN_JSON_CONTRACT)
+    captured.clear()
+    va.build_verify_one_agent(object(), _files(), structured=True)
+    assert va.PLAIN_JSON_CONTRACT not in captured["system_prompt"]
+
+
 def test_json_object_from_text_survives_braces_in_evidence():
     text = (
         "thinking {not json}\n"
