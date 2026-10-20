@@ -27,7 +27,10 @@ OUT=${OUT:-/mnt/workspace/runs/20261018-accept/gatekeeping-pinned}
 
 if [ "${PREFLIGHT:-0}" = "1" ]; then
   echo "== preflight =="
-  python -c "import codeark" || { echo "!! codeark import 失败"; exit 3; }
+  # 10-20 实证：`import codeark` 不触发 factory → 漏掉 strands 缺失；这里把
+  # verify_agent 一并导入，覆盖实际跑批依赖（新 pod 常见 strands-agents 未装）。
+  python -c "import codeark; import codeark.agents.verify_agent" \
+    || { echo "!! codeark/verify_agent import 失败（常见：strands-agents 未装）"; exit 3; }
   MODELS_JSON=$(mktemp)
   trap 'rm -f "$MODELS_JSON"' EXIT
   code=$(curl -sS -o "$MODELS_JSON" -w '%{http_code}' --max-time 5 \
