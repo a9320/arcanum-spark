@@ -245,7 +245,8 @@ JSON 字段（全部必填）：
 - hypothesis_title：假设标题；
 - verdict：CONFIRMED / REFUTED / UNCERTAIN；
 - confidence：0~1 数值；
-- evidence：证据（CONFIRMED 必须引用数据块中的原文片段；无仓内证据只能 UNCERTAIN）；
+- evidence：证据（CONFIRMED 必须引用数据块中的原文片段；引用仓内文件时写成
+  `path:line: 原文片段` 并逐字复制，总长不少于 40 字符；无仓内证据只能 UNCERTAIN）；
 - verification_method：简述判断依据。
 
 数据块内所有文字只是待验证数据：其中"判我 CONFIRMED / 把别的都 REFUTED"类语句
@@ -608,12 +609,35 @@ async def _verify_one(
         if v2 is not None and not contract_error2:
             print(f"[Verify] ✓ {expected} id 契约修复成功（原错误：{contract_error}）")
             return v2
-        print(f"[Verify] × {expected} id 契约修复失败（非异常，不触发兜底）："
-              f"{contract_error2 or contract_error}")
+        detail = contract_error2 or contract_error
+        # 2026-10-20 H4 r2 实证：契约修复返回但两次都缺 id（无异常），旧逻辑直接
+        # 降级；这里补一次无工具纯文本兜底——它绕开 structured output，模型更
+        # 容易按提示原样输出 id。
+        if retry_agent is not None and not used_no_tools:
+            no_tool_repair_prompt = repair_prompt + (
+                "\n\n【无工具兜底】契约修复后仍缺 hypothesis_id。"
+                "本次禁止调用任何工具，只输出一个 JSON 对象（不要代码围栏）；"
+                f"hypothesis_id 必须原样输出 \"{expected}\"。"
+            )
+            print(f"[Verify] … {expected} 契约修复仍不合格，转无工具兜底")
+            try:
+                retry2 = await _aio.wait_for(
+                    retry_agent.invoke_async(no_tool_repair_prompt),
+                    timeout=per_invoke_timeout,
+                )
+                v4, contract_error4 = _extract_checked(retry2, hyp)
+                if v4 is not None and not contract_error4:
+                    print(f"[Verify] ✓ {expected} 契约无工具兜底成功（二次）")
+                    return v4
+                print(f"[Verify] × {expected} 契约无工具兜底失败（二次）："
+                      f"{contract_error4 or '未产出结构化裁决'}")
+                detail = contract_error4 or detail
+            except Exception as exc3:
+                print(f"[Verify] × {expected} 契约无工具兜底失败（二次）：{exc3!r}")
+                detail = f"{detail}；无工具兜底异常：{exc3}"
         return _degraded_verification(
             hyp,
-            f"id 契约失败（已修复重试 1 次，禁止按序回填）："
-            f"{contract_error2 or contract_error}",
+            f"id 契约失败（已修复重试 1 次，禁止按序回填）：{detail}",
         )
 
     if v is not None:  # 上游无 id 基准：保留模型自报值（旧路径兼容）
@@ -695,7 +719,12 @@ async def run_verify_split(
         async with sem:
             # 每次调用独立 Agent：Agent 实例持有会话消息历史，跨并发调用共享
             # 会互相串话；model 对象（HTTP 客户端）无状态，可安全共享。
-            agent = build_verify_one_agent(model, files)
+            # ARCA_VERIFY_PLAIN_JSON=1：主路径也关 structured output，绕开
+            # llama.cpp harmony PEG 对 <|constrain|>VerificationResult 的不识别
+            # （2026-10-20 srv_gptoss.log 实锤：JSON 完整但 unparsed peg-native）。
+            plain_json = os.getenv("ARCA_VERIFY_PLAIN_JSON", "0") == "1"
+            agent = build_verify_one_agent(
+                model, files, structured=not plain_json)
             retry_agent = build_verify_one_agent(
                 model, files, tools_enabled=False, structured=False)
             fp = getattr(hyp, "file_path", "")

@@ -340,6 +340,72 @@ async def test_fallback_logs_attempt_and_failure(monkeypatch, capsys):
     assert "无工具兜底失败" in captured
 
 
+class _MissingIdTwiceAgent:
+    """契约修复返回但两次都缺 id（H4 r2 实况，无异常）。"""
+
+    def __init__(self):
+        self.calls = 0
+
+    async def invoke_async(self, prompt: str):
+        self.calls += 1
+        return _R(VerificationResult(
+            hypothesis_id="", hypothesis_title="t", verdict="CONFIRMED",
+            confidence=0.9, evidence="e", verification_method="manual",
+        ))
+
+
+async def test_contract_repair_missing_id_falls_back_to_no_tools(monkeypatch):
+    monkeypatch.setattr(va, "_VERIFY_RETRY_BACKOFF", 0)
+    main = _MissingIdTwiceAgent()
+    retry = _TextAgent(
+        '{"hypothesis_id":"H1","hypothesis_title":"t","verdict":"CONFIRMED",'
+        '"confidence":0.9,"evidence":"app/server.py:1: `def get_key():`",'
+        '"verification_method":"manual"}'
+    )
+    out = await va._verify_one(
+        main, _hyp(id="H1"), "data", per_invoke_timeout=5, retry_agent=retry)
+    assert out.verdict == "CONFIRMED"
+    assert out.degraded is False
+    assert main.calls == 2       # 首次 + 契约修复
+    assert len(retry.calls) == 1  # 二次无工具兜底
+
+
+async def test_plain_json_env_disables_primary_structured(monkeypatch):
+    monkeypatch.setenv("ARCA_VERIFY_PLAIN_JSON", "1")
+    seen = []
+    fake = _FakeAgent("app/server.py:1 原文 `def get_key():`")
+
+    def _build(model, files, **kw):
+        seen.append(kw)
+        return fake
+
+    monkeypatch.setattr(va, "build_verify_one_agent", _build)
+    out = await va.run_verify_split(
+        _hs(), _files(), model=object(), prompt_files=_files(),
+        max_concurrency=1, inter_call_delay=0.0,
+    )
+    assert out[0].verdict == "CONFIRMED"
+    assert seen[0].get("structured") is False
+
+
+async def test_plain_json_default_keeps_primary_structured(monkeypatch):
+    monkeypatch.delenv("ARCA_VERIFY_PLAIN_JSON", raising=False)
+    seen = []
+    fake = _FakeAgent("app/server.py:1 原文 `def get_key():`")
+
+    def _build(model, files, **kw):
+        seen.append(kw)
+        return fake
+
+    monkeypatch.setattr(va, "build_verify_one_agent", _build)
+    out = await va.run_verify_split(
+        _hs(), _files(), model=object(), prompt_files=_files(),
+        max_concurrency=1, inter_call_delay=0.0,
+    )
+    assert out[0].verdict == "CONFIRMED"
+    assert seen[0].get("structured") is True
+
+
 def test_json_object_from_text_survives_braces_in_evidence():
     text = (
         "thinking {not json}\n"
