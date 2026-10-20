@@ -508,22 +508,24 @@ def _json_object_from_text(text: str) -> dict | None:
     纯文本兜底没有 structured_output，模型可能带 thinking 前缀或代码围栏；
     贪婪正则遇到 evidence 内含 '}' 会整段失效，故用 raw_decode 从每个 '{' 逐试。
     2026-10-20 H4 实况：模型把 ANSI 逃逸写成 \\x1b（JSON 不允许 \\xHH 转义），
-    解析前先把 \\xHH 换成 \\u00HH。
+    解析前先把 \\xHH 换成 \\u00HH；若写的是裸 ESC 控制字符，则由 strict=False
+    解码器接收（严格 JSON 禁止字符串内出现 <0x20 的控制字符）。
     """
-    dec = json.JSONDecoder()
+    decoders = (json.JSONDecoder(), json.JSONDecoder(strict=False))
     for i, ch in enumerate(text):
         if ch != "{":
             continue
         for candidate in (text[i:], _JSON_XESC_RE.sub(
                 lambda m: "\\u00" + m.group(1).lower(), text[i:])):
-            try:
-                obj, _ = dec.raw_decode(candidate)
-            except Exception:
-                continue
-            if isinstance(obj, dict):
-                norm = _normalize_raw_verdict(obj)
-                if "verdict" in norm:
-                    return norm
+            for dec in decoders:
+                try:
+                    obj, _ = dec.raw_decode(candidate)
+                except Exception:
+                    continue
+                if isinstance(obj, dict):
+                    norm = _normalize_raw_verdict(obj)
+                    if "verdict" in norm:
+                        return norm
     return None
 
 

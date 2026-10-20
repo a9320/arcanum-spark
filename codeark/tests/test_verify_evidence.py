@@ -459,6 +459,18 @@ def test_json_object_from_text_tolerates_x_escape():
     assert "\x1b" in obj["evidence"]
 
 
+def test_json_object_from_text_tolerates_raw_esc_char():
+    """H4 二次实况：evidence 里是裸 ESC 控制字符（repr 同样显示 \\x1b）。"""
+    text = ('{"hypothesis_id":"H4","hypothesis_title":"t","verdict":"REFUTED",'
+            '"confidence":0.9,'
+            '"evidence":"readme.md:38: <!--Spoilers!  \x1b[8;41;31m/-->",'
+            '"verification_method":"m"}')
+    obj = va._json_object_from_text(text)
+    assert obj is not None
+    assert obj["verdict"] == "REFUTED"
+    assert "\x1b" in obj["evidence"]
+
+
 def test_json_object_from_text_survives_braces_in_evidence():
     text = (
         "thinking {not json}\n"
