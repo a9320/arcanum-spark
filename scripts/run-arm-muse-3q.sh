@@ -6,6 +6,8 @@
 # 用法：DSW 四服务 UP 后，bash scripts/run-arm-muse-3q.sh
 # ============================================================
 cd "$(dirname "$0")/.." || exit 1
+# DSW 持久依赖自举（strands 在 /mnt/workspace/pylibs；新 pod 首次自动安装）
+source scripts/dsw-env.sh
 export ARCA_DEPLOYMENT=local
 export ARCA_SCOUT_MODEL=muse-scout ARCA_SCOUT_BASE_URL=http://127.0.0.1:8081/v1
 export ARCA_SCOUT_MAX_TOKENS=20000

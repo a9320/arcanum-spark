@@ -11,6 +11,8 @@
 # ============================================================
 set -u
 cd "$(dirname "$0")/.." || exit 1
+# DSW 持久依赖自举（strands 在 /mnt/workspace/pylibs；新 pod 首次自动安装）
+source scripts/dsw-env.sh
 export ARCA_DEPLOYMENT=local
 export ARCA_VERIFY_MAX_CONCURRENCY=1          # T1 定案：串行（10-18 实测并行零速益）
 export ARCA_VERIFY_TEMPERATURE=0              # 10-19：验收固定采样温度（仍随机，靠 no-tools 兜底）

@@ -11,6 +11,8 @@
 #   nohup bash scripts/run-arm-step5-3miss.sh > /mnt/workspace/runs/3miss-s5p/main.log 2>&1 &
 # ============================================================
 cd "$(dirname "$0")/.." || exit 1
+# DSW 持久依赖自举（strands 在 /mnt/workspace/pylibs；新 pod 首次自动安装）
+source scripts/dsw-env.sh
 if [ -z "${ARCA_SCOUT_API_KEY:-}" ]; then
   echo "!! 先注入 key（read -s 交互注入，勿进对话文本）"; exit 1
 fi
