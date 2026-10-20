@@ -17,6 +17,9 @@ export ARCA_VERIFY_TEMPERATURE=0              # 10-19：验收固定采样温度
 export ARCA_VERIFY_MODEL=gpt-oss-verify       # 单变量：只验判决契约修复，不换岗
 export ARCA_VERIFY_BASE_URL=http://127.0.0.1:8085/v1
 export ARCA_VERIFY_EVIDENCE_STRICT=1          # T4 案甲：验收臂开 E2 逐字引文校验（日常默认宽松）
+# 10-20 N=3 实证：gpt-oss×llama.cpp 对 structured output 的 <|constrain|>VerificationResult
+# 标记整轮 PEG 拒绝；验收臂钉纯文本 JSON（调用方显式传 0 可回退）。
+export ARCA_VERIFY_PLAIN_JSON=${ARCA_VERIFY_PLAIN_JSON:-1}
 
 SRC=${SRC:-/mnt/workspace/runs/20261018-new2q/gatekeeping/report.json}
 GK=${GK:-/mnt/workspace/NYU_CTF_Bench/test/2021/CSAW-Quals/web/gatekeeping}

@@ -84,3 +84,37 @@ python eval/check_verify_acceptance.py <OUT>/e2e_report.json --target H2
 3. **10-18 的 T6 PASS 必须降级为“单次成功样本”**，不能作为稳定验收；凡“verify_degraded=0”宣称都必须附 N≥3 复跑与降级率。
 4. **已实施兜底**（`e30612f` + 契约修复阶段补丁）：首次 invoke 两次 peg-native 失败，或“首次成功但缺 id、契约修复调用被 peg-native 拒绝”时，都用 `tools_enabled=False` 的无工具 Agent 做一次纯 JSON 裁决；仅失败路径触发，不改变正常路径。验收脚本钉 `ARCA_VERIFY_TEMPERATURE=0`。**N=3 实拍：r1/r2/r3 = 0/1/0 降级，但 `无工具兜底成功` grep=0**——r1/r3 的零降级是采样运气，不是兜底生效；r2 的 H3 正是契约修复阶段被 peg-native 拒绝，已由本补丁覆盖，待下一轮 N=3 验证。
 5. **T4 证据包结论**：尚不能定罪，也不能宣称有效；在 parser 稳定前，T4 效果实验全部暂停，先跑无工具兜底 N≥3 的稳定率。
+
+## 八、10-20 根因定罪与稳定验收：`<|constrain|>VerificationResult` 被 llama.cpp PEG 拒绝
+
+同一固定假设集（gatekeeping H1–H4）、`gpt-oss-verify`、`strands-agents 1.56.0`、`temp=0`、`max_concurrency=1`，新 pod `dsw-2277665` 实拍：
+
+| 阶段 | 代码/开关 | 卷数 | 结果 |
+|---|---|---|---|
+| 带 structured output（旧默认） | d10ba38 | 3 | degraded 3/1/1；H2 仅 r1 降级 |
+| H4 单题，旧兜底 | 3cc6654 | 3 | r1 PASS / r2 缺 id 降级 / r3 兜底成功但 evidence 27<40 |
+| H4 单题，plain-json 主路径（首版） | 26be328 | 5 | 5/5 降级；raw 为 `verification_result/status/evidence[]` 变体 |
+| H4 单题，补输出契约 | 44578cd | 5 | r1 PASS，其余因 `\x1b`（非法转义或裸控制字符）解析失败 |
+| H4 单题，`strict=False` 解码 | b309874 | 5 | **5/5 PASS**（deg False，peg 持平） |
+| 全量固定集 N=3，plain-json | b309874 + 验收臂默认 | 3 | **3/3 PASS，`DEG 0`**；H1/H2/H3 CONFIRMED，H4 被 E2 降为 UNCERTAIN |
+
+**根因证据（服务端原文）**，`/root/srv_gptoss.log`：
+
+```
+common_chat_peg_parse: unparsed peg-native output: <|channel|>final <|constrain|>VerificationResult<|message|>{"hypothesis_id":...}
+```
+
+即 JSON 本身完整合法，llama.cpp 的 PEG 解析器卡在 structured output 的 `<|constrain|>VerificationResult` 标记上。
+
+**已实施**：
+
+1. `ARCA_VERIFY_PLAIN_JSON=1`：verify 主路径关闭 structured output，改纯文本 JSON；`_json_object_from_text` 支持 `verification_result` 包层、`status`→`verdict`、evidence 数组拼接、`\xHH` 非法转义与裸控制字符（`strict=False`）。
+2. 无工具兜底 agent 使用专用 system prompt（不再描述工具），并关闭 structured output；契约修复两次缺 id 时也走二次无工具兜底。
+3. 兜底增加 attempted/failed 显式日志（旧 `grep 成功=0` 无法区分“未触发”与“触发但失败”）。
+4. 验收脚本 preflight 导入 `codeark.agents.verify_agent`（新 pod 缺 strands 当场失败）；验收臂默认 `ARCA_VERIFY_PLAIN_JSON=1`。
+
+**边界**：
+
+- 这是“固定假设集 + gpt-oss 路由 + 验收臂”的稳定 PASS，不泛化到其他题/模型；K1 判分器不受影响，无需重判。
+- 生产默认仍保留 structured output（环境变量未设=0）；是否升为全局默认待拍板。
+- H4 的 UNCERTAIN 是 E2 引文护栏（引文含 `\x1b`/空格与仓内不逐字），`deg=False`，属判决层正常行为，不计入降级。
