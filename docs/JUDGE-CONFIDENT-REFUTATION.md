@@ -118,3 +118,20 @@ common_chat_peg_parse: unparsed peg-native output: <|channel|>final <|constrain|
 - 这是“固定假设集 + gpt-oss 路由 + 验收臂”的稳定 PASS，不泛化到其他题/模型；K1 判分器不受影响，无需重判。
 - 生产默认仍保留 structured output（环境变量未设=0）；是否升为全局默认待拍板。
 - H4 的 UNCERTAIN 是 E2 引文护栏（引文含 `\x1b`/空格与仓内不逐字），`deg=False`，属判决层正常行为，不计入降级。
+
+### 八·补：T4 证据包解冻首测（2026-10-20 22:13–22:26，N=3×2）
+
+parser 稳定后按单变量纪律跑默认包 vs 最小包（`ARCA_VERIFY_EVIDENCE_MAX_TOKENS=1`），
+均为 plain-json 验收臂、固定假设集、`gpt-oss-verify`：
+
+| 臂 | 卷 | DEG | H1 | H2（官方链） | H3 | H4 |
+|---|---|---|---|---|---|---|
+| default（60000） | 3 | 0/0/0 | CONFIRMED ×3（65） | **CONFIRMED ×3（319）** | CONFIRMED ×3（408） | UNCERTAIN ×3（E2） |
+| minpack（1） | 3 | 0/0/0 | CONFIRMED ×3（65） | **UNCERTAIN ×3（151）** | CONFIRMED ×3（144） | UNCERTAIN ×3（E2） |
+
+**结论**：证据包对 H2 是决定性的（有包→CONFIRMED，无包→UNCERTAIN）；H1 不受影响；
+H3 判决稳定但证据长度 408→144 明显变短；H4 始终被 E2 引文护栏拦下。两臂 6/6 卷
+`CHECK rc=0` 且零降级，说明该对比已不受 parser 噪声干扰。
+
+**边界**：N=3、单仓、单模型、最小包是极端消融（仅假设文件），不能外推为“证据包对
+所有题都有效”；default 臂 H2/H3 证据三卷逐字一致属该固定集下的观察，不作为全局确定性宣称。
