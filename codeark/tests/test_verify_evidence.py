@@ -447,6 +447,18 @@ def test_plain_json_contract_appended_only_when_unstructured(monkeypatch):
     assert va.PLAIN_JSON_CONTRACT not in captured["system_prompt"]
 
 
+def test_json_object_from_text_tolerates_x_escape():
+    """H4 实况：模型把 ANSI 逃逸写成 \\x1b（JSON 非法转义）。"""
+    text = ('{"hypothesis_id":"H4","hypothesis_title":"t","verdict":"REFUTED",'
+            '"confidence":0.9,'
+            '"evidence":"readme.md:38: <!--Spoilers!  \\x1b[8;41;31m/-->",'
+            '"verification_method":"m"}')
+    obj = va._json_object_from_text(text)
+    assert obj is not None
+    assert obj["verdict"] == "REFUTED"
+    assert "\x1b" in obj["evidence"]
+
+
 def test_json_object_from_text_survives_braces_in_evidence():
     text = (
         "thinking {not json}\n"

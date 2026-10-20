@@ -285,6 +285,8 @@ def _match_file(finding: object, file_path: str) -> bool:
 
 # ────────────────────────── T4 案甲：证据包 + E2 引文校验 ──────────────────────────
 _EVIDENCE_PATH_RE = re.compile(r"[A-Za-z0-9_./\\-]+\.[A-Za-z0-9]{1,6}")
+# JSON 非法的 \xHH 转义（模型描述 ANSI 逃逸时高发）→ \u00HH
+_JSON_XESC_RE = re.compile(r"\\x([0-9a-fA-F]{2})")
 
 
 def _est_tokens(text: str) -> int:
@@ -505,19 +507,23 @@ def _json_object_from_text(text: str) -> dict | None:
 
     纯文本兜底没有 structured_output，模型可能带 thinking 前缀或代码围栏；
     贪婪正则遇到 evidence 内含 '}' 会整段失效，故用 raw_decode 从每个 '{' 逐试。
+    2026-10-20 H4 实况：模型把 ANSI 逃逸写成 \\x1b（JSON 不允许 \\xHH 转义），
+    解析前先把 \\xHH 换成 \\u00HH。
     """
     dec = json.JSONDecoder()
     for i, ch in enumerate(text):
         if ch != "{":
             continue
-        try:
-            obj, _ = dec.raw_decode(text[i:])
-        except Exception:
-            continue
-        if isinstance(obj, dict):
-            norm = _normalize_raw_verdict(obj)
-            if "verdict" in norm:
-                return norm
+        for candidate in (text[i:], _JSON_XESC_RE.sub(
+                lambda m: "\\u00" + m.group(1).lower(), text[i:])):
+            try:
+                obj, _ = dec.raw_decode(candidate)
+            except Exception:
+                continue
+            if isinstance(obj, dict):
+                norm = _normalize_raw_verdict(obj)
+                if "verdict" in norm:
+                    return norm
     return None
 
 
