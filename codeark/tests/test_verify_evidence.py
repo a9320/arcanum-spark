@@ -284,3 +284,68 @@ async def test_id_repair_fallback_failure_degrades(monkeypatch):
         retry_agent=_AlwaysFailAgent())
     assert out.verdict == "UNCERTAIN"
     assert out.degraded is True
+
+
+# -- 2026-10-20 兜底第二刀：无工具提示 + 关闭 structured output + 显式日志 --
+
+
+class _TextAgent:
+    """模拟关掉 structured_output 后的纯文本返回。"""
+
+    def __init__(self, text: str):
+        self.text = text
+        self.calls = []
+
+    async def invoke_async(self, prompt: str):
+        self.calls.append(prompt)
+        return self.text
+
+
+def test_no_tools_agent_uses_notools_prompt_and_no_structured(monkeypatch):
+    captured = {}
+
+    class _DummyAgent:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(va, "Agent", _DummyAgent)
+    va.build_verify_one_agent(object(), _files(), tools_enabled=False, structured=False)
+    assert captured["system_prompt"] == va.VERIFY_ONE_NOTOOLS_SYSTEM_PROMPT
+    assert captured["tools"] == []
+    assert "structured_output_model" not in captured
+
+
+async def test_text_json_fallback_parses(monkeypatch):
+    monkeypatch.setattr(va, "_VERIFY_RETRY_BACKOFF", 0)
+    retry = _TextAgent(
+        '{"hypothesis_id":"H1","hypothesis_title":"t","verdict":"CONFIRMED",'
+        '"confidence":0.9,"evidence":"app/server.py:1 原文 `def get_key():`",'
+        '"verification_method":"manual"}'
+    )
+    out = await va._verify_one(
+        _PegFailAgent(), _hyp(), "data", per_invoke_timeout=5, retry_agent=retry)
+    assert out.verdict == "CONFIRMED"
+    assert out.degraded is False
+    assert len(retry.calls) == 1
+
+
+async def test_fallback_logs_attempt_and_failure(monkeypatch, capsys):
+    monkeypatch.setattr(va, "_VERIFY_RETRY_BACKOFF", 0)
+    out = await va._verify_one(
+        _PegFailAgent(), _hyp(), "data", per_invoke_timeout=5,
+        retry_agent=_AlwaysFailAgent())
+    assert out.degraded is True
+    captured = capsys.readouterr().out
+    assert "无工具兜底尝试" in captured
+    assert "无工具兜底失败" in captured
+
+
+def test_json_object_from_text_survives_braces_in_evidence():
+    text = (
+        "thinking {not json}\n"
+        '{"hypothesis_id":"H1","verdict":"UNCERTAIN","evidence":"cfg{x:1}",'
+        '"confidence":0.5,"hypothesis_title":"t","verification_method":"m"}'
+    )
+    obj = va._json_object_from_text(text)
+    assert obj is not None and obj["verdict"] == "UNCERTAIN"
+    assert obj["evidence"] == "cfg{x:1}"
