@@ -772,10 +772,11 @@ async def run_verify_split(
         async with sem:
             # 每次调用独立 Agent：Agent 实例持有会话消息历史，跨并发调用共享
             # 会互相串话；model 对象（HTTP 客户端）无状态，可安全共享。
-            # ARCA_VERIFY_PLAIN_JSON=1：主路径也关 structured output，绕开
+            # ARCA_VERIFY_PLAIN_JSON：主路径关 structured output，绕开
             # llama.cpp harmony PEG 对 <|constrain|>VerificationResult 的不识别
             # （2026-10-20 srv_gptoss.log 实锤：JSON 完整但 unparsed peg-native）。
-            plain_json = os.getenv("ARCA_VERIFY_PLAIN_JSON", "0") == "1"
+            # 2026-10-21 拍板默认 1：真实 e2e 三卷 11 判决 10 真实 + PEG 拒绝 0。
+            plain_json = os.getenv("ARCA_VERIFY_PLAIN_JSON", "1") == "1"
             agent = build_verify_one_agent(
                 model, files, structured=not plain_json)
             retry_agent = build_verify_one_agent(

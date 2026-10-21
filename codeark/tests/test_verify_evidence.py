@@ -388,7 +388,8 @@ async def test_plain_json_env_disables_primary_structured(monkeypatch):
     assert seen[0].get("structured") is False
 
 
-async def test_plain_json_default_keeps_primary_structured(monkeypatch):
+async def test_plain_json_default_is_enabled(monkeypatch):
+    """2026-10-21 拍板：默认 plain-json（真实 e2e 三卷 10/11 真实裁决 + PEG 0）。"""
     monkeypatch.delenv("ARCA_VERIFY_PLAIN_JSON", raising=False)
     seen = []
     fake = _FakeAgent("app/server.py:1 原文 `def get_key():`")
@@ -403,7 +404,7 @@ async def test_plain_json_default_keeps_primary_structured(monkeypatch):
         max_concurrency=1, inter_call_delay=0.0,
     )
     assert out[0].verdict == "CONFIRMED"
-    assert seen[0].get("structured") is True
+    assert seen[0].get("structured") is False
 
 
 def test_json_object_from_text_unwraps_verification_result():
