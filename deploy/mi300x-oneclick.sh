@@ -168,13 +168,16 @@ nohup $LL -m /root/models/r1-32b/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf \
   -a r1-deepen -ngl 99 -c 32768 -np 2 --temp 0.6 --top-p 0.95 --host 127.0.0.1 --port 8083 --jinja \
   > /root/srv_r1.log 2>&1 &
 nohup $LL -m /root/models/qwen38/Qwen3.8-27B-UD-Q4_K_XL.gguf \
-  -a qwen-verify -ngl 99 -c 65536 -np 4 --host 127.0.0.1 --port 8182 --jinja \
+  -a qwen-verify -ngl 99 -c 65536 -np 1 --host 127.0.0.1 --port 8182 --jinja \
   > /root/srv_qwen.log 2>&1 &
 nohup $LL -m /root/models/Muse-Glimmer-30B-GGUF/Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf \
   -a muse-scout -ngl 99 -c 98304 -np 1 --temp 1.0 --top-p 0.95 --top-k 64 --host 127.0.0.1 --port 8081 --jinja \
   > /root/srv_muse.log 2>&1 &
+# 2026-10-21 webhooktester H1 实证：-np 4 使 per-slot n_ctx=65536/4=16384，
+# 29293 tokens 证据包溢出降级（exceed_context_size_error）；verify 并发=1 已拍板，
+# np=1 独占全窗、KV 显存零变化（对齐 muse np=1 先例）；qwen 备胎同机理同修
 nohup $LL -m /root/models/gpt-oss-20b/gpt-oss-20b-MXFP4.gguf \
-  -a gpt-oss-verify -ngl 99 -c 65536 -np 4 --host 127.0.0.1 --port 8085 --jinja \
+  -a gpt-oss-verify -ngl 99 -c 65536 -np 1 --host 127.0.0.1 --port 8085 --jinja \
   > /root/srv_gptoss.log 2>&1 &
 echo "5 servers launching"
 INNER_EOF
