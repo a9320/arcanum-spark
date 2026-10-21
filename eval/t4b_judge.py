@@ -16,7 +16,8 @@ import json
 from pathlib import Path
 
 OFFICIAL_KEYS = ("path traversal", "traversal", "lfi", "local file",
-                 "directory traversal", "../")
+                 "directory traversal", "../", "file inclusion",
+                 "arbitrary file read")
 
 
 def load_verifications(rep: dict) -> list:
@@ -46,9 +47,12 @@ def main() -> int:
     ap.add_argument("--base", default="/mnt/workspace/runs/20261021-t4b")
     ap.add_argument("--arms", default="default,minpack")
     ap.add_argument("--runs", type=int, default=3)
+    ap.add_argument("--official", default="",
+                    help="人工指定官方链假设 id（逗号分隔，双保险；"
+                         "poem 实测=H1 PATH_TRAVERSAL→LFI，K1 报告 §77）")
     args = ap.parse_args()
     base = Path(args.base)
-    official: set[str] = set()
+    official: set[str] = {s.strip() for s in args.official.split(",") if s.strip()}
     matrices: dict[str, dict[str, list[str]]] = {}
 
     for arm in args.arms.split(","):
@@ -62,7 +66,8 @@ def main() -> int:
             rep = json.loads(rep_p.read_text(encoding="utf-8"))
             vs = load_verifications(rep)
             for h in load_hypotheses(rep):
-                text = f"{h.get('title', '')} {h.get('description', '')}".lower()
+                text = " ".join(str(h.get(k, "")) for k in
+                                ("vuln_type", "title", "description")).lower()
                 if any(k in text for k in OFFICIAL_KEYS):
                     official.add(str(h.get("id", "?")))
             deg = sum(1 for v in vs if v.get("degraded"))
