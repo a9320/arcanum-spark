@@ -7,8 +7,8 @@
 
 - [x] **PITAX 确定性规则 9 条**（编号与官方 taxonomy v1.6.1 对齐）：PIT-E-23/E-54/T-46/T-51/N-06/E-07/E-14/E-36/E-57；
       扫描面覆盖 AI 根上下文文件（`.mdc`/`.cursorrules` 已入白名单，2026-10-02 修复登记册 #15）
-- [x] **确定性测试套件 310 collected / verify.sh 5/5**（正样本检出 + 负样本零误报 + 映射验证 + SARIF + 输出护栏 + 单一数据源防漂移 + quickscan API 冒烟 + Scout 预算帽回归锚 + CLI gate 接线回归锚 + 克隆失败返回契约回归锚 ×2；本地最小 venv 缺 fastapi 时 API 模块 skip=303，CI 全装环境=310；数量随 hardneg 批次增长）
-- [x] **六节点 Agent 流水线**（Scout→…→Arbiter，strands 编排）：MI300X/gfx942 本地四服务 + 云端五端点 named-routes 双部署；
+- [x] **确定性测试套件 384 collected / verify.sh 5/5**（2026-10-22 本机实测全绿；正样本检出 + 负样本零误报 + 映射验证 + SARIF + 输出护栏 + 单一数据源防漂移 + quickscan API 冒烟 + Scout 预算帽回归锚 + CLI gate 接线回归锚 + 克隆失败返回契约回归锚 ×2；数量随 hardneg 批次增长，历史口径 310→384）
+- [x] **六节点 Agent 流水线**（Scout→…→Arbiter，strands 编排）：MI300X/gfx942 本地五服务（四阶段 + qwen verify 热备）+ 云端五端点 named-routes 双部署；
       混合臂 env 覆盖实证（`ARCA_DEPLOYMENT=local` + `ARCA_<STAGE>_{MODEL,BASE_URL,API_KEY}` 零代码换端）+
       `ARCA_SCOUT_MAX_TOKENS` 抬帽新知（6000 帽撞思考型云模型=MaxTokensReached 空卷）
 - [x] **Laya 验证预算排序门（gate）**：八代微调 ranker（r0…r8，hard-exam v2 环路 20→21→23→**24/24**，AP=1.0、FN=0 全程保持）；
@@ -52,6 +52,13 @@
 - [ ] **gate v2 预算帽姿态**：从"只重排"到"省验证预算"（前置 #2 ✓ + R7 校准 ✓ 已满足）
 - [ ] **REFUTED 裁决噪声治理**：同仓 N 次重跑统计翻转率 → Scout temp0 开关或缓存复用（登记册 #7）
 - [ ] **生产运行统计**：node_errors 率/时长分布/保护触发率（登记册 #12）
+
+## ✅ v1.3 — 外审改进（2026-10-22）
+
+- [x] **P2-9 单一数据源收口**：`app/pitax/sanitizer.py`、`sarif.py` 转纯转发（rules/detectors 已于 2026-09-28 收口）；identity 断言扩展到 sanitizer/sarif
+- [x] **文档-代码一致性修订**：README 五服务/五模型（verify 默认 gpt-oss-verify :8085，qwen :8182 热备）、~84 GB 模型账、`/root` 与 `/mnt/workspace` 写入边界、模型家族措辞精确化
+- [x] **开箱即用体验**：README 5 分钟零 LLM 快开始、`.venv-win` 创建提示、`scripts/setup_config.py`（交互生成 .env）、`scripts/check_endpoints.py`（端点预检）
+- [x] **CI/CD 集成文档**：`docs/CI-CD.md` + `examples/ci/github-actions-audit.yml`（SARIF 上传 + CRITICAL/HIGH 策略门 + 退出码语义）
 
 ## 🔜 远期
 

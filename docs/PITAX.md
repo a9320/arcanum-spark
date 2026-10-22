@@ -121,3 +121,11 @@ python -m pytest -c codeark/pyproject.toml codeark/tests tests -q   # 全仓 310
 
 ---
 *Based on the Arcanum Prompt Injection Taxonomy by Jason Haddix, Arcanum Information Security. CC BY 4.0.*
+
+## 语言覆盖（诚实边界）
+
+规则是**文本级**检测，与编程语言无关：`SCAN_EXTENSIONS` 覆盖 py/js/ts/jsx/tsx/java/go/rs/c/cpp/cs/rb/php/sh/yaml/json/md/txt/toml/ini/html/vue/sql 等（见 `codeark/pitax/sanitizer.py`）。
+
+- **示例与预期结果**：`demo/vuln-demo-repo` 当前覆盖 Python + Markdown + AI 指令文件（`.cursor/rules`、`copilot-instructions.md`），预期表为 12 处命中（`eval/expected.json`）；
+- **JavaScript 等其它语言**：同一组检测器直接生效（注释注入、编码载荷、不可见字符、Trojan Source 均与语言无关），但演示仓暂未内置 JS 样例——对自己的仓库跑 `python -m codeark.cli <repo> --dry` 即可得到结果；
+- **不覆盖**：SQL 注入 / XSS / 硬编码密钥等传统 SAST 问题、依赖 CVE、运行时污点（与 `skills/ai-repo-audit/SKILL.md` 的"不处理"清单一致）。

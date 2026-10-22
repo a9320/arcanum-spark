@@ -1,0 +1,53 @@
+# 可复制到目标仓库的 GitHub Actions 工作流（确定性 PITAX 审计，零 LLM）。
+# 用法：把本文件放到目标仓库的 .github/workflows/ 下，按需调整路径与阈值。
+name: arcanum-pitax-audit
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+  security-events: write   # 上传 SARIF 到 Code Scanning 所需
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Deterministic PITAX scan (zero LLM)
+        run: python -m codeark.cli . --dry --formats json,sarif --out audit-out
+
+      - name: Policy gate (fail on CRITICAL/HIGH)
+        run: |
+          python - <<'PY'
+          import json, sys
+          report = json.load(open("audit-out/report.json", encoding="utf-8"))
+          bad = [f for f in report.get("findings", [])
+                 if str(f.get("severity", "")).lower() in {"critical", "high"}]
+          print(f"findings={len(report.get('findings', []))} critical_or_high={len(bad)}")
+          sys.exit(1 if bad else 0)
+          PY
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: audit-out/report.sarif
+
+      - name: Upload JSON report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arcanum-report
+          path: audit-out/
