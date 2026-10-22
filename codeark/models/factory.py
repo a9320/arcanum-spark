@@ -531,10 +531,13 @@ _LOCAL_ROUTE_DEFAULTS: dict[str, dict[str, object]] = {
         "structured_output_support": "json_schema",
         "reasoning_effort": "default",
         "timeout": 300.0,
-        # 6000 硬帽：健康输出（reasoning ~2-3K + 假设 JSON ~1.5K）足够；病态
-        # 复读（2026-09-25 复跑实拍：Muse 对 config.py 重复型 base64 载荷陷入
-        # degenerate repetition）最多烧 ~3 分钟即被 length 截断、干净降级。
-        "max_tokens": 6000,
+        # 16000 硬帽（2026-10-22 上调，证据=硬骨 nvs 32 文件仓 6000 撞帽
+        # MaxTokensReachedException→0 假设降级，16000 单变量复跑 5 假设全流程
+        # 4 CONFIRMED，runs/20261022-hardbone/nvs-{real,mt16k}）；健康输出
+        # ~4-6K，病态复读（2026-09-25 复跑实拍：Muse 对重复型 base64 载荷
+        # degenerate repetition）仍被 length 截断干净降级，只是烧帽 3→约 8
+        # 分钟，temp=0.2 下复读概率低。
+        "max_tokens": 16000,
         # 2026-09-25 e2e 复跑实测：temp=1.0 下 Muse 采样波动会导致假设回显
         # （12 条规则回显 vs 3 条语义增量，e2e 40m35s vs 10m07s）——Scout 绑低
         # 温度稳定侦察行为；覆盖用 ARCA_SCOUT_TEMPERATURE。
