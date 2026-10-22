@@ -1,8 +1,8 @@
 """quickscan API 单测 — 同步确定性快扫端点 + 控制台静态页冒烟。
 
-零 Redis/队列/LLM 依赖（app.main 模块级 redis/celery 均为惰性连接）。
-fastapi 属运行期依赖：本地 .venv-win 最小确定性环境无 fastapi → 整模块
-importorskip 干净跳过；CI（requirements.txt 全装）真跑全套。
+零 LLM 依赖；fastapi/celery 属运行期依赖（app.main → app.tasks 硬 import
+celery）：最小确定性环境缺任一件 → 整模块 importorskip 干净跳过；
+CI（requirements.txt 全装）真跑全套。
 运行: python -m pytest tests/test_quickscan_api.py -v
 """
 import sys
@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import pytest
 
 pytest.importorskip("fastapi", reason="quickscan API tests need fastapi (CI/requirements env)")
+pytest.importorskip("celery", reason="app.main→app.tasks hard-imports celery (CI/requirements env)")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
