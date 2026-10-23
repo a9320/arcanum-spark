@@ -565,10 +565,14 @@ _LOCAL_ROUTE_DEFAULTS: dict[str, dict[str, object]] = {
         "tool_format": "standard_json",
         "structured_output_support": "json_schema",
         "reasoning_effort": "default",
-        # 2026-09-25 冒烟③：R1@2000 预算出合法攻击链 JSON；低于此值 reasoning
-        # 挤占 content 预算导致截断。覆盖用 ARCA_DEEPEN_MAX_TOKENS。
+        # 2026-10-23 上调 2000→16000（证据=runs/20261023-hardbone/unagi-{np1,dt16k}）：
+        # r1-deepen 输入溢出修后（-c 131072），2000 帽成新瓶颈——R1 think 块挤占
+        # content 预算致截断，unagi-np1 XXE 链 invoke error 降级占位（3 链 1 失败）；
+        # 16000 单变量复跑 0 占位全链推导。低于此值 reasoning 挤占 content 预算
+        # 导致截断（2026-09-25 冒烟③结论仍成立，只是 2000 恰好压线）。覆盖用
+        # ARCA_DEEPEN_MAX_TOKENS。
         "timeout": 600.0,
-        "max_tokens": 2000,
+        "max_tokens": 16000,
         "temperature": None,
     },
     "arbiter": {

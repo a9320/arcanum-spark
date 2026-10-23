@@ -190,7 +190,8 @@ def test_local_deepen_carries_max_tokens_budget(monkeypatch: pytest.MonkeyPatch)
     routes = make_stage_models_from_env()
 
     assert routes is not None
-    assert routes.deepen.get_config()["params"]["max_tokens"] == 2000
+    # deepen 输出帽 16000（2026-10-23 unagi 实证上调：2000 被 R1 think 挤占致截断占位）
+    assert routes.deepen.get_config()["params"]["max_tokens"] == 16000
     # scout 绑定低温采样 + max_tokens 硬帽（防病态复读耗满超时；16000=2026-10-22 硬骨 nvs 实证上调）
     assert routes.scout.get_config()["params"]["temperature"] == 0.2
     assert routes.scout.get_config()["params"]["max_tokens"] == 16000
