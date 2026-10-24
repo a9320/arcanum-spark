@@ -466,6 +466,9 @@ class StaticAnalyzer:
         """Analyze C code for dangerous patterns."""
         risks: list[Risk] = []
         lines = code_file.content.split("\n")
+        # double-free 变量级去重：同一变量多处 free 只报一条（10-24 审查修复：
+        # 旧逻辑对每个 free 出现行各报一次，free(p)×2 = 同质 Risk×2）
+        reported_double_free: set[str] = set()
 
         for i, line in enumerate(lines, start=1):
             # Check dangerous function calls
@@ -515,8 +518,11 @@ class StaticAnalyzer:
                         m = _re.search(r"free\s*\((\w+)\)", line)
                         if m:
                             var = m.group(1)
+                            if var in reported_double_free:
+                                continue
                             free_count = sum(1 for ln in lines if _re.search(rf"free\s*\({var}\)", ln))
                             if free_count >= 2:
+                                reported_double_free.add(var)
                                 risks.append(self._make_risk(
                                     title=pat["title"],
                                     description=f"{pat['desc']} (variable '{var}' freed {free_count} times)",
