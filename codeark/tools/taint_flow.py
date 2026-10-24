@@ -17,11 +17,10 @@ _SOURCES = [
     ("network", r"\b(request\.get|requests\.(get|post|put)|urllib|httpx|fetch\(|socket)", "网络数据"),
 ]
 
-# 不安全 sink：执行/查询/路径等
-_SINKS = [
-    ("system", r"\b(os\.system|subprocess\.(run|Popen|call|check_output)|eval|exec)\s*\(", "系统命令执行"),
-    ("sql", r"\b(execute|cursor\.execute|query)\s*\(|SELECT\s", "SQL 查询"),
-    ("path", r"\b(open|Path|join|mkdir|remove|unlink)\s*\(", "文件系统操作"),
+# 不安全 sink 分类（sink 命中行的关键词归类，与下方 sink_search 正则的分组对应）
+_SINK_CLASS = [
+    (re.compile(r"os\.system|subprocess|eval|exec", re.I), "system"),
+    (re.compile(r"execute|SELECT", re.I), "sql"),
 ]
 
 # 赋值传播：简单追踪 var = source，然后 var 流入 sink
@@ -70,13 +69,12 @@ def _find_taint_flows(content: str, path: str) -> list[dict[str, Any]]:
         if used_var not in tainted_vars:
             continue
         src = source_locations[used_var]
-        # 判断 sink 类型
-        if re.search(r"os\.system|subprocess|eval|exec", sink_kw):
-            sink_type = "system"
-        elif re.search(r"execute|SELECT", sink_kw):
-            sink_type = "sql"
-        else:
-            sink_type = "path"
+        # 判断 sink 类型（_SINK_CLASS 顺序即优先级，未命中归 path）
+        sink_type = "path"
+        for cls_re, cls_name in _SINK_CLASS:
+            if cls_re.search(sink_kw):
+                sink_type = cls_name
+                break
         flows.append(
             {
                 "type": f"TAINT_{sink_type.upper()}",

@@ -2,7 +2,8 @@
 
 侦察/验证 Agent 的依赖漏洞工具。
 - 输入：files: dict[str, str]（文件路径 → 文件内容），只解析依赖清单
-  （requirements.txt / pyproject.toml / package.json / Pipfile / environment.yml）
+  （requirements.txt / pyproject.toml / package.json；Pipfile / environment.yml
+  暂不解析，静默跳过）
 - 输出：findings 列表，每条含 package/version/cwe/description/fix/source/ecosystem/file
 - 确定性工具：依赖与本地 OSV 数据/内置已知漏洞库比对，结果可直接作为漏洞证据引用
 - 零网络调用：OSV 数据预置（本地 index.json 若存在则用，否则回落内置库）
@@ -12,15 +13,6 @@ from __future__ import annotations
 import json
 import re
 from typing import Any
-
-# 依赖清单文件名 → 解析方式
-_DEP_FILENAMES = (
-    "requirements.txt",
-    "pyproject.toml",
-    "package.json",
-    "Pipfile",
-    "environment.yml",
-)
 
 # 内置已知漏洞库（OSV 本地数据缺失时回落）
 _LOCAL_VULN_DB: dict[str, dict] = {

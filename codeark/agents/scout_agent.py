@@ -219,8 +219,7 @@ async def run_scout(
     agent0_findings：Agent0 规则基线（作为上下文注入，侦察官做基线之外的增量发现）；
     memory_prompt：可选历史约束，始终在 prompt 尾部追加，调用方必须先隔离；
     profile：提示词档位（default/step5，见 SCOUT_PROFILES）；None 时读
-    ARCA_SCOUT_PROFILE env，缺省 default；
-    为 None 时退回旧行为（全量探索，dry-run/单测兼容）。
+    ARCA_SCOUT_PROFILE env，缺省 default（全量探索提示词，dry-run/单测兼容）。
     """
     agent = build_scout_agent(model, files, profile=profile)
     safe = prompt_files if prompt_files is not None else quarantine_files(files)[0]

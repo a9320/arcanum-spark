@@ -794,7 +794,7 @@ def make_stage_tuning_from_env() -> StageTuning:
 # ── 便捷别名 ──
 
 def make_glm_flash() -> OpenAIModel:
-    """GLM-5.2（Scout 默认）。"""
+    """GLM-5.3（Scout 默认；model_id=z-ai/glm-5.3-free）。"""
     return make_model(ModelProvider.GLM, ModelTier.FLASH)
 
 
