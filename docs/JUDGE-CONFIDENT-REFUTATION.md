@@ -11,12 +11,13 @@
 - 与 **词面冤案** 区分：类型标签差异（如 RCE vs REMOTE_CODE_EXECUTION）属判分器等价类问题；机制/事实判断错误属判决层问题，两者不可混记。
 - 计数口径：每题每卷至多记一条；同一题同一链的多卷复现按独立样本计。
 
-## 二、样本表（截至 2026-10-18，共 2 条）
+## 二、样本表（2026-10-23 补账后共 3 条；样本 1/2 已按 §六判定表 A 关闭，开放=样本 3）
 
 | # | 卷/臂 | 假设 | 判决 | 模型给出的理由（摘要） | 独立真值 | 定性 |
 |---|---|---|---|---|---|---|
-| 1 | 10-18 16:26 gatekeeping 并行卷（concurrency=3） | H3 `HEADER_INJECTION`（gunicorn SCRIPT_NAME 头走私绕 nginx `/admin`） | REFUTED 0.9 | gunicorn 不会把客户端 `SCRIPT_NAME` 头映射进 WSGI environ，头只会变成 `HTTP_SCRIPT_NAME` | 官方 readme spoiler + `solve.py`：`SCRIPT_NAME: asdf/` + `/asdf/admin/key` 实际命中 `/admin/key`，链真实 | 自信错驳 |
-| 2 | 10-18 20:32 gatekeeping 验收卷（固定假设集、strands 1.56.0、串行） | H2 同一官方链（SCRIPT_NAME 头走私） | REFUTED 0.9 | 同上（"gunicorn 通常不把客户端 SCRIPT_NAME 头写进 environ"） | 同上（writeup + solve.py） | 自信错驳（同题同链跨卷复现） |
+| 1 | 10-18 16:26 gatekeeping 并行卷（concurrency=3） | H3 `HEADER_INJECTION`（gunicorn SCRIPT_NAME 头走私绕 nginx `/admin`） | REFUTED 0.9 | gunicorn 不会把客户端 `SCRIPT_NAME` 头映射进 WSGI environ，头只会变成 `HTTP_SCRIPT_NAME` | 官方 readme spoiler + `solve.py`：`SCRIPT_NAME: asdf/` + `/asdf/admin/key` 实际命中 `/admin/key`，链真实 | 自信错驳（**已关闭**：T4 证据包复测同链 H3 CONFIRMED ×3，见 §八·补，归因证据缺失） |
+| 2 | 10-18 20:32 gatekeeping 验收卷（固定假设集、strands 1.56.0、串行） | H2 同一官方链（SCRIPT_NAME 头走私） | REFUTED 0.9 | 同上（"gunicorn 通常不把客户端 SCRIPT_NAME 头写进 environ"） | 同上（writeup + solve.py） | 自信错驳（**已关闭**：T4 default 臂 H2 CONFIRMED ×3，见 §八·补，归因证据缺失） |
+| 3 | 10-22 nvs-mt16k 卷（deepen 16000 修复前夜） | H4 `REMOTE_ADDR` 绕过（LB→chrome 链） | REFUTED 0.9 | 以模型记忆断言绕过不可行（细节见 WORK_LOG 10-23 22:14 块） | 10-23 nvs-default 卷同假设 `CONFIRMED 1.0` + 代码复读证实（conf/hosts→127.0.0.1 + LB/chrome 链，`runs/20261023-hardbone/nvs-default`） | 自信错驳（**定谳**，跨卷翻案） |
 
 共同特征：两次都**没有读仓内官方解**（verify 数据块当时不含 `solution/solve.py`，缺陷②），并用模型对 gunicorn 默认行为的"记忆"替代仓内证据——错驳理由方向一致、置信度一致（0.9），说明不是单次采样噪声。
 
@@ -32,7 +33,8 @@
 
 ## 五、升级与处置门槛
 
-- **不定罪**（当前 2 样本、同题同链）。升为"机制性错驳"需满足其一：跨 ≥2 题复现，或固定假设集 ≥3 卷复现。
+- **不定罪**（建档时 2 样本、同题同链）。升为"机制性错驳"需满足其一：跨 ≥2 题复现，或固定假设集 ≥3 卷复现。
+- **2026-10-23 现状**：现象已跨 2 题（gatekeeping、nvs），但样本 1/2 属**证据缺失型**（T4 证据包修复后关闭），样本 3 属**跨卷采样方差型**（同晚同假设他卷 CONFIRMED 1.0）——两种机制不同，是否合并升为"机制性错驳"**待拍板**；判分器侧防线已先行（§九 v0.7）。
 - T4 案甲落地后固定假设集复测 gatekeeping：若 H2 仍 REFUTED 0.9（证据包已含 solve.py 仍判错），转判决层第三案（提示词/证据包预算/verify 模型三选一单变量）。
 - 若复测变为 UNCERTAIN 或 CONFIRMED：本条关闭，归因证据契约修复。
 
@@ -135,3 +137,13 @@ H3 判决稳定但证据长度 408→144 明显变短；H4 始终被 E2 引文�
 
 **边界**：N=3、单仓、单模型、最小包是极端消融（仅假设文件），不能外推为“证据包对
 所有题都有效”；default 臂 H2/H3 证据三卷逐字一致属该固定集下的观察，不作为全局确定性宣称。
+
+## 九、判分器机械化联动（2026-10-24，judge v0.7）
+
+`eval/m8_k1_score.py` v0.7（spark `55088d4`）已把本台账定义落为机械枚举：
+
+- **`confident_refutations` 字段**：intended 面 `REFUTED ∧ confidence≥0.9` 单列（机制/语义双口径 + 聚合计数），阈值与本卡 §一 定义逐字一致；数值不进 tp/fn，供人工复核定性（机械枚举=候选，定性仍走本卡"独立真值"标准）。
+- **`--min-runs N` 多卷口径**：tp=任一卷 CONFIRMED（样本 3 式跨卷翻案将直接翻 tp）、fn=全卷一致才计数、卷数不足强制 null——对应 §七"单卷不成立，须 N≥3"的纪律。
+- confidence 数字/字符串双形态均收（FinalReport schema 双形态在案）。
+
+后续新样本流程：判分件里 `confident_refutations` 枚举 → 按 §一 独立真值定性 → 入 §二 表。

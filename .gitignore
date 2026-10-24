@@ -32,3 +32,9 @@ reports/report.json
 reports/report.md
 reports/report.sarif
 reports/summary.json
+
+# 本地实验产物留盘不跟踪（2026-10-24 定性：e2e-concurrency=9-25 旧并发冒烟、
+# smoke-armA=10-5 armA 冒烟三题；证据价值已被 DSW runs 与 docs 台账覆盖，
+# EVAL-LEDGER 未引用；不入仓但不删，需要时另窗拍板）
+reports/e2e-concurrency/
+reports/smoke-armA/
