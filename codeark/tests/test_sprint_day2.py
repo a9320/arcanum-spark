@@ -311,3 +311,19 @@ def test_deepen_one_watchdog_timeout_returns_none():
 
     chain, raw = asyncio.run(run())
     assert chain is None and "invoke error" in raw
+
+
+def test_sarif_level_critical_is_error_1024():
+    # 10-24 修复锚：管线 build_sarif 的 level 映射旧逻辑只认 high，
+    # critical（rules.py 会产出）被降渲染为 warning；规则层 pitax/sarif
+    # 一直正确，仅管线侧漏。回归锚四档：critical/high→error，其余→warning。
+    from codeark.agents.report_agent import build_sarif
+
+    findings = [
+        {"rule": "PIT-T-46", "severity": "critical", "file_path": "a.py", "title": "c"},
+        {"rule": "PIT-T-46", "severity": "high", "file_path": "b.py", "title": "h"},
+        {"rule": "PIT-T-46", "severity": "medium", "file_path": "c.py", "title": "m"},
+        {"rule": "PIT-T-46", "severity": "low", "file_path": "d.py", "title": "l"},
+    ]
+    levels = [r["level"] for r in build_sarif(findings)["runs"][0]["results"]]
+    assert levels == ["error", "error", "warning", "warning"]

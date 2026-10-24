@@ -148,13 +148,22 @@ def build_sarif(findings: list[dict]) -> dict:
                     "artifactLocation": {"uri": uri},
                     "region": {
                         "startLine": f.get("line_start") or f.get("line", 0),
-                        "snippet": {"text": f.get("code_snippet") or f.get("code_snippet", "")},
+                        "snippet": {"text": f.get("code_snippet") or ""},
                     },
                 }
             }
+        # SARIF level 映射（10-24 修复：旧逻辑只认 high，critical 被降渲染为
+        # warning——_SEV_ORDER 中 critical 是最高级）。最小单变量修复：仅补
+        # critical→error，其余口径（confidence=high 兼容、低级=warning）不变。
+        sev = str(f.get("severity") or "").lower()
+        conf = str(f.get("confidence") or "").lower()
+        level = (
+            "error" if sev in ("critical", "high") or conf == "high"
+            else "warning"
+        )
         results.append({
             "ruleId": rule_id,
-            "level": "error" if f.get("severity") == "high" or f.get("confidence") == "high" else "warning",
+            "level": level,
             "message": {"text": f.get("evidence") or f.get("description") or f.get("title")},
             **({"locations": [loc]} if loc else {}),
         })
