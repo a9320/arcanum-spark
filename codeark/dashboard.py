@@ -34,10 +34,23 @@ SEVERITY_COLOR = {"critical": "#d32f2f", "high": "#f57c00", "medium": "#fbc02d",
 
 
 def extract_zip(data: bytes, dest: Path) -> None:
-    """解压用户上传的 zip 到临时目录（含 ZIP 炸弹/路径遍历防护）。"""
+    """解压用户上传的 zip 到临时目录（含 ZIP 炸弹/路径遍历防护）。
+
+    10-24 审查修复：此前 docstring 声称有炸弹防护但实现只有路径遍历检查——
+    公开 demo（魔搭创空间）上传高压缩比 zip 可撑爆磁盘。补声明解压总尺寸
+    与条目数上限（先验后解，超限在写盘前拒绝）。
+    """
     import os
+    max_total = 200 * 1024 * 1024  # 解压后合计 ≤200MB
+    max_entries = 5000
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
-        for info in zf.infolist():
+        infos = zf.infolist()
+        if len(infos) > max_entries:
+            raise ValueError(f"zip 条目数超限（{len(infos)} > {max_entries}）")
+        total = sum(i.file_size for i in infos)
+        if total > max_total:
+            raise ValueError(f"zip 解压后总尺寸超限（{total} > {max_total} 字节）")
+        for info in infos:
             # 路径遍历防护
             target = (dest / info.filename).resolve()
             if not target.is_relative_to(dest.resolve()):
@@ -68,7 +81,7 @@ def read_repo_files(repo_dir: Path) -> dict[str, str]:
 
 def render_verdict(v) -> None:
     color = {"CONFIRMED": "#2e7d32", "REFUTED": "#c62828", "UNCERTAIN": "#f9a825"}.get(v.verdict, "#333")
-    st.markdown(f"- **[{v.verdict}]** <span style='color:{color}'>**{v.hypothesis_title[:60]}</span>", unsafe_allow_html=True)
+    st.markdown(f"- **[{v.verdict}]** <span style='color:{color}'>**{v.hypothesis_title[:60]}**</span>", unsafe_allow_html=True)
     st.caption(f"方法: {v.verification_method} | 证据: {str(v.evidence)[:80]}...")
 
 
