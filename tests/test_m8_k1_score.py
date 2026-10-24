@@ -87,6 +87,9 @@ def test_aggregate_counts():
         "infra_fail": 0, "artifact_confirmed": 0,
         "tp_semantic": 0, "fn_semantic": 0, "fn_indeterminate_semantic": 0,
         "refuted_on_intended_semantic": 0,
+        # v0.7 新增三键
+        "confident_refutations": 0, "confident_refutations_semantic": 0,
+        "insufficient_runs": 0,
     }
 
 
@@ -253,3 +256,110 @@ def test_degraded_uncertain_is_distinct_from_real_uncertain():
     assert out["judgment"]["fn"] is None
     assert out["judgment"]["intended_status"] == {"degraded": 1}
     assert out["pipeline"]["verify_degraded"] == 1
+
+
+def test_confident_refutation_flagged_v07():
+    # v0.7 P1②：intended 面 REFUTED ∧ confidence≥0.9 → confident_refutations 单列。
+    report = _report([("H1", "PIT-T-46", "REFUTED")])
+    report["meta"]["verifications"][0]["confidence"] = 0.95
+    out = m8.judge_question(_ENTRY, report, None)
+    assert out["judgment"]["confident_refutations"][0]["id"] == "H1"
+    assert out["judgment"]["confident_refutations"][0]["confidence"] == 0.95
+    # tp/fn 口径不变（单列不改变四元组）
+    assert out["judgment"]["tp"] is False and out["judgment"]["fn"] is True
+    assert m8._aggregate([out])["confident_refutations"] == 1
+
+
+def test_confident_refutation_threshold_and_string_form_v07():
+    # 阈值 0.9 不含 0.7；字符串形态 "0.92"（台账契约类#2 双形态）同样收。
+    report = _report([("H1", "PIT-T-46", "REFUTED"), ("H2", "PIT-T-46", "REFUTED")])
+    report["meta"]["verifications"][0]["confidence"] = 0.7
+    report["meta"]["verifications"][1]["confidence"] = "0.92"
+    out = m8.judge_question(_ENTRY, report, None)
+    assert [r["id"] for r in out["judgment"]["confident_refutations"]] == ["H2"]
+    # 语义口径同列（PIT-T-46 精确命中类）
+    assert [r["id"] for r in out["judgment"]["semantic"]["confident_refutations"]] == ["H2"]
+
+
+def test_multi_run_any_confirmed_is_tp_v07():
+    # v0.7 P1①：tp=任一卷 CONFIRMED（recall 向）；卷数足时 fn=False。
+    r1 = m8.judge_question(_ENTRY, _report([("H1", "PIT-T-46", "REFUTED")]), None)
+    r2 = m8.judge_question(_ENTRY, _report([("H2", "PIT-T-46", "CONFIRMED")]), None)
+    agg = m8._aggregate_runs([r1, r2], min_runs=2)
+    assert agg["judgment"]["tp"] is True
+    assert agg["judgment"]["fn"] is False
+    assert agg["judgment"]["insufficient_runs"] is False
+
+
+def test_multi_run_consistent_fn_true_v07():
+    # 三卷全部 REFUTED（跨卷 id 不同=采样方差）→ fn=True；合并去重 3 行。
+    rows = [m8.judge_question(_ENTRY, _report([(f"H{i}", "PIT-T-46", "REFUTED")]), None)
+            for i in (1, 2, 3)]
+    agg = m8._aggregate_runs(rows, min_runs=3)
+    assert agg["judgment"]["tp"] is False
+    assert agg["judgment"]["fn"] is True
+    assert len(agg["judgment"]["refuted_on_intended"]) == 3
+    assert agg["judgment"]["runs"] == 3 and agg["judgment"]["runs_fn_true"] == 3
+
+
+def test_multi_run_disagreement_indeterminate_v07():
+    # 一卷 fn=True、一卷 fn=None（UNCERTAIN）→ 分歧不猜。
+    r1 = m8.judge_question(_ENTRY, _report([("H1", "PIT-T-46", "REFUTED")]), None)
+    r2 = m8.judge_question(_ENTRY, _report([("H2", "PIT-T-46", "UNCERTAIN")]), None)
+    agg = m8._aggregate_runs([r1, r2], min_runs=2)
+    assert agg["judgment"]["tp"] is False
+    assert agg["judgment"]["fn"] is None
+
+
+def test_multi_run_insufficient_forced_null_v07():
+    # 卷数 < min-runs → insufficient_runs=True 且 tp/fn 双口径强制 null（不进计数）。
+    r1 = m8.judge_question(_ENTRY, _report([("H1", "PIT-T-46", "CONFIRMED")]), None)
+    r2 = m8.judge_question(_ENTRY, _report([("H2", "PIT-T-46", "CONFIRMED")]), None)
+    agg = m8._aggregate_runs([r1, r2], min_runs=3)
+    assert agg["judgment"]["runs"] == 2
+    assert agg["judgment"]["insufficient_runs"] is True
+    assert agg["judgment"]["tp"] is None and agg["judgment"]["fn"] is None
+    assert agg["judgment"]["semantic"]["tp"] is None
+    assert m8._aggregate([agg])["insufficient_runs"] == 1
+
+
+def test_min_runs_discovery_and_aggregation_v07(tmp_path: Path):
+    # 磁盘发现：<cid>/report.json + <cid>/run2/report.json = 两卷；--min-runs 2 聚合。
+    mdir = tmp_path / "m"
+    mdir.mkdir()
+    (mdir / "m.json").write_text(json.dumps([_ENTRY]), encoding="utf-8")
+    rdir = tmp_path / "reports"
+    (rdir / "web1" / "run2").mkdir(parents=True)
+    (rdir / "web1" / "report.json").write_text(
+        json.dumps(_report([("H1", "PIT-T-46", "CONFIRMED")])), encoding="utf-8")
+    (rdir / "web1" / "run2" / "report.json").write_text(
+        json.dumps(_report([("H2", "PIT-T-46", "CONFIRMED")])), encoding="utf-8")
+    out = tmp_path / "o.json"
+    rc = m8.main(["--manifest", str(mdir / "m.json"), "--reports-dir", str(rdir),
+                  "--min-runs", "2", "--out", str(out)])
+    assert rc == 0
+    rows = json.loads(out.read_text(encoding="utf-8"))
+    assert rows[0]["judgment"]["runs"] == 2
+    assert rows[0]["judgment"]["tp"] is True and rows[0]["judgment"]["fn"] is False
+    assert rows[0]["pipeline"]["per_run"][1]["hypotheses"] == 1
+
+
+def test_semantic_superset_of_exact_v07():
+    # v0.7 同案检查修复：intended 含非字母数字（PIT-T-46）时语义口径不得漏于
+    # 机制口径——语义应恒为机制的超集（干净词零行为变化，脏词恢复超集）。
+    report = _report([("H1", "PIT-T-46", "REFUTED")])
+    report["meta"]["verifications"][0]["confidence"] = 0.9
+    out = m8.judge_question(_ENTRY, report, None)
+    assert out["judgment"]["refuted_on_intended"]              # 机制命中
+    assert out["judgment"]["semantic"]["refuted_on_intended"]  # 语义同为超集
+    assert out["judgment"]["semantic"]["confident_refutations"][0]["id"] == "H1"
+
+
+def test_multi_run_fn_requires_all_runs_judged_v07():
+    # 混卷（一卷无报告 → judgment=None）不得仅凭单卷 fn=True 定案：
+    # len(judged)==runs 才允许 fn=True，否则 None 不猜。
+    r1 = m8.judge_question(_ENTRY, _report([("H1", "PIT-T-46", "REFUTED")]), None)
+    r2 = m8.judge_question(_ENTRY, None, None)
+    agg = m8._aggregate_runs([r1, r2], min_runs=2)
+    assert agg["judgment"]["tp"] is False
+    assert agg["judgment"]["fn"] is None

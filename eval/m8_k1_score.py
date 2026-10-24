@@ -25,6 +25,13 @@ v0.1 扩展（2026-10-04，K1-min 20 题首跑复盘，docs/M8-CTF-TRUTH.md 升�
       --reports-dir reports/m8_k1 --upstream-root ../NYU_CTF_Bench [--out out.json]
 
 纪律：flag 不原样落盘（只记 sha256 前 12 位）；数据不 rehost，上游仓原位消费。
+
+v0.7（2026-10-24，T5 判分器第二案 P1，docs/判决层台账归类-T5输入.md）：
+- 高置信错驳检测：intended 面 REFUTED ∧ confidence≥0.9 → confident_refutations
+  单列（数值不进 tp/fn，供复核降权；confidence 数字/字符串双形态均收）；
+- N≥3 口径：`--min-runs N`（默认 1=完全兼容单卷）。每题发现多卷
+  （<cid>/report.json + <cid>/*/report.json）→ 聚合：tp=任一卷 CONFIRMED、
+  fn=全卷一致才 True、卷数不足 → insufficient_runs 强制 null 不进计数。
 """
 from __future__ import annotations
 
@@ -128,9 +135,17 @@ def _m_exact(vt: str | None, intended: list) -> bool:
 
 
 def _m_semantic(vt: str | None, intended: list) -> bool:
+    """语义口径匹配：精确相等，或同属一个 v0.1 等价类。
+
+    v0.7 修复（T5 同案检查发现）：intended 侧同样走 _type_variants 归一——
+    v0.1 起只归一报告侧，intended 含非字母数字字符（如 PIT-T-46）时语义口径
+    反而漏于机制口径（exact 双侧归一），破坏"语义 ⊇ 机制"不变量。干净词
+    （PATH_TRAVERSAL 等，全部历史 manifest 实况）归一前后同形，零行为变化。
+    """
     if not vt:
         return False
-    return any(_same_class(v, t) for v in _type_variants(vt) for t in intended)
+    targets = {t for raw in intended for t in _type_variants(raw)}
+    return any(_same_class(v, t) for v in _type_variants(vt) for t in targets)
 
 
 def _is_artifact(vuln_type: str | None, file_path: str | None) -> bool:
@@ -157,6 +172,26 @@ def _flag_digest(challenge_dir: Path | None) -> dict:
                     "flag_sha256_12": hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12],
                 }
     return {"flag_present": False}
+
+
+# v0.7（2026-10-24，T5 判分器第二案 P1，docs/判决层台账归类-T5输入.md）：
+# 高置信错驳检测——REFUTED ∧ confidence≥0.9 的 intended 判决单列"错驳嫌疑"。
+# 依据=判决层错驳模式累计 3 例（mt16k H4 REFUTED 0.9 定谳翻案 CONFIRMED 1.0；
+# gatekeeping H3、H2 官方链两例嫌疑）：高置信 REFUTED 直接制造 FN，须复核/降权。
+CONFIDENT_REFUTATION_MIN = 0.9
+
+
+def _conf(record: dict) -> float | None:
+    """verdict 记录的 confidence 数值化（数字/字符串双形态，台账契约类#2；不可解析=None）。"""
+    raw = record.get("confidence") if isinstance(record, dict) else None
+    if isinstance(raw, bool) or raw is None:
+        return None
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    try:
+        return float(str(raw).strip())
+    except ValueError:
+        return None
 
 
 def _judge_fn(
@@ -250,7 +285,8 @@ def judge_question(entry: dict, report: dict | None, upstream_root: Path | None)
             continue
         vid = str(v.get("hypothesis_id"))
         row = {"id": vid, "vuln_type": type_by_id.get(vid), "verdict": v.get("verdict"),
-               "title": v.get("hypothesis_title"), "file_path": path_by_id.get(vid)}
+               "title": v.get("hypothesis_title"), "file_path": path_by_id.get(vid),
+               "confidence": _conf(v)}
         verdict = str(v.get("verdict") or "").upper()
         if verdict == "CONFIRMED":
             confirmed.append(row)
@@ -274,6 +310,15 @@ def judge_question(entry: dict, report: dict | None, upstream_root: Path | None)
                 refuted_sem.append(row)
         elif verdict == "CONFIRMED" and not _is_artifact(row["vuln_type"], row.get("file_path")):
             unplanned_sem.append(row)
+    # v0.7 错驳嫌疑：intended 面 REFUTED ∧ confidence≥0.9 单列（数值不进 tp/fn，供复核降权）
+    confident_refutations = (
+        [r for r in refuted_intended if (r["confidence"] or 0.0) >= CONFIDENT_REFUTATION_MIN]
+        if intended is not None else None
+    )
+    confident_refutations_sem = (
+        [r for r in refuted_sem if (r["confidence"] or 0.0) >= CONFIDENT_REFUTATION_MIN]
+        if intended is not None else None
+    )
     gated_meta = meta.get("gated_hypothesis_set")
     gated_ids = (
         {str(h.get("id")) for h in gated_meta.get("hypotheses") or []
@@ -314,15 +359,111 @@ def judge_question(entry: dict, report: dict | None, upstream_root: Path | None)
         "intended_status": intended_status,
         "artifact_confirmed": artifact_confirmed,
         "infra_fail": infra_fail,
+        "confident_refutations": confident_refutations,
         "semantic": {
             "tp": tp_sem,
             "refuted_on_intended": refuted_sem,
             "unplanned_confirmed": unplanned_sem,
             "fn": fn_sem,
             "intended_status": intended_status_sem,
+            "confident_refutations": confident_refutations_sem,
         } if intended is not None else None,
     }
     return out
+
+
+def _merge_rows(rows_run: list[dict], key: str, semantic: bool = False) -> list:
+    """跨卷合并 row 列表，按 (id, verdict, title, file_path) 去重（Scout 采样方差下 id 跨卷不同）。"""
+    seen: dict[tuple, dict] = {}
+    for r in rows_run:
+        j = r.get("judgment")
+        if not isinstance(j, dict):
+            continue
+        block = j.get("semantic") if semantic else j
+        for row in (block or {}).get(key) or []:
+            k = (row.get("id"), str(row.get("verdict")), row.get("title"), row.get("file_path"))
+            seen.setdefault(k, row)
+    return list(seen.values())
+
+
+def _merge_counts(blocks: list) -> dict | None:
+    merged: dict[str, int] = {}
+    found = False
+    for st in blocks:
+        if isinstance(st, dict):
+            found = True
+            for k, v in st.items():
+                merged[k] = merged.get(k, 0) + int(v or 0)
+    return merged if found else None
+
+
+def _aggregate_runs(rows_run: list[dict], min_runs: int) -> dict:
+    """v0.7 多卷聚合（T5 P1①）：单卷判决不计数，跨卷一致才落 tp/fn。
+
+    - tp = 任一卷 CONFIRMED（intended 证据存在即真，recall 向）；
+    - fn = 全卷一致 fn=True 才 True，分歧/不可判 → None（indeterminate 不猜）；
+    - 卷数 < min_runs → insufficient_runs=True 且 tp/fn 双口径强制 None（不进计数）。
+    """
+    runs = len(rows_run)
+    judged = [r["judgment"] for r in rows_run if isinstance(r.get("judgment"), dict)]
+    base = dict(rows_run[0])
+
+    def _tri(vals: list) -> bool | None:
+        if any(v is True for v in vals):
+            return True
+        return None if any(v is None for v in vals) else False
+
+    tp = _tri([j.get("tp") for j in judged]) if judged else None
+    tp_sem = _tri([(j.get("semantic") or {}).get("tp") for j in judged]) if judged else None
+    fn: bool | None = None
+    fn_sem: bool | None = None
+    if tp is True:
+        fn = False
+    elif len(judged) == runs and runs >= min_runs and all(
+            j.get("fn") is True for j in judged):
+        fn = True
+    if tp_sem is True:
+        fn_sem = False
+    elif len(judged) == runs and runs >= min_runs and all(
+            (j.get("semantic") or {}).get("fn") is True for j in judged):
+        fn_sem = True
+    insufficient = runs < min_runs
+    if insufficient:
+        tp = tp_sem = None
+        fn = fn_sem = None
+    intended_present = rows_run[0].get("intended_types") is not None
+    base["pipeline"] = {
+        "runs": runs,
+        "per_run": [
+            {k: (r.get("pipeline") or {}).get(k)
+             for k in ("hypotheses", "verifications", "verify_degraded")}
+            for r in rows_run
+        ],
+    }
+    base["judgment"] = {
+        "tp": tp,
+        "refuted_on_intended": _merge_rows(rows_run, "refuted_on_intended") if intended_present else None,
+        "unplanned_confirmed": _merge_rows(rows_run, "unplanned_confirmed") if intended_present else None,
+        "unclassifiable": _merge_rows(rows_run, "unclassifiable") if intended_present else None,
+        "fn": fn,
+        "intended_status": _merge_counts([j.get("intended_status") for j in judged]) if intended_present else None,
+        "artifact_confirmed": _merge_rows(rows_run, "artifact_confirmed"),
+        "infra_fail": bool(judged) and all(j.get("infra_fail") is True for j in judged),
+        "confident_refutations": _merge_rows(rows_run, "confident_refutations") if intended_present else None,
+        "runs": runs,
+        "runs_fn_true": sum(1 for j in judged if j.get("fn") is True),
+        "insufficient_runs": insufficient,
+        "semantic": None if not intended_present else {
+            "tp": tp_sem,
+            "refuted_on_intended": _merge_rows(rows_run, "refuted_on_intended", semantic=True),
+            "unplanned_confirmed": _merge_rows(rows_run, "unplanned_confirmed", semantic=True),
+            "fn": fn_sem,
+            "intended_status": _merge_counts(
+                [(j.get("semantic") or {}).get("intended_status") for j in judged]),
+            "confident_refutations": _merge_rows(rows_run, "confident_refutations", semantic=True),
+        },
+    }
+    return base
 
 
 def _aggregate(rows: list[dict]) -> dict:
@@ -343,12 +484,16 @@ def _aggregate(rows: list[dict]) -> dict:
         "unplanned_confirmed": sum(len(j.get("unplanned_confirmed") or []) for j in judged),
         "infra_fail": sum(1 for j in judged if j.get("infra_fail") is True),
         "artifact_confirmed": sum(len(j.get("artifact_confirmed") or []) for j in judged),
+        "confident_refutations": sum(len(j.get("confident_refutations") or []) for j in judged),
+        "insufficient_runs": sum(1 for j in judged if j.get("insufficient_runs") is True),
         "tp_semantic": sum(1 for s in sem if s.get("tp") is True),
         "fn_semantic": sum(1 for s in sem if s.get("fn") is True),
         "fn_indeterminate_semantic": sum(
             1 for s in sem if s.get("tp") is False and s.get("fn") is None),
         "refuted_on_intended_semantic": sum(
             len(s.get("refuted_on_intended") or []) for s in sem),
+        "confident_refutations_semantic": sum(
+            len(s.get("confident_refutations") or []) for s in sem),
     }
 
 
@@ -363,6 +508,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="清单内每题都须有报告；缺失则报错退出（K1 全量重判用）")
     ap.add_argument("--expected-manifest-sha256", default=None,
                     help="期望的 manifest SHA-256（防旧草案误用）")
+    ap.add_argument("--min-runs", type=int, default=1,
+                    help="v0.7 N≥3 口径：每题至少 N 卷报告才计入 tp/fn（默认 1=兼容单卷）")
     args = ap.parse_args(argv)
 
     manifest_bytes = Path(args.manifest).read_bytes()
@@ -388,14 +535,24 @@ def main(argv: list[str] | None = None) -> int:
     missing: list[str] = []
     for entry in entries:
         cid = entry.get("challenge_id")
-        report = None
-        for candidate in (reports_dir / str(cid) / "report.json", reports_dir / f"{cid}.json"):
-            if candidate.is_file():
-                report = json.loads(candidate.read_text(encoding="utf-8"))
-                break
-        if report is None:
+        cdir = reports_dir / str(cid)
+        run_files: list[Path] = []
+        if cdir.is_dir():
+            if (cdir / "report.json").is_file():
+                run_files.append(cdir / "report.json")
+            run_files.extend(sorted(p for p in cdir.glob("*/report.json") if p.is_file()))
+        if not run_files and (reports_dir / f"{cid}.json").is_file():
+            run_files.append(reports_dir / f"{cid}.json")  # 目录空缺时回退单文件形态（legacy 行为）
+        if not run_files:
             missing.append(str(cid))
-        rows.append(judge_question(entry, report, root))
+            rows.append(judge_question(entry, None, root))
+            continue
+        run_rows = [
+            judge_question(entry, json.loads(p.read_text(encoding="utf-8")), root)
+            for p in run_files
+        ]
+        row = run_rows[0] if len(run_rows) == 1 else _aggregate_runs(run_rows, args.min_runs)
+        rows.append(row)
     if args.require_all and missing:
         print(
             f"missing reports ({len(missing)}/{len(entries)}): {', '.join(missing)}",
