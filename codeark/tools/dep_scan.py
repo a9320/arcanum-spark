@@ -2,8 +2,9 @@
 
 侦察/验证 Agent 的依赖漏洞工具。
 - 输入：files: dict[str, str]（文件路径 → 文件内容），只解析依赖清单
-  （requirements.txt / pyproject.toml / package.json；Pipfile / environment.yml
-  暂不解析，静默跳过）
+  （requirements.txt / pyproject.toml / package.json / composer.json /
+  composer.lock；Pipfile / environment.yml 暂不解析，静默跳过），
+  另对 Dockerfile/composer.json 做 PHP 运行时钉检查（PHP2Shell 动机样本）
 - 输出：findings 列表，每条含 package/version/cwe/description/fix/source/ecosystem/file
 - 确定性工具：依赖与本地 OSV 数据/内置已知漏洞库比对，结果可直接作为漏洞证据引用
 - 零网络调用：OSV 数据预置（本地 index.json 若存在则用，否则回落内置库）
@@ -24,7 +25,12 @@ _LOCAL_VULN_DB: dict[str, dict] = {
     "cryptography": {"vulnerable_below": "41.0.0", "cwe": "CWE-327", "desc": "旧版 cryptography 弱算法支持"},
     "lodash":   {"vulnerable_below": "4.17.21", "cwe": "CWE-1321", "desc": "旧版 lodash 原型污染"},
     "express":  {"vulnerable_below": "4.18.0", "cwe": "CWE-1321", "desc": "旧版 Express 开放重定向"},
-    "axios":    {"vulnerable_below": "1.6.0", "cwe": "CWE-918", "desc": "旧版 Axios SSRF 漏洞"},
+    "axios":    {"vulnerable_below": "1.6.0",  "cwe": "CWE-918",  "desc": "旧版 Axios SSRF 漏洞"},
+    # PHP/Packagist 条目（2026-10-25 R-PHP：经 OSV API 逐条实证，键=完整 composer
+    # 包名，desc 内 GHSA id 可溯源；动机样本=PHP2Shell 解释器层 RCE 需依赖层承接）
+    "phpmailer/phpmailer": {"vulnerable_below": "5.2.20",  "cwe": "CWE-74",  "desc": "旧版 PHPMailer 发件人字段注入可致远程代码执行（OSV GHSA-4pc3-96mx-wwc8 / CVE-2016-10045）"},
+    "smarty/smarty":       {"vulnerable_below": "3.1.21",  "cwe": "CWE-94",  "desc": "旧版 Smarty 任意 PHP 代码执行（OSV GHSA-2pmx-6mm6-6v72 / CVE-2014-8350）"},
+    "guzzlehttp/psr7":     {"vulnerable_below": "2.10.2",  "cwe": "CWE-113", "desc": "旧版 guzzlehttp/psr7 URI Host 组件 CRLF 注入（OSV GHSA-hq7v-mx3g-29hw / CVE-2026-49214）"},
 }
 
 
@@ -49,7 +55,7 @@ def _query_osv(pkg_name: str, version: str) -> list[dict]:
     """查本地 OSV index.json（若存在），否则查内置库。"""
     try:
         idx = json.loads(_OSV_INDEX_JSON)
-        for key in (f"PyPI:{pkg_name.lower()}", f"npm:{pkg_name.lower()}"):
+        for key in (f"PyPI:{pkg_name.lower()}", f"npm:{pkg_name.lower()}", f"Packagist:{pkg_name.lower()}"):
             for vuln in idx.get(key, []):
                 if version in vuln.get("versions", []):
                     return [{
@@ -122,6 +128,121 @@ def _parse_package_json(content: str) -> list[tuple[str, str]]:
     return out
 
 
+def _parse_composer_json(content: str) -> list[tuple[str, str]]:
+    """解析 composer.json 的 require + require-dev（PHP 伪包除外）。
+
+    仅「纯数字点分版本」参与包级漏洞比对——带 */||/比较符的区间约束不做
+    版本可判定（FP 最小化：约束允许的多个版本有干净有受累，误报风险大于
+    漏报代价；精确锁定版交给 composer.lock）。php/ext-*/lib-* 伪包跳过
+    （php 约束另走 _check_php_runtime 的下限检查）。
+    """
+    out = []
+    try:
+        data = json.loads(content)
+    except Exception:
+        return out
+    for section in ("require", "require-dev"):
+        for name, ver in (data.get(section) or {}).items():
+            if name in ("php", "php-64bit", "hhvm") or name.startswith(("ext-", "lib-")):
+                continue
+            clean = str(ver).strip()
+            if re.fullmatch(r"v?\d+(?:\.\d+)*", clean):
+                out.append((name.lower(), clean.lstrip("v")))
+    return out
+
+
+def _parse_composer_lock(content: str) -> list[tuple[str, str]]:
+    """解析 composer.lock 的 packages + packages-dev（精确锁定版）。"""
+    out = []
+    try:
+        data = json.loads(content)
+    except Exception:
+        return out
+    for section in ("packages", "packages-dev"):
+        for item in data.get(section) or []:
+            name = str(item.get("name") or "").strip()
+            ver = str(item.get("version") or "").strip()
+            if name and re.fullmatch(r"v?\d+(?:\.\d+)*(?:-[0-9A-Za-z.]+)?", ver):
+                out.append((name.lower(), ver.lstrip("v")))
+    return out
+
+
+# PHP2Shell（CVE-2026-109618/109619，PHP 解释器层 RCE）各分支官方修复版
+# （PHP 组 2026-10-21 例外公告，CrowdStrike/Unit42 双源引述；8.1 及更早分支
+# 无修复版）。动机：解释器层 RCE 是源码级 SAST 的天然盲区，只有运行时/
+# 依赖货币度层接得住。
+_PHP2SHELL_FIXED = {"8.2": "8.2.35", "8.3": "8.3.36", "8.4": "8.4.27", "8.5": "8.5.12"}
+
+
+def _check_php_runtime(path: str, base: str, content: str) -> list[dict]:
+    """PHP 运行时钉检查（PHP2Shell 动机样本）。
+
+    - Dockerfile `FROM php:X.Y.Z...`：精确 patch 钉低于所在分支修复版 → 命中；
+      可修复分支的浮动 tag（无 patch 位）→ 跳过（FP 最小化：实际运行版本由
+      运维决定，钉住才可判定）；
+    - Dockerfile `FROM php:X.Y` 浮动 tag：仅当分支无官方修复版（<8.2）→ 命中
+      （浮动解析到分支最新=永久无修复，判定无歧义）；
+    - composer.json `require.php`：约束下限允许 <8.2 → 命中。
+    """
+
+    def _hit(version_label: str, desc: str, fix: str) -> dict:
+        return {
+            "package": "php",
+            "version": version_label,
+            "ecosystem": "php-runtime",
+            "cwe": "CWE-1104",
+            "description": desc,
+            "fix": fix,
+            "source": "local_fallback",
+            "file": path,
+            "severity": "high",
+            "confidence": 90,
+            "rule": "DEP-PHP2SHELL",
+        }
+
+    findings: list[dict] = []
+    if base == "dockerfile" or base.startswith("dockerfile."):
+        for m in re.finditer(r"(?im)^\s*FROM\s+php:(\d+)\.(\d+)(?:\.(\d+))?(?:[-\s].*)?$", content):
+            major, minor = int(m.group(1)), int(m.group(2))
+            patch = m.group(3)
+            branch = f"{major}.{minor}"
+            label = f"php:{branch}.{patch}" if patch else f"php:{branch}"
+            if (major, minor) >= (8, 2):
+                if branch in _PHP2SHELL_FIXED and patch and _version_below(
+                        f"{branch}.{patch}", _PHP2SHELL_FIXED[branch]):
+                    findings.append(_hit(
+                        label,
+                        f"Dockerfile 钉定 PHP {branch}.{patch} 低于 PHP2Shell（CVE-2026-109618/109619）"
+                        f"修复版 {_PHP2SHELL_FIXED[branch]}（解释器层 RCE，无需认证）",
+                        f"升级 PHP 至 >= {_PHP2SHELL_FIXED[branch]}（{branch} 分支）"))
+                # 可修复分支浮动 tag：跳过（文档化决策，见 docstring）
+            elif (major, minor) < (8, 2):
+                findings.append(_hit(
+                    label,
+                    f"Dockerfile 使用 PHP {branch} 分支——无 PHP2Shell（CVE-2026-109618/109619）官方"
+                    f"修复版（2026-10-21 例外公告仅覆盖 8.2.35/8.3.36/8.4.27/8.5.12），该分支必须整体升级",
+                    "升级至受支持分支（8.2/8.3/8.4/8.5）并 >= 对应分支修复版"))
+            # 未知的更高主分支（如 9.x）：无公告依据，跳过
+    elif base == "composer.json":
+        try:
+            data = json.loads(content)
+        except Exception:
+            return findings
+        constraint = str(((data.get("require") or {}).get("php") or "")).strip()
+        if constraint and constraint != "*":
+            pairs = re.findall(r"(\d+)\.(\d+)", constraint)
+            if pairs:
+                lo = min((int(a), int(b)) for a, b in pairs)
+                if lo < (8, 2):
+                    findings.append(_hit(
+                        f"php constraint '{constraint}'",
+                        f"composer require.php 约束 '{constraint}' 允许安装 <8.2 的 PHP——这些分支无 "
+                        f"PHP2Shell（CVE-2026-109618/109619）官方修复版",
+                        "收紧 php 约束至 >=8.2，部署环境升级到分支修复版"
+                        "（8.2.35/8.3.36/8.4.27/8.5.12）"))
+    return findings
+
+
 def _check_deps(deps: list[tuple[str, str]], ecosystem: str, file: str) -> list[dict]:
     """对依赖列表比对已知漏洞，返回 findings。"""
     findings = []
@@ -183,6 +304,13 @@ def scan_deps(files: dict[str, str]) -> list[dict[str, Any]]:
             all_findings += _check_deps(_parse_pyproject(content), "PyPI", path)
         elif base == "package.json":
             all_findings += _check_deps(_parse_package_json(content), "npm", path)
+        elif base == "composer.json":
+            all_findings += _check_deps(_parse_composer_json(content), "Packagist", path)
+            all_findings += _check_php_runtime(path, base, content)
+        elif base == "composer.lock":
+            all_findings += _check_deps(_parse_composer_lock(content), "Packagist", path)
+        elif base == "dockerfile" or base.startswith("dockerfile."):
+            all_findings += _check_php_runtime(path, base, content)
         # Pipfile / environment.yml 暂不解析，静默跳过
     return all_findings
 
@@ -201,7 +329,7 @@ _DEP_SCAN_SCHEMA = {
         "files": {
             "type": "object",
             "additionalProperties": {"type": "string"},
-            "description": "文件路径到文件内容的映射字典（只解析 requirements.txt/pyproject.toml/package.json，其余自动跳过）",
+            "description": "文件路径到文件内容的映射字典（只解析 requirements.txt/pyproject.toml/package.json/composer.json/composer.lock，Dockerfile/composer.json 另做 PHP 运行时钉检查，其余自动跳过）",
         }
     },
     "required": ["files"],
@@ -215,7 +343,9 @@ if _HAS_STRANDS:
 
         Args:
             files: 文件路径到文件内容的映射字典，key 为仓库相对路径。
-                仅处理 requirements.txt / pyproject.toml / package.json。
+                仅处理 requirements.txt / pyproject.toml / package.json /
+                composer.json / composer.lock；Dockerfile 与 composer.json
+                另做 PHP 运行时钉检查（PHP2Shell）。
 
         Returns:
             findings 列表；每条含 package/version/ecosystem/cwe/description/fix/

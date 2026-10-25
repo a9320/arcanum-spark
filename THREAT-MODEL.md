@@ -108,6 +108,23 @@ filesystem races also still depend on the host filesystem and container
 privileges. Run the worker with least privilege and
 keep report/upload directories outside sensitive host paths.
 
+### Interpreter/runtime-level vulnerabilities (analysis boundary)
+
+- Source-level analysis (PITAX/static/taint) and manifest-level dependency
+  scanning cannot see vulnerabilities inside the language interpreter or
+  native runtime itself — e.g. PHP2Shell (CVE-2026-109618/109619, disclosed
+  2026-10-21, fixed in 8.2.35 / 8.3.36 / 8.4.27 / 8.5.12; branches ≤8.1 have
+  no fixed release). Such issues are only addressable at the runtime /
+  dependency-currency layer, not by auditing application source.
+- `dep_scan` covers this layer for PHP minimally (2026-10-25): composer.json /
+  composer.lock package checks against OSV-verified builtin entries, plus a
+  PHP2Shell runtime-pin check on Dockerfile `FROM php:x.y.z` exact pins and
+  composer `require.php` constraints that permit unpatched branches. Floating
+  tags on fixable branches are deliberately not flagged (false-positive
+  minimalism) — the actually deployed version remains an operator
+  responsibility, and container-level image scanning is recommended
+  defense-in-depth for public deployments.
+
 ### Repository prompt injection and model output
 
 - Prompt quarantine strips invisible/Bidi characters and neutralizes known
