@@ -87,8 +87,12 @@ configuration is deployment policy, not an allowlist discovered automatically.
 ### Uploaded ZIPs and local paths
 
 - Direct uploads enforce file-count, per-file, and total-size limits.
-- ZIP extraction checks decompressed size, member count, and path traversal before
-  extraction.
+- ZIP extraction checks declared decompressed size, member count, and path
+  traversal before extraction. All extraction sites share the same guard
+  contract: `app/tasks.py` `_prepare_code` (API worker), `codeark/dashboard.py`
+  (61496e8), and the lightweight deploy entries `app.py` / `streamlit_app.py`
+  via the single-source helper `app/zipguard.py` (10-25 audit R9 — previously
+  these two public entries called bare `extractall`).
 - Local scans require a normalized path under `/repos/` and reject `..` path
   components.
 - `_prepare_code()` returns an ownership flag. Cleanup removes only temporary
@@ -96,8 +100,12 @@ configuration is deployment policy, not an allowlist discovered automatically.
   recursively deleted.
 - Compose mounts `/repos` read-only.
 
-Residual risk: archive expansion and filesystem races still depend on the host
-filesystem and container privileges. Run the worker with least privilege and
+Residual risk (10-25 audit A-F10): the size/member preflight trusts the zip
+header's declared values — a maliciously forged header can bypass the declared
+budget at write time (no second accounting during extraction); public
+deployments should layer container-level disk quotas. Archive expansion and
+filesystem races also still depend on the host filesystem and container
+privileges. Run the worker with least privilege and
 keep report/upload directories outside sensitive host paths.
 
 ### Repository prompt injection and model output

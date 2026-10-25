@@ -15,7 +15,8 @@ v2 的目标：**在同样的裁决质量下少花验证预算**——即把"重
 ## 2. 预算模型（为什么值得做）
 
 - **预算单位 = `verify_requests`**。Verify 是**逐假设独立小调用**
-  （`codeark/agents/verify_agent.py:316 run_verify_split`，默认 `max_concurrency=1`），
+  （`codeark/agents/verify_agent.py:729 run_verify_split`，默认 `max_concurrency=1`；
+  09 月设计稿原行锚 :316，T4 证据包代码插入后漂移——2026-10-25 审计校正），
   所以 `verify_requests == len(假设集)`——归档实测全部吻合：variant-23 臂 6 假设/6 请求、
   variant-27 臂 5/5、deterministic 臂 6/5。
 - **成本不对称**：gate 自身打分中位 **20.2–22.6 ms/假设**（r3/r5 实测，`timing-r*.json`），

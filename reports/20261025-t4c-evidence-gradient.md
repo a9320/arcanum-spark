@@ -13,7 +13,7 @@
 
 ## 二、定谳：自含性是梯度不是二值
 
-1. **主判读**：minpack 臂 H1 出现**部分饥饿签名**——r1 跨阈值翻 UNCERTAIN 0.4，且三卷置信全降档（0.95→0.9，无一卷回到 default 水平）；但 2/3 卷仍 CONFIRMED，未复现 gatekeeping 全饿死。H2 零效应（两臂 6/6 CONFIRMED，其证实面纯在 app.py 代码：无过滤逻辑可直接自证）。
+1. **主判读**：minpack 臂 H1 出现**部分饥饿签名**——r1 跨阈值翻 UNCERTAIN 0.4，且三卷置信全降档（0.95→0.9，无一卷回到 default 水平）；但 2/3 卷仍 CONFIRMED，未复现 gatekeeping 全饿死。H2 判决零效应（两臂 6/6 CONFIRMED，其证实面纯在 app.py 代码：无过滤逻辑可直接自证；注：minpack r3 置信亦降至 0.9，与 H1 同签名降档弱信号——判决口径零效应，置信层面存在同向微降，10-25 审计 A-F7 补注）。
 2. **三题谱系闭合（本实验主产出）**：
    - gatekeeping H2（官方链证据全在外仓 solve.py）→ minpack 全饿死 UNCERTAIN ×3（决定性）；
    - flask_caching H1（漏洞代码自证 + 库行为层外置）→ 部分饥饿（1/3 卷翻 + 全卷置信降档）；

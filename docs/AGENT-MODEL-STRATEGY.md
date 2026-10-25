@@ -2,6 +2,10 @@
 
 > 版本：2026-09-08  
 > 状态：无卡阶段可用（DeepSeek-V4-Flash），卡批后无缝切换（Bedrock）
+>
+> ⚠️ **归档稿（2026-10-25 审计注）**：本页为 09 月 DeepSeek 矩阵选型快照，
+> 非现役口径——现役编排=strands 1.56.0、验证岗=gpt-oss-verify，见 README
+> 与 docs/TECH-STACK.md 顶部审计注。保留作历史脉络。
 
 ---
 

@@ -4,6 +4,12 @@
 > 项目：CodeRisk Arcanum（AI 杭州·码动未来 竞赛项目，AI+超级智能体赛道）
 > 架构：6 节点 Agent Graph（模型提假设 + 工具证实/证伪）
 > 状态：阶段 A（无卡）全部完成，本地端到端验证通过；阶段 B（Bedrock）等 AWS Visa 卡
+>
+> ⚠️ **2026-10-25 审计注（A-F8）**：本页为 09 月选型快照，两处已过时——
+> 编排框架现役=strands-agents==**1.56.0**（`c638cf6` 钉版，1.61.1 的 PEG
+> 契约缺陷见 docs/JUDGE-CONFIDENT-REFUTATION.md §八；下表 1.54.0 为快照值）；
+> 验证岗现役=**gpt-oss-verify**（llama.cpp :8085，`deploy/mi300x-oneclick.sh`），
+> 非 DeepSeek-V4-Flash。现役口径以 README.md / requirements.txt 为准。
 
 ---
 

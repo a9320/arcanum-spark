@@ -8,9 +8,6 @@ CodeRisk Arcanum — 魔搭创空间独立 Streamlit 入口
 import os
 import sys
 import tempfile
-import zipfile
-import shutil
-import io
 from pathlib import Path
 
 import streamlit as st
@@ -23,6 +20,7 @@ if str(ROOT) not in sys.path:
 from app.pitax.sanitizer import scan_directory  # noqa: E402
 from app.pitax.rules import PITAX_VERSION  # noqa: E402
 from app.pitax.sarif import build_sarif  # noqa: E402
+from app.zipguard import extract_zip  # noqa: E402 —— R9：防护单一数据源（10-25 审计）
 
 SEVERITY_COLOR = {
     "critical": "#d32f2f",
@@ -35,12 +33,6 @@ SEVERITY_COLOR = {
 def scan_path(path: Path) -> tuple[list, dict]:
     """对目录跑 PITAX 扫描，返回 (findings, stats)。"""
     return scan_directory(str(path))
-
-
-def extract_zip(data: bytes, dest: Path) -> None:
-    """解压用户上传的 zip 到临时目录。"""
-    with zipfile.ZipFile(io.BytesIO(data)) as zf:
-        zf.extractall(dest)
 
 
 def render_findings(findings: list) -> None:

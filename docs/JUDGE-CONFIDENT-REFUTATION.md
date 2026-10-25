@@ -118,7 +118,8 @@ common_chat_peg_parse: unparsed peg-native output: <|channel|>final <|constrain|
 **边界**：
 
 - 这是“固定假设集 + gpt-oss 路由 + 验收臂”的稳定 PASS，不泛化到其他题/模型；K1 判分器不受影响，无需重判。
-- 生产默认仍保留 structured output（环境变量未设=0）；是否升为全局默认待拍板。
+- ~~生产默认仍保留 structured output（环境变量未设=0）；是否升为全局默认待拍板。~~
+  **10-21 已拍板升默认=1**（spark `0ba77c3`：`ARCA_VERIFY_PLAIN_JSON` 未设即 1，生产/验收同口径；本行保留作历史脉络）。
 - H4 的 UNCERTAIN 是 E2 引文护栏（引文含 `\x1b`/空格与仓内不逐字），`deg=False`，属判决层正常行为，不计入降级。
 
 ### 八·补：T4 证据包解冻首测（2026-10-20 22:13–22:26，N=3×2）

@@ -5,8 +5,10 @@ Fully offline by default: the NVD API fallback is disabled unless the
 environment variable CODERISK_ALLOW_NVD=1 is explicitly set (P1-5).
 
 Usage:
-    # Build database first (one-time setup):
-    python scripts/download_cve_data.py
+    # Build database first (one-time setup; the NVD JSON → SQLite builder is
+    # NOT shipped in this repo — bring your own pipeline, or enable the
+    # gated API fallback with CODERISK_ALLOW_NVD=1):
+    #   <your builder>  → data/cve/cve.db
 
     # Then query locally:
     client = CVEClient()

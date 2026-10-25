@@ -34,7 +34,8 @@ pitax-audit:
   script:
     - pip install -r requirements.txt
     - python -m codeark.cli . --dry --formats json,sarif --out audit-out
-    - python scripts/ci_gate.py audit-out/report.json   # 见 §5，可内联
+    # 策略门脚本不随仓提供（scripts/ci_gate.py 从未入库）——请内联 §5 的
+    # python 片段实现"CRITICAL/HIGH 阻断"，阈值由你的仓库分级策略定
   artifacts:
     paths:
       - audit-out/

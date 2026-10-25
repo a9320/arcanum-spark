@@ -16,9 +16,10 @@ step "1/5 Explicit test count"
 check $? "Test count collected from codeark/tests + tests (log: /tmp/verify_count.log)"
 
 step "2/5 Deterministic test suite (no LLM)"
-# test_engine_integration.py 保持显式排除（口径稳定）：2026-10-10 外审复核实测其
-# 并不需要 Redis/rich（仅 import app.config 与 engine 模块），排除非依赖必需；
-# 历史冒烟脚本已迁 scripts/smoke/（非 pytest 套件），本命令无其他排除项。
+# test_engine_integration.py 保持显式排除（口径稳定）：该文件 import
+# app.tasks → 需要 redis+celery，engine 模块另需 rich——最小验证环境不装
+# 这些重型依赖（CI 侧理由见 .github/workflows/ci.yml 头注；10-25 审计
+# A-F2 校正：此前"并不需要 Redis/rich"的注释与事实不符）。
 "$PY" -m pytest -c codeark/pyproject.toml codeark/tests tests -q \
   --ignore=tests/test_engine_integration.py >/tmp/verify_pytest.log 2>&1
 check $? "All deterministic tests green (log: /tmp/verify_pytest.log)"

@@ -14,7 +14,7 @@
 2. 顶部导航进入创建/发布文章入口，选择相关 space、打上 **#strands-agents** 话题
 3. 粘贴正文（Markdown），标题**必须**含 "Agents for Humans" 字样
 4. 建议配图（可选但加分观感）：
-   - 第 1 篇：`docs/architecture-6node.png`
+   - 第 1 篇：`docs/archive-hackathon/architecture-6node-cloud-council.png`
    - 第 2 篇：`evidence/anti-injection-quotes-0911.md` 里 429 降级日志截图，或报告"节点降级披露"区块截图（`evidence/e2e_report.markdown`）
    - 第 3 篇：`[QUARANTINED]` 标记的日志截图 + 报告"审计防护（Prompt 隔离层）"统计区块截图
 5. **公开**发布（不能是草稿/私密），发布后把 URL 记到下方

@@ -9,9 +9,7 @@ Usage: python app.py  (ModelScope gradio Spaces launch app.py automatically)
 import os
 import sys
 import tempfile
-import zipfile
 import shutil
-import io
 from pathlib import Path
 
 import gradio as gr
@@ -23,6 +21,7 @@ if str(ROOT) not in sys.path:
 
 from app.pitax.sanitizer import scan_directory  # noqa: E402
 from app.pitax.rules import PITAX_VERSION  # noqa: E402
+from app.zipguard import extract_zip  # noqa: E402 —— R9：防护单一数据源（10-25 审计）
 
 SEVERITY_LABEL = {
     "critical": "CRITICAL",
@@ -35,12 +34,6 @@ SEVERITY_LABEL = {
 def scan_path(path: Path) -> tuple[list, dict]:
     """Scan a directory with the PITAX engine. Returns (findings, stats)."""
     return scan_directory(str(path))
-
-
-def extract_zip(data: bytes, dest: Path) -> None:
-    """Extract an uploaded zip into a temp directory."""
-    with zipfile.ZipFile(io.BytesIO(data)) as zf:
-        zf.extractall(dest)
 
 
 def _finding_fields(f: dict) -> tuple[str, str, str, str, str]:
@@ -149,8 +142,9 @@ def build_app():
     return demo
 
 
-# ModelScope gradio-type Spaces execute app.py and expect a running Gradio app
-demo = build_app()
-
+# ModelScope gradio-type Spaces execute app.py (`python app.py`) and expect a
+# running Gradio app. Building the app stays under the __main__ guard so that
+# importing this file (e.g. in tests) has no side effects.
 if __name__ == "__main__":
+    demo = build_app()
     demo.launch(server_name="0.0.0.0", server_port=7860)

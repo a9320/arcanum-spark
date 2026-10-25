@@ -1,7 +1,7 @@
 # CodeRisk Arcanum 项目蓝图（Blueprint v2.1 - 修订版）
 
 > 修订时间：2026-09-10 23:00（GMT+8）
-> 修订依据：GLM-5.3 审核报告（`reports/GLM_REVIEW.md`）
+> 修订依据：GLM-5.3 审核报告（`reports/GLM_REVIEW.md`，未随仓归档——2026-10-25 审计注）
 > 变更：v2.0 → v2.1，修正 10 处文档错误 + 新增 §11 已知硬伤（待修代码）
 > 模型层：GLM-5.3 (`z-ai/glm-5.3-free`) + Kimi-K3 + AMD fallback
 > 状态标注：✅ 已验证 · ⚠️ 待验证 · ❌ 已知缺陷 · 🔴 待修硬伤

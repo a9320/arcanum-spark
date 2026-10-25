@@ -26,8 +26,10 @@ repositories directly; no dataset or benchmark code is copied into this project.
 **Base model chain (verified 2026-10-03):**
 - Base encoder: `answerdotai/ModernBERT-base` (HF) — Apache-2.0
 - Base model: `convaiinnovations/laya` (HF), `typed-decisions` subset — Apache-2.0
-- Head re-init & fine-tune: this project (`vendor/rl_agent_api.py` inference shim is
-  pure stdlib + numpy)
+- Head re-init & fine-tune: this project (the `rl_agent_api.py` inference shim —
+  pure stdlib + numpy — is vendored into fine-tune output dirs by
+  `eval/finetune_train.py`/`finetune_export.py`; there is no repo-root `vendor/`
+  directory)
 
 **Training data provenance (all first-party or permissively licensed):**
 1. Pipeline-produced evidence: `records_r*.train.jsonl` rows derive from this

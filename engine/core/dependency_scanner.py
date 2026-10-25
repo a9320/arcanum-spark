@@ -4,8 +4,9 @@ Scans project dependencies for known vulnerabilities using local OSV data.
 No external API calls — all vulnerability data is pre-downloaded.
 
 Usage:
-    # Build local data first (one-time setup):
-    python scripts/download_osv_data.py
+    # Build local data first (one-time setup; the OSV downloader is NOT
+    # shipped in this repo — bring your own pre-downloaded OSV data):
+    #   <your downloader>  → local OSV data files
 
     # Then scan locally:
     findings = scan_project_dependencies(Path("./my_project"))
