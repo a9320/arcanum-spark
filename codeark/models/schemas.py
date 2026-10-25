@@ -89,6 +89,17 @@ class VerificationResult(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     evidence: str = Field(description="工具验证证据原文")
     verification_method: str = Field(description="实际使用的验证方法")
+    evidence_source: str | None = Field(
+        default=None,
+        description="最主要证据来源（方差治理 D2 溯源，2026-10-25）：repo_file/"
+        "tool_result/library_knowledge/reasoning_only；自由字符串入库，"
+        "归一化层清洗非法值（junk→None，不用 Literal 防旧输出炸校验）",
+    )
+    partial_grounding: bool = Field(
+        default=False,
+        description="派生字段（模型不得产出）：CONFIRMED 且 evidence_source="
+        "library_knowledge（证实面含非仓内知识）→ True；方差治理 D2 打标",
+    )
     degraded: bool = Field(
         default=False,
         description="True=invoke/输出契约失败后的降级记录；verdict 的 UNCERTAIN "

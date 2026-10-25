@@ -68,3 +68,11 @@
 2. round-to-anchor 平手规则（建议 tie→**低档保守**，0.4→0.3？0.4 距 0.3/0.5 等距——若采五档 0.4 恰为 0.3/0.5 中点，tie→0.5 还是 0.3 需定；建议 tie→0.5 因 0.3 档语义含"饥饿"与"纯推理"，并入会污染 D3 信号）；
 3. P1/P2 同窗一刀还是分两刀（建议 **P1 先行**，D2 的字段设计依赖 D1 落地后的回放观察）；
 4. 验收实验是否与 K1 全 20 题重判同窗（共用开机，预算 ~1 小时）。
+
+## 六、实施记录（P1=D1+D2，2026-10-25）
+
+- **拍板采纳**（用户"按建议来"）：五档 / 平手取更靠近 0.5 的锚（0.4→0.5，推广后 0.825→0.75）/ P1 先行 / 验收实验留 DSW 窗。
+- **D1**：VERIFY_ONE / NOTOOLS / PLAIN_JSON_CONTRACT 三 prompt 块钉五档判据；解析侧 `snap_confidence`（env `ARCA_VERIFY_CONFIDENCE_ANCHORS` 默认 1，=0 回退自由数值口径）在两个模型输出收口点生效（`_normalize_verifications` 结构化路径 + `_coerce_verification` 宽松/纯文本路径）；内部构造（降级记录 0.3 等）不经治理不受影响。
+- **D2**：`VerificationResult` 增 `evidence_source`（自由字符串入库防 junk 炸校验，归一化层清洗为四值）+ `partial_grounding`（派生字段，模型不得产出：CONFIRMED ∧ library_knowledge）；prompt 三块加四选一指引。
+- **测试**：`codeark/tests/test_verdict_governance.py` 9 锚（snap 锚值/平手/夹取/env 关闸/清洗/派生/双收口贯通/prompt 契约）；410 collected 全绿零回归。
+- **待 DSW 验收**（预注册 §四）：①gatekeeping 固定假设集 N=5 档位一致率 ≥4/5；②t4c minpack 臂重跑 H1 grounding 分布随臂漂移（H2 零效应对照）；③confident_refutations 保持 0。
