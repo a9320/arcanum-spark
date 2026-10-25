@@ -26,6 +26,11 @@
 - `report.sarif` 是标准 SARIF 2.1.0，可直接被 GitHub Code Scanning / IDE 消费；
 - 扫描整个仓库时把路径设为 `"$GITHUB_WORKSPACE"`（或 `.`）。
 
+本仓自己的 CI 在 verify.sh 之外还挂了一道**自扫描闸门**（`scripts/self_scan_gate.py`，
+2026-10-25）：git 真集干净副本 → `--dry` 产品同款路径 → 断言第一方生产代码零命中
+（豁免区=demo 阳性对照+测试合成样本，策略见脚本头注）。自己也在被扫——单一入口
+哲学的延伸。
+
 ## 3. GitLab CI
 
 ```yaml
