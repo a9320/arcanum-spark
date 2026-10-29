@@ -94,6 +94,13 @@ class GraphResult:
         self.severity_floor_upgraded: int = 0
         # Scout→Verify gate：默认关闭；启用时只记录并重排，不删除原始假设。
         self.gate: dict[str, Any] = {"enabled": False, "reason": "disabled"}
+        # Azure 基线 gate（IC27 v1）：默认关；开启时记录两个云服务的覆盖率与降级
+        # （dry-run 不跑云服务，但报告 schema 与启用路径同形）
+        self.azure: dict[str, Any] = {
+            "enabled": False,
+            "content_safety": {"enabled": False, "reason": "disabled"},
+            "language": {"enabled": False, "reason": "disabled"},
+        }
 
     def to_dict(self) -> dict:
         def _dump(x: Any) -> Any:
@@ -118,6 +125,7 @@ class GraphResult:
             "node_errors": self.node_errors,
             "severity_floor_upgraded": self.severity_floor_upgraded,
             "gate": self.gate,
+            "azure": self.azure,
         }
 
 
@@ -210,7 +218,22 @@ class CodeRiskGraph:
         # 1.5 隔离层（§11-B）：LLM prompt 只看消毒版；工具/Agent0 看原始版。
         safe_files = files
         if not self.dry:
-            safe_files, res.quarantine_stats = quarantine_files(files)
+            # 1.45 Azure 基线 gate（IC27 v1）：默认关。开启时在确定性隔离之前过云服务
+            # ——Prompt Shields 看原始文件，PII 脱敏作用于之后要进模型的文本。
+            try:
+                from codeark.azure.preflight import run_azure_gate
+
+                gate = run_azure_gate(files)
+                safe_files = gate.files
+                res.azure = gate.meta
+            except Exception as exc:  # 云服务故障不得让整条流水线失败
+                res.azure = {
+                    "enabled": True,
+                    "degraded": True,
+                    "reason": f"{type(exc).__name__}: {redact_error(exc)}",
+                }
+                res.node_errors["azure_gate"] = res.azure["reason"]
+            safe_files, res.quarantine_stats = quarantine_files(safe_files)
 
         # 2. 侦察：基线之外的**语义增量**发现（失败 → 降级为规则基线假设，不中断流水线）
         if pinned_hypothesis_set is not None:
@@ -372,7 +395,7 @@ class CodeRiskGraph:
         # 在渲染边界被丢弃，只活在内存与流式日志里，重跑即销毁——eval/replay.py 依赖）
         res.reports = render_report(
             res.final_report,
-            ["json", "sarif", "markdown"],
+            ["json", "sarif", "markdown", "html"],
             attack_chains=res.attack_chains,
             meta={
                 "quarantine_stats": res.quarantine_stats,
@@ -389,6 +412,8 @@ class CodeRiskGraph:
                 "verify_degraded": sum(
                     1 for v in res.verifications if getattr(v, "degraded", False)
                 ),
+                # Azure 基线 gate 的覆盖率与降级（默认关时显式记 enabled=false）
+                "azure": res.azure,
             },
         )
 
