@@ -20,6 +20,7 @@ venv-*/
 # verify.sh / eval 的一次性 dry-run 输出（秒级可再生）
 reports/verify/
 reports/verify_clean/
+reports/verify_html/
 reports/dry_eval/
 reports/dry_clean/
 _internal-backup/

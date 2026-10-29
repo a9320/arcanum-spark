@@ -2,7 +2,7 @@
 
 6 节点架构第 7 节点（裁判官之后，流水线末端）。
 - 输入：裁判官的 FinalReport + Deepen 的攻击链 + 可观测性元信息
-- 输出：JSON / SARIF 2.1.0 / Markdown 三种格式
+- 输出：JSON / SARIF 2.1.0 / Markdown / HTML（自包含单文件，无外部资源）
 - 模型：无 LLM（纯模板渲染，确定性）
 - 关键设计：报告「生成」与「发布/发送」严格分离，发布需人类授权
 
@@ -10,18 +10,26 @@
 - 报告只是生成，不自动发送/发布到任何外部渠道；
 - SARIF 输出遵循 2.1.0 规范（results[].ruleId / locations[].physicalLocation.artifactLocation.uri 等）；
 - Markdown 输出人类可读的漏洞清单（severity 排序、文件、修复建议）；
+- HTML 输出必须自包含（无 CDN/字体/脚本请求），且所有动态内容一律转义；
 - 攻击链与结论必须渲染（§11：attack_chains 曾全程无人渲染=深挖白做）；
 - 确定性去重口径：file_path + vuln_type 相同即同一条，保留最高 severity。
 """
 from __future__ import annotations
 
 import json
+from html import escape as _html_escape
 from typing import Any
+
+
+def _esc(value: Any) -> str:
+    """HTML 转义（先 str()：报告字段可能是 int/bool/None）。"""
+    return _html_escape(str(value))
 
 __all__ = [
     "SARIF_VERSION",
     "build_sarif",
     "build_markdown",
+    "build_html",
     "render_report",
     "dedup_findings",
     "apply_severity_floor",
@@ -261,6 +269,216 @@ def build_markdown(
     return "\n".join(lines).rstrip() + "\n"
 
 
+_HTML_CSS = """
+:root{--ink:#111;--muted:#5b6470;--line:#d8dee6;--bg:#fff;--panel:#f6f8fa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif}
+main{max-width:960px;margin:0 auto;padding:32px 20px 56px}
+h1{font-size:26px;margin:0 0 4px}
+h2{font-size:19px;margin:32px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.sub{color:var(--muted);margin:0 0 20px}
+.cards{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0}
+.card{flex:1 1 140px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.card b{display:block;font-size:22px;line-height:1.2}
+.card span{color:var(--muted);font-size:12px}
+.finding{border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:12px 0}
+.finding h3{margin:0 0 6px;font-size:16px}
+.chip{display:inline-block;border-radius:999px;padding:1px 9px;font-size:11px;font-weight:700;
+ letter-spacing:.04em;margin-right:8px;vertical-align:2px;color:#fff}
+.sev-critical{background:#8b1a1a}.sev-high{background:#b4341f}.sev-medium{background:#9a6b00}.sev-low{background:#3b6b3b}
+.meta-line{color:var(--muted);font-size:13px;margin:0 0 8px}
+dl{margin:8px 0 0}dt{font-weight:600;font-size:13px;margin-top:8px}dd{margin:2px 0 0;color:#222}
+pre.code{background:#0f1720;color:#e6edf3;border-radius:6px;padding:10px 12px;overflow:auto;
+ font:12.5px/1.5 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;white-space:pre-wrap}
+.note{background:#fff8e1;border:1px solid #ecd9a0;border-radius:6px;padding:10px 12px;font-size:13px}
+ul.tight{margin:6px 0;padding-left:22px}
+footer{margin-top:40px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);padding-top:12px}
+@media print{body{font-size:12px}main{padding:0}.finding{break-inside:avoid}}
+"""
+
+
+def _azure_summary(meta: dict | None) -> str:
+    az = (meta or {}).get("azure")
+    if not isinstance(az, dict) or not az:
+        return ""
+    if not az.get("enabled"):
+        return (
+            '<p class="note">Azure gate: <strong>disabled</strong> '
+            "(explicitly recorded — local door only, no cloud call was made).</p>"
+        )
+    items: list[str] = []
+    cs = az.get("content_safety") or {}
+    if isinstance(cs, dict) and cs.get("enabled"):
+        items.append(
+            "Content Safety: scanned "
+            f"{cs.get('documents_scanned', 0)}/{cs.get('documents_total', 0)} files "
+            f"in {cs.get('batches', 0)} batch(es); "
+            f"attack_detected={cs.get('attack_detected')}; "
+            f"degraded={cs.get('degraded')}; blocked={cs.get('blocked_documents', 0)}"
+        )
+    lang = az.get("language") or {}
+    if isinstance(lang, dict) and lang.get("enabled"):
+        cats = lang.get("entities_by_category") or {}
+        cat_text = ", ".join(f"{k}={v}" for k, v in sorted(cats.items())) or "none"
+        items.append(
+            "Language PII: redacted "
+            f"{lang.get('documents_redacted', 0)}/{lang.get('documents_sampled', 0)} files; "
+            f"withheld={lang.get('documents_withheld', 0)}; "
+            f"entities by category: {cat_text}; degraded={lang.get('degraded')}"
+        )
+    if not items:
+        return '<p class="note">Azure gate: enabled, no service produced a record.</p>'
+    return "<ul class=\"tight\">" + "".join(f"<li>{_esc(i)}</li>" for i in items) + "</ul>"
+
+
+def build_html(
+    findings: list[dict],
+    attack_chains: list | None = None,
+    conclusion: str = "",
+    meta: dict | None = None,
+) -> str:
+    """自包含单文件 HTML：无 CDN/字体/脚本请求，全部动态内容转义。
+
+    只渲染报告里已有的事实（不补算分数）：DAG 中 risk_score 在渲染之后才计算，
+    故本页用 findings 计数、PITAX 命中数、假设/判决数与隔离层统计。
+    """
+    m = meta or {}
+    qs = m.get("quarantine_stats") or {}
+    hypothesis_set = m.get("hypothesis_set")
+    hyps = hypothesis_set.get("hypotheses") if isinstance(hypothesis_set, dict) else []
+    hyps = hyps or []
+    verifications = m.get("verifications") or []
+    cards = [
+        (len(findings), "findings"),
+        (len(m.get("agent0_findings") or []), "PITAX rule hits"),
+        (len(hyps), "hypotheses"),
+        (len(verifications), "verdicts"),
+        (m.get("verify_degraded", 0), "degraded verdicts"),
+    ]
+    parts = [
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">",
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
+        "<meta name=\"generator\" content=\"codeark\">",
+        "<title>CodeRisk Arcanum — Scan Report</title>",
+        f"<style>{_HTML_CSS}</style></head><body><main>",
+        "<h1>CodeRisk Arcanum — Scan Report</h1>",
+        "<p class=\"sub\">Deterministic rules + AI judge. Generated locally; "
+        "nothing was sent to any external channel.</p>",
+        "<div class=\"cards\">",
+    ]
+    for value, label in cards:
+        parts.append(f'<div class="card"><b>{_esc(value)}</b><span>{_esc(label)}</span></div>')
+    parts.append("</div>")
+
+    if conclusion:
+        parts += ["<h2>Conclusion</h2>", f"<p>{_esc(conclusion)}</p>"]
+
+    audit: list[str] = []
+    if qs:
+        audit.append(
+            f"Prompt quarantine: {qs.get('files_changed', 0)}/{qs.get('files_total', 0)} files "
+            f"sanitized, {qs.get('patterns_neutralized', 0)} injection trigger phrases "
+            f"neutralized, {qs.get('chars_removed', 0)} invisible characters stripped."
+        )
+    if m.get("deepen_failures"):
+        audit.append(
+            f"Deepen: {m['deepen_failures']} attack chain(s) could not be derived "
+            "automatically; placeholders are disclosed for manual review."
+        )
+    if m.get("severity_floor_upgraded"):
+        audit.append(
+            f"Severity floor: {m['severity_floor_upgraded']} finding(s) were raised back to "
+            "the deterministic rule level."
+        )
+    for node, err in (m.get("node_errors") or {}).items():
+        audit.append(f"Node degradation [{node}]: {err}")
+    if audit:
+        parts += ["<h2>Audit trail</h2>", "<ul class=\"tight\">"]
+        parts += [f"<li>{_esc(item)}</li>" for item in audit]
+        parts.append("</ul>")
+    azure_html = _azure_summary(m)
+    if azure_html:
+        parts += ["<h2>Azure gate</h2>", azure_html]
+
+    if not findings:
+        parts.append("<p>No known vulnerabilities were found by the configured checks.</p>")
+    else:
+        ordered = sorted(
+            findings,
+            key=lambda f: _SEV_ORDER.get(
+                str(_f(f, "severity") or _f(f, "confidence") or "medium").lower(), 9
+            ),
+        )
+        parts.append(f"<h2>Findings ({len(ordered)})</h2>")
+        for f in ordered:
+            sev = _severity_class(_f(f, "severity") or _f(f, "confidence") or "medium")
+            title = _f(f, "title") or _f(f, "description") or _f(f, "rule") or "(untitled)"
+            location = _f(f, "file_path") or _f(f, "file") or ""
+            line = _f(f, "line") or _f(f, "line_start") or ""
+            rule = _f(f, "rule") or _f(f, "vuln_type") or ""
+            meta_line = " · ".join(
+                _esc(str(x)) for x in (location, f"line {line}" if line else "", rule) if x
+            )
+            parts.append('<article class="finding">')
+            parts.append(f'<h3><span class="chip sev-{sev}">{sev.upper()}</span>{_esc(title)}</h3>')
+            if meta_line:
+                parts.append(f'<p class="meta-line">{meta_line}</p>')
+            parts.append("<dl>")
+            snippet = _f(f, "code_snippet")
+            if snippet:
+                parts.append(f'<dt>Code</dt><dd><pre class="code">{_esc(snippet)}</pre></dd>')
+            for label, key in (
+                ("Evidence", "evidence"),
+                ("Attack path", "attack_path"),
+                ("Verdict", "verdict"),
+                ("Confidence", "confidence"),
+                ("Remediation", "fix"),
+            ):
+                value = _f(f, key)
+                if not value and key == "fix":
+                    value = _f(f, "remediation")
+                if value:
+                    parts.append(f"<dt>{label}</dt><dd>{_esc(value)}</dd>")
+            parts.append("</dl></article>")
+
+    if attack_chains:
+        parts.append(f"<h2>Attack chains ({len(attack_chains)})</h2>")
+        for i, chain in enumerate(attack_chains, start=1):
+            ctitle = str(_f(chain, "title") or "").strip()
+            parts.append(
+                f"<h3>{i}. {_esc(ctitle) if ctitle else 'Attack chain'}</h3><ul class=\"tight\">"
+            )
+            for label, key in (
+                ("Preconditions", "preconditions"),
+                ("Lateral moves", "lateral_moves"),
+            ):
+                values = _f(chain, key, []) or []
+                if isinstance(values, (list, tuple)) and values:
+                    parts.append(
+                        f"<li><strong>{label}:</strong> "
+                        + _esc("; ".join(str(v) for v in values))
+                        + "</li>"
+                    )
+            for label, key in (("Impact", "impact"), ("Remediation", "remediation")):
+                value = _f(chain, key)
+                if value:
+                    parts.append(f"<li><strong>{label}:</strong> {_esc(value)}</li>")
+            parts.append("</ul>")
+
+    parts.append(
+        "<footer>Generated locally by CodeRisk Arcanum. Unknown values are reported as "
+        "unknown, never as clean. Publication of this report requires human authorization.</footer>"
+    )
+    parts.append("</main></body></html>")
+    return "\n".join(parts)
+
+
+def _severity_class(sev: Any) -> str:
+    value = str(sev or "medium").strip().lower()
+    return value if value in _SEV_ORDER else "medium"
+
+
 def render_report(
     final: object,
     formats: list[str],
@@ -312,4 +530,6 @@ def render_report(
         out["sarif"] = build_sarif(findings)
     if "markdown" in formats:
         out["markdown"] = build_markdown(findings, chains, conclusion, meta)
+    if "html" in formats:
+        out["html"] = build_html(findings, chains, conclusion, meta)
     return out

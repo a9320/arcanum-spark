@@ -1,12 +1,14 @@
 """CodeRisk Arcanum — 命令行入口。
 
 用法：
-    python -m codeark.cli <repo_dir> [--dry] [--out OUT] [--formats json,sarif,markdown]
+    python -m codeark.cli <repo_dir> [--dry] [--out OUT] [--formats json,sarif,markdown,html]
+    python -m codeark.cli scan <repo_dir> [同上去掉 scan 的选项]
 
 - <repo_dir>：待扫描的仓库目录（本地路径）
+- scan：子命令别名，与直接给目录同义（保留旧用法的向后兼容）
 - --dry：离线 dry-run（不调用 LLM，用 agent0 PITAX 基线跑通全链路；默认不启用）
 - --out：报告输出目录（默认 ./reports）
-- --formats：逗号分隔的格式（默认 json,sarif,markdown）
+- --formats：逗号分隔的格式（默认 json,sarif,markdown；html=自包含单页）
 
 流程：读取仓库代码文件 → 6 节点 Graph → 落盘报告 + 打印风险分/命中摘要。
 报告只生成到本地，不发送任何外部渠道（生成≠发布）。
@@ -173,6 +175,9 @@ async def _main(args: argparse.Namespace) -> int:
         elif name == "markdown":
             fp = out_dir / "report.md"
             fp.write_text(data, encoding="utf-8")
+        elif name == "html":
+            fp = out_dir / "report.html"
+            fp.write_text(data, encoding="utf-8")
         else:
             continue
         written.append(fp)
@@ -200,13 +205,17 @@ async def _main(args: argparse.Namespace) -> int:
     return 0
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    args_list = list(sys.argv[1:] if argv is None else argv)
+    # 子命令别名：`codeark scan <repo>` 与 `codeark <repo>` 同义（旧脚本零改动）
+    if args_list and args_list[0] == "scan":
+        args_list = args_list[1:]
     parser = argparse.ArgumentParser(description="CodeRisk Arcanum — 6-agent AI vulnerability scan pipeline")
     parser.add_argument("repo", help="repository directory to scan")
     parser.add_argument("--dry", action="store_true", help="offline dry-run (no LLM calls)")
     parser.add_argument("--out", default="./reports", help="report output directory (default ./reports)")
-    parser.add_argument("--formats", default="json,sarif,markdown", help="output formats, comma-separated")
-    args = parser.parse_args()
+    parser.add_argument("--formats", default="json,sarif,markdown", help="output formats, comma-separated (json,sarif,markdown,html)")
+    args = parser.parse_args(args_list)
     return asyncio.run(_main(args))
 
 

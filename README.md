@@ -49,12 +49,15 @@ flowchart LR
 ```bash
 git clone https://github.com/a9320/arcanum-spark && cd arcanum-spark
 pip install -r requirements.txt
-python -m codeark.cli demo/vuln-demo-repo --dry --formats json,sarif,markdown --out reports/quickstart
-# → reports/quickstart/report.{json,sarif,md} — 12 expected PITAX hits, no model calls
+python -m codeark.cli scan demo/vuln-demo-repo --dry --formats json,html --out reports/quickstart
+# → reports/quickstart/report.{json,html} — 12 expected PITAX hits, no model calls
+#   report.html is a self-contained single page (no CDN/fonts/scripts; safe to open offline)
 bash verify.sh   # 5-step deterministic regression (tests + demo scan + eval + clean-repo FP control)
 ```
 
-Need the full model council? → `bash deploy/mi300x-oneclick.sh`, then `ARCA_DEPLOYMENT=local python test_e2e.py`. CI/CD usage: [`docs/CI-CD.md`](docs/CI-CD.md).
+`python -m codeark.cli <repo>` (without `scan`) still works — same command, kept for
+backward compatibility. Need the full model council? → `bash deploy/mi300x-oneclick.sh`,
+then `ARCA_DEPLOYMENT=local python test_e2e.py`. CI/CD usage: [`docs/CI-CD.md`](docs/CI-CD.md).
 
 ## One-click verification (zero LLM API calls)
 
