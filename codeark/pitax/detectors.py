@@ -21,6 +21,7 @@ from __future__ import annotations
 import base64
 import codecs
 import re
+import os
 from dataclasses import dataclass, field
 
 from .rules import get_rule
@@ -203,11 +204,21 @@ _CONFIG_PATTERNS = [
     r"(?i)you\s+are\s+now",
     r"(?i)\bDAN\s+mode\b",
     r"(?i)developer\s+mode\b",
-    r"(?i)jailbreak",
+    r"(?i)(?:enable|enter|activate)\s+(?:the\s+)?jailbreak|jailbreak\s+mode",
     r"(?i)disable\s+safety\s+guidelines",
     r"(?i)bypass\s+(all\s+)?safety",
 ]
 _CONFIG_RE = [re.compile(p) for p in _CONFIG_PATTERNS]
+
+# 防御性写法（"Never reveal the system prompt"）是合规建议，不是注入（NEG-3 实证）
+_SYSTEM_PROMPT_PATTERN = r"(?i)system\s*prompt"
+_DEFENSIVE_RE = re.compile(
+    r"(?i)\b(?:never|don'?t|do not|must not|should not|refuse|avoid)\b|严禁|禁止|不要|不得"
+)
+
+
+def _is_defensive(rx: re.Pattern[str], line: str) -> bool:
+    return rx.pattern == _SYSTEM_PROMPT_PATTERN and bool(_DEFENSIVE_RE.search(line))
 
 
 def detect_ai_config_injection(code: str, file: str) -> list[Finding]:
@@ -216,7 +227,7 @@ def detect_ai_config_injection(code: str, file: str) -> list[Finding]:
     hits: dict[re.Pattern, list[int]] = {}
     for lineno, line in enumerate(code.splitlines(), start=1):
         for rx in _CONFIG_RE:
-            if rx.search(line):
+            if rx.search(line) and not _is_defensive(rx, line):
                 hits.setdefault(rx, []).append(lineno)
     for rx, lines in hits.items():
         match = rx.search(code.splitlines()[lines[0] - 1])
@@ -257,7 +268,7 @@ def detect_doc_injection(code: str, file: str) -> list[Finding]:
     hits: dict[re.Pattern, list[int]] = {}
     for lineno, line in enumerate(code.splitlines(), start=1):
         for rx in _DOC_INJECT_RE:
-            if rx.search(line):
+            if rx.search(line) and not _is_defensive(rx, line):
                 hits.setdefault(rx, []).append(lineno)
     for rx, lines in hits.items():
         match = rx.search(code.splitlines()[lines[0] - 1])
@@ -290,23 +301,39 @@ _COMMENT_INJECT_PATTERNS = [
 ]
 _COMMENT_INJECT_RE = [re.compile(p) for p in _COMMENT_INJECT_PATTERNS]
 
-# 常见注释标记：python # / block；C 系 // 和 /* */；HTML <!-- -->；shell #
-_COMMENT_START = re.compile(r"(#|//|/\*|<!--|\*|--|;|%)")
+# 注释标记按扩展名取：字符串里的 % / ; / -- 不是注释起点
+# （2026-10-30 PITAX 基准 NEG-4 实证：`"100% ignore previous instructions"` 曾误报 PIT-T-51）
+_COMMENT_MARKERS: dict[str, tuple[str, ...]] = {
+    ".py": ("#",), ".sh": ("#",), ".bash": ("#",), ".rb": ("#",), ".r": ("#",),
+    ".yaml": ("#",), ".yml": ("#",), ".toml": ("#",), ".cfg": ("#",),
+    ".ini": ("#", ";"),
+    ".js": ("//", "/*"), ".ts": ("//", "/*"), ".jsx": ("//", "/*"), ".tsx": ("//", "/*"),
+    ".java": ("//", "/*"), ".go": ("//", "/*"), ".rs": ("//", "/*"),
+    ".c": ("//", "/*"), ".cpp": ("//", "/*"), ".h": ("//", "/*"),
+    ".php": ("//", "/*", "#"), ".vue": ("//", "/*", "<!--"),
+    ".sql": ("--", "/*"), ".lua": ("--",),
+    ".html": ("<!--",), ".htm": ("<!--",),
+}
+_DEFAULT_COMMENT_MARKERS = ("#", "//", "/*", "<!--", "*")
 
 
-def _extract_comment(line: str) -> str | None:
-    """粗略提取行内注释片段。够用即可（确定性规则）。"""
-    m = _COMMENT_START.search(line)
-    if m:
-        return line[m.start():]
-    return None
+def _extract_comment(line: str, path: str = "") -> str | None:
+    """按扩展名取注释标记，返回最早出现的注释片段。"""
+    ext = os.path.splitext(path.lower())[1]
+    markers = _COMMENT_MARKERS.get(ext, _DEFAULT_COMMENT_MARKERS)
+    best = -1
+    for marker in markers:
+        idx = line.find(marker)
+        if idx >= 0 and (best < 0 or idx < best):
+            best = idx
+    return line[best:] if best >= 0 else None
 
 
 def detect_comment_injection(code: str, file: str) -> list[Finding]:
     findings: list[Finding] = []
     hits: dict[re.Pattern, list[int]] = {}
     for lineno, line in enumerate(code.splitlines(), start=1):
-        comment = _extract_comment(line)
+        comment = _extract_comment(line, file)
         if comment is None:
             continue
         for rx in _COMMENT_INJECT_RE:

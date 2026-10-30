@@ -61,7 +61,7 @@ _DOC_SURFACE = [
     r"(?i)you\s+are\s+now",
     r"(?i)\bDAN\s+mode\b",
     r"(?i)developer\s+mode\b",
-    r"(?i)jailbreak",
+    r"(?i)(?:enable|enter|activate)\s+(?:the\s+)?jailbreak|jailbreak\s+mode",
     r"(?i)disable\s+safety\s+guidelines",
     r"(?i)bypass\s+(all\s+)?safety",
 ]

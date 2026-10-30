@@ -35,20 +35,31 @@ __all__ = ["pitax_scan", "make_bound_tool", "scan_file", "scan_repo"]
 
 
 # ── 单文件扫描：按路径分流，返回该文件命中的 report_dict 列表 ──
-def scan_file(path: str, content: str, _n: int = 0) -> list[dict]:
+def scan_file(path: str, content: str, _n: int = 0, *, strict: bool = False) -> list[dict]:
     """对单个文件跑匹配的 PITAX 检测器。
 
     分流规则：
-      - is_ai_config_path(path)  → 只跑 PIT-T-46（AI 指令文件后门）
-      - is_doc_path(path)        → 只跑 PIT-N-06（文档投毒）
-      - 否则                     → 跑其余 6 个检测器
+      - is_ai_config_path(path)  → PIT-T-46 + 规避类（E-23/E-54/编码）
+      - is_doc_path(path)        → PIT-N-06 + 规避类（E-23/E-54/编码）
+      - 否则                     → 6 个代码侧检测器（E-23/E-54/T-51/编码）
     """
     findings: list[Finding] = []
     try:
         if is_ai_config_path(path):
-            findings = detect_ai_config_injection(content, path)
+            # T-46 语义规则 + 规避类检测：文档/配置同样是走私载体（2026-10-30 基准实证盲区）
+            findings = [
+                *detect_ai_config_injection(content, path),
+                *detect_invisible_text(content, path),
+                *detect_trojan_source(content, path),
+                *detect_encoded_payloads(content, path),
+            ]
         elif is_doc_path(path):
-            findings = detect_doc_injection(content, path)
+            findings = [
+                *detect_doc_injection(content, path),
+                *detect_invisible_text(content, path),
+                *detect_trojan_source(content, path),
+                *detect_encoded_payloads(content, path),
+            ]
         else:
             # 代码/文本：跑 6 个检测器（PIT-E-23/54/T-51 + 编码 PIT-E-07/14/36/57）
             findings = [
@@ -58,6 +69,9 @@ def scan_file(path: str, content: str, _n: int = 0) -> list[dict]:
                 *detect_encoded_payloads(content, path),
             ]
     except Exception as exc:  # pragma: no cover - 防御：单文件失败不拖垮整次扫描
+        if strict:
+            # 基准/测试用：静默按 clean 返回就是漏报，必须让调用方看见
+            raise
         print(f"[pitax_scan] 扫描 {path} 失败: {exc}")
         return []
 
@@ -69,7 +83,7 @@ def scan_file(path: str, content: str, _n: int = 0) -> list[dict]:
 
 
 # ── 多文件扫描：输入 {路径: 内容} 字典，返回全部命中 ──
-def scan_repo(files: dict[str, str]) -> list[dict]:
+def scan_repo(files: dict[str, str], *, strict: bool = False) -> list[dict]:
     """对仓库全部文件跑 PITAX 检测。
 
     Args:
@@ -80,7 +94,7 @@ def scan_repo(files: dict[str, str]) -> list[dict]:
     """
     all_findings: list[dict] = []
     for _n, (path, content) in enumerate(files.items(), start=1):
-        all_findings.extend(scan_file(path, content, _n=_n))
+        all_findings.extend(scan_file(path, content, _n=_n, strict=strict))
     return all_findings
 
 

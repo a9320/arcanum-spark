@@ -39,3 +39,6 @@ reports/summary.json
 # EVAL-LEDGER 未引用；不入仓但不删，需要时另窗拍板）
 reports/e2e-concurrency/
 reports/smoke-armA/
+
+# PITAX bench:每次跑都会变的最新快照，基线按日期留档
+eval/pitax_bench/score-latest.json

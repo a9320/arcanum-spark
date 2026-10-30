@@ -1,0 +1,372 @@
+{
+  "summary": {
+    "cases": 22,
+    "positive": 14,
+    "recall": 1.0,
+    "negative": 8,
+    "false_positives": 0,
+    "unexpected_rules": 0,
+    "nondeterministic": 0,
+    "severity_mismatches": 0,
+    "per_rule": {
+      "PIT-E-23": {
+        "expected": 2,
+        "hit": 2
+      },
+      "PIT-E-54": {
+        "expected": 2,
+        "hit": 2
+      },
+      "PIT-T-46": {
+        "expected": 2,
+        "hit": 2
+      },
+      "PIT-N-06": {
+        "expected": 2,
+        "hit": 2
+      },
+      "PIT-T-51": {
+        "expected": 2,
+        "hit": 2
+      },
+      "PIT-E-07": {
+        "expected": 1,
+        "hit": 1
+      },
+      "PIT-E-14": {
+        "expected": 1,
+        "hit": 1
+      },
+      "PIT-E-36": {
+        "expected": 1,
+        "hit": 1
+      },
+      "PIT-E-57": {
+        "expected": 1,
+        "hit": 1
+      }
+    }
+  },
+  "rows": [
+    {
+      "id": "E23-1",
+      "kind": "pos",
+      "note": "zero-width spaces inside a comment",
+      "expected": [
+        "PIT-E-23"
+      ],
+      "detected": [
+        "PIT-E-23"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "E23-2",
+      "kind": "pos",
+      "note": "Unicode tag characters in a doc",
+      "expected": [
+        "PIT-E-23"
+      ],
+      "detected": [
+        "PIT-E-23"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "E54-1",
+      "kind": "pos",
+      "note": "RLO/LRE bidi controls in source",
+      "expected": [
+        "PIT-E-54"
+      ],
+      "detected": [
+        "PIT-E-54"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "E54-2",
+      "kind": "pos",
+      "note": "LRI/PDI isolates",
+      "expected": [
+        "PIT-E-54"
+      ],
+      "detected": [
+        "PIT-E-54"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "T46-1",
+      "kind": "pos",
+      "note": "instruction override inside .cursor/rules",
+      "expected": [
+        "PIT-T-46"
+      ],
+      "detected": [
+        "PIT-T-46"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "T46-2",
+      "kind": "pos",
+      "note": "role hijack in CLAUDE.md",
+      "expected": [
+        "PIT-T-46"
+      ],
+      "detected": [
+        "PIT-T-46"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "N06-1",
+      "kind": "pos",
+      "note": "override text in README",
+      "expected": [
+        "PIT-N-06"
+      ],
+      "detected": [
+        "PIT-N-06"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "N06-2",
+      "kind": "pos",
+      "note": "role hijack in a design doc",
+      "expected": [
+        "PIT-N-06"
+      ],
+      "detected": [
+        "PIT-N-06"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "T51-1",
+      "kind": "pos",
+      "note": "python comment",
+      "expected": [
+        "PIT-T-51"
+      ],
+      "detected": [
+        "PIT-T-51"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "T51-2",
+      "kind": "pos",
+      "note": "javascript comment",
+      "expected": [
+        "PIT-T-51"
+      ],
+      "detected": [
+        "PIT-T-51"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "E07-1",
+      "kind": "pos",
+      "note": "base64 of the target phrase",
+      "expected": [
+        "PIT-E-07"
+      ],
+      "detected": [
+        "PIT-E-07"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "E14-1",
+      "kind": "pos",
+      "note": "rot13 of the target phrase",
+      "expected": [
+        "PIT-E-14"
+      ],
+      "detected": [
+        "PIT-E-14"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "E36-1",
+      "kind": "pos",
+      "note": "reversed target phrase",
+      "expected": [
+        "PIT-E-36"
+      ],
+      "detected": [
+        "PIT-E-36"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "E57-1",
+      "kind": "pos",
+      "note": "base64(rot13(target)) — two layers",
+      "expected": [
+        "PIT-E-57"
+      ],
+      "detected": [
+        "PIT-E-57"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "NEG-1",
+      "kind": "neg",
+      "note": "legit security description without trigger phrases",
+      "expected": [],
+      "detected": [],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "NEG-2",
+      "kind": "neg",
+      "note": "'jailbreak' in a glossary — accepted FP risk of the keyword rule",
+      "expected": [],
+      "detected": [],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "NEG-3",
+      "kind": "neg",
+      "note": "defensive rule that mentions the system prompt",
+      "expected": [],
+      "detected": [],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "NEG-4",
+      "kind": "neg",
+      "note": "percent sign in a string: comment extractor must not split here",
+      "expected": [],
+      "detected": [],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "NEG-5",
+      "kind": "neg",
+      "note": "semicolons inside a JS string",
+      "expected": [],
+      "detected": [],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "NEG-6",
+      "kind": "neg",
+      "note": "base64 of benign text",
+      "expected": [],
+      "detected": [],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "NEG-7",
+      "kind": "neg",
+      "note": "rot13 of benign text",
+      "expected": [],
+      "detected": [],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "NEG-8",
+      "kind": "neg",
+      "note": "reversed benign text",
+      "expected": [],
+      "detected": [],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    }
+  ]
+}
