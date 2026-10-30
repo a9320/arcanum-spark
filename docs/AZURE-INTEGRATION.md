@@ -142,6 +142,30 @@ gate 开关与成本帽（**全部默认关**）：
 | `ARCA_AZURE_GATE_WITHHOLD_ON_DEGRADED` | `1` | `0`=脱敏失败仍放行原文（不推荐） |
 | `ARCA_AZURE_GATE_MAX_LANGUAGE_DOCS` | `20` | 单次脱敏文档数帽（F0 月 5,000 条） |
 
+### 4.4 Azure AI Foundry 模型（非 OpenAI：Phi-4 等）
+
+Foundry 的 serverless 模型不挂在 `*.openai.azure.com`，地址与鉴权都不同：
+
+| 变量 | 必需 | 默认 | 说明 |
+|---|---|---|---|
+| `ARCA_FOUNDRY_ENDPOINT` | 是 | — | `https://<resource>.services.ai.azure.com`（写不写 `/models` 都行） |
+| `ARCA_FOUNDRY_KEY` | 是 | — | 资源密钥；repr/失败原因中脱敏 |
+| `ARCA_FOUNDRY_DEPLOYMENT` | 是 | — | **部署名**（门户里那个名字，不是模型名） |
+| `ARCA_FOUNDRY_API_VERSION` | 否 | `2024-05-01-preview` | 冒烟确认后可改 |
+| `ARCA_FOUNDRY_TIMEOUT` | 否 | `20` 秒 | — |
+
+探针按三种形状依次试，200 即停：`/models/chat/completions` + `api-key` →
+同路径 + `Authorization: Bearer` → `/openai/v1/chat/completions` + Bearer。
+输出里的 `path`/`auth` 就是后续写进四岗路由 `client_args` 的依据。
+
+```bash
+python scripts/smoke/azure_foundry_smoke.py            # 零联网看配置
+python scripts/smoke/azure_foundry_smoke.py --live     # 真调一次，JSON 留档
+```
+
+> 为什么单独写探针：Azure OpenAI 的 v1 路径（`/openai/v1`）与 Foundry models 路径不通用，
+> 直接把 Foundry endpoint 填进 `ARCA_<STAGE>_BASE_URL` 会 404；先让探针定形状，再改路由。
+
 ## 5. 鉴权与凭据纪律
 
 | 阶段 | 形态 | 说明 |

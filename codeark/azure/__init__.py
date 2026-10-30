@@ -22,6 +22,13 @@ from .language import (
     RedactionResult,
 )
 from .language import status_from_env as language_status_from_env
+from .foundry_probe import (
+    FoundryAttempt,
+    FoundryClient,
+    FoundryProbeResult,
+    FoundryStatus,
+)
+from .foundry_probe import status_from_env as foundry_status_from_env
 from .openai_probe import ChatProbeResult, ProbeAttempt, probe_chat_completion
 from .preflight import GateOutcome, run_azure_gate
 
@@ -30,6 +37,10 @@ __all__ = [
     "ChatProbeResult",
     "ContentSafetyClient",
     "ContentSafetyStatus",
+    "FoundryAttempt",
+    "FoundryClient",
+    "FoundryProbeResult",
+    "FoundryStatus",
     "GateOutcome",
     "LanguageClient",
     "LanguageStatus",
@@ -39,6 +50,7 @@ __all__ = [
     "RedactionResult",
     "ShieldPromptResult",
     "TextAnalysisResult",
+    "foundry_status_from_env",
     "language_status_from_env",
     "probe_chat_completion",
     "run_azure_gate",
