@@ -1,7 +1,7 @@
 {
   "summary": {
-    "cases": 22,
-    "positive": 14,
+    "cases": 23,
+    "positive": 15,
     "recall": 1.0,
     "negative": 8,
     "false_positives": 0,
@@ -22,8 +22,8 @@
         "hit": 2
       },
       "PIT-N-06": {
-        "expected": 2,
-        "hit": 2
+        "expected": 3,
+        "hit": 3
       },
       "PIT-T-51": {
         "expected": 2,
@@ -164,6 +164,22 @@
       "id": "N06-2",
       "kind": "pos",
       "note": "role hijack in a design doc",
+      "expected": [
+        "PIT-N-06"
+      ],
+      "detected": [
+        "PIT-N-06"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "N06-3",
+      "kind": "pos",
+      "note": "quoted example in a fence: still detected, context=fenced",
       "expected": [
         "PIT-N-06"
       ],

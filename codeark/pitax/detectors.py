@@ -263,13 +263,33 @@ def is_doc_path(path: str) -> bool:
 _DOC_INJECT_RE = [re.compile(p) for p in _CONFIG_PATTERNS]
 
 
+def _quote_context(line: str, in_fence: bool) -> str:
+    """引用语境标注：围栏代码块 / 引用块 / 行内代码。检出不变，只给研判提示。"""
+    if in_fence:
+        return "fenced"
+    stripped = line.lstrip()
+    if stripped.startswith(">"):
+        return "blockquote"
+    if line.count("`") >= 2:
+        return "inline-code"
+    return ""
+
+
 def detect_doc_injection(code: str, file: str) -> list[Finding]:
     findings: list[Finding] = []
     hits: dict[re.Pattern, list[int]] = {}
+    contexts: dict[int, str] = {}
+    in_fence = False
     for lineno, line in enumerate(code.splitlines(), start=1):
+        stripped = line.lstrip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_fence = not in_fence
+            continue
+        context = _quote_context(line, in_fence)
         for rx in _DOC_INJECT_RE:
             if rx.search(line) and not _is_defensive(rx, line):
                 hits.setdefault(rx, []).append(lineno)
+                contexts[lineno] = context
     for rx, lines in hits.items():
         match = rx.search(code.splitlines()[lines[0] - 1])
         evidence = match.group(0) if match else "doc injection pattern"
@@ -283,7 +303,10 @@ def detect_doc_injection(code: str, file: str) -> list[Finding]:
                 f"共 {len(lines)} 行出现）。文档是 Agent 的常规输入，投毒不会被"
                 "人类评审与传统工具注意。"
             ),
-            extra={"occurrence_lines": lines[:20]},
+            extra={
+                "occurrence_lines": lines[:20],
+                "context": contexts.get(lines[0], ""),
+            },
         ))
     return findings
 

@@ -20,7 +20,7 @@ No network, no model, no randomness: the same cases always give the same finding
 - **14 positives** across all 9 rules (invisible characters, bidi/trojan source, AI config
   files, docs, comments, base64 / ROT13 / reverse / layered payloads);
 - **8 negatives** that are *supposed* to stay clean: a security glossary that mentions
-  "jailbreak", a defensive rule ("never reveal the system prompt"), `%` and `;` inside
+  "jailbreak", a defensive rule that forbids revealing the prompt, `%` and `;` inside
   string literals, and benign strings that happen to be base64/ROT13/reversed.
 
 Negatives are the point. A rule that fires on a glossary is a rule users turn off.
@@ -39,8 +39,8 @@ Negatives are the point. A rule that fires on a glossary is a rule users turn of
 
 | date | recall | neg FP | notes |
 |---|---|---|---|
-| 2026-10-30 (first run) | 93% (13/14) | 3/8 | tag characters in docs missed; `%`-in-string, glossary "jailbreak", defensive "system prompt" false positives |
-| 2026-10-30 (after fixes) | **100% (14/14)** | **0/8** | docs/configs now also run evasion detectors; defensive-mention and comment-marker fixes; `strict=True` surfaces detector crashes instead of returning "clean" |
+| 2026-10-30 (first run) | 93% (13/14) | 3/8 | tag characters in docs missed; `%`-in-string, glossary term, defensive-prompt-mention false positives |
+| 2026-10-30 (after fixes) | **100% (15/15)** | **0/8** | docs/configs now also run evasion detectors; defensive-mention and comment-marker fixes; `strict=True` surfaces detector crashes instead of returning "clean" |
 
 ## Adding a case
 
