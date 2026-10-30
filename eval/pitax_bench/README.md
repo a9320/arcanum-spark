@@ -25,7 +25,7 @@ No network, no model, no randomness: the same cases always give the same finding
 
 Negatives are the point. A rule that fires on a glossary is a rule users turn off.
 
-## Metrics (`score-*.json`)
+## Metrics (`score-*.json`). Cases now also cover overrides split across two lines and Chinese-language overrides.
 
 | field | meaning |
 |---|---|
@@ -40,7 +40,8 @@ Negatives are the point. A rule that fires on a glossary is a rule users turn of
 | date | recall | neg FP | notes |
 |---|---|---|---|
 | 2026-10-30 (first run) | 93% (13/14) | 3/8 | tag characters in docs missed; `%`-in-string, glossary term, defensive-prompt-mention false positives |
-| 2026-10-30 (after fixes) | **100% (15/15)** | **0/8** | docs/configs now also run evasion detectors; defensive-mention and comment-marker fixes; `strict=True` surfaces detector crashes instead of returning "clean" |
+| 2026-10-30 (adversarial round) | 79% (15/19) | 0/8 | added split-across-lines and Chinese overrides: all 4 missed |
+| 2026-10-30 (after fixes) | **100% (19/19)** | **0/8** | docs/configs now also run evasion detectors; defensive-mention and comment-marker fixes; `strict=True` surfaces detector crashes instead of returning "clean" |
 
 ## Adding a case
 

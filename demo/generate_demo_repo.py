@@ -64,6 +64,8 @@ _DOC_SURFACE = [
     r"(?i)(?:enable|enter|activate)\s+(?:the\s+)?jailbreak|jailbreak\s+mode",
     r"(?i)disable\s+safety\s+guidelines",
     r"(?i)bypass\s+(all\s+)?safety",
+    r"忽略(?:之前|以前|上面|上述)(?:的)?(?:所有)?(?:指令|提示|要求)",
+    r"无视(?:之前|以前|上面|上述)(?:的)?(?:所有)?(?:指令|提示|要求)",
 ]
 _E57_SURFACE = [
     r"(?i)\bignore\s+(all\s+)?previous\s+instructions\b",

@@ -1,7 +1,7 @@
 {
   "summary": {
-    "cases": 23,
-    "positive": 15,
+    "cases": 27,
+    "positive": 19,
     "recall": 1.0,
     "negative": 8,
     "false_positives": 0,
@@ -22,12 +22,12 @@
         "hit": 2
       },
       "PIT-N-06": {
-        "expected": 3,
-        "hit": 3
+        "expected": 5,
+        "hit": 5
       },
       "PIT-T-51": {
-        "expected": 2,
-        "hit": 2
+        "expected": 4,
+        "hit": 4
       },
       "PIT-E-07": {
         "expected": 1,
@@ -180,6 +180,70 @@
       "id": "N06-3",
       "kind": "pos",
       "note": "quoted example in a fence: still detected, context=fenced",
+      "expected": [
+        "PIT-N-06"
+      ],
+      "detected": [
+        "PIT-N-06"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "T51-3",
+      "kind": "pos",
+      "note": "override split across two comment lines",
+      "expected": [
+        "PIT-T-51"
+      ],
+      "detected": [
+        "PIT-T-51"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "N06-4",
+      "kind": "pos",
+      "note": "override split across two doc lines",
+      "expected": [
+        "PIT-N-06"
+      ],
+      "detected": [
+        "PIT-N-06"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "T51-4",
+      "kind": "pos",
+      "note": "Chinese instruction override in a comment",
+      "expected": [
+        "PIT-T-51"
+      ],
+      "detected": [
+        "PIT-T-51"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "N06-5",
+      "kind": "pos",
+      "note": "Chinese instruction override in a doc",
       "expected": [
         "PIT-N-06"
       ],

@@ -207,6 +207,8 @@ _CONFIG_PATTERNS = [
     r"(?i)(?:enable|enter|activate)\s+(?:the\s+)?jailbreak|jailbreak\s+mode",
     r"(?i)disable\s+safety\s+guidelines",
     r"(?i)bypass\s+(all\s+)?safety",
+    r"忽略(?:之前|以前|上面|上述)(?:的)?(?:所有)?(?:指令|提示|要求)",
+    r"无视(?:之前|以前|上面|上述)(?:的)?(?:所有)?(?:指令|提示|要求)",
 ]
 _CONFIG_RE = [re.compile(p) for p in _CONFIG_PATTERNS]
 
@@ -225,9 +227,11 @@ def detect_ai_config_injection(code: str, file: str) -> list[Finding]:
     """只对 AI 指令文件路径检测（.cursor/rules、CLAUDE.md 等）。"""
     findings: list[Finding] = []
     hits: dict[re.Pattern, list[int]] = {}
-    for lineno, line in enumerate(code.splitlines(), start=1):
+    cfg_lines = code.splitlines()
+    for lineno, line in enumerate(cfg_lines, start=1):
+        window = line if lineno >= len(cfg_lines) else f"{line} {cfg_lines[lineno]}"
         for rx in _CONFIG_RE:
-            if rx.search(line) and not _is_defensive(rx, line):
+            if rx.search(window) and not _is_defensive(rx, line):
                 hits.setdefault(rx, []).append(lineno)
     for rx, lines in hits.items():
         match = rx.search(code.splitlines()[lines[0] - 1])
@@ -279,15 +283,17 @@ def detect_doc_injection(code: str, file: str) -> list[Finding]:
     findings: list[Finding] = []
     hits: dict[re.Pattern, list[int]] = {}
     contexts: dict[int, str] = {}
+    doc_lines = code.splitlines()
     in_fence = False
-    for lineno, line in enumerate(code.splitlines(), start=1):
+    for lineno, line in enumerate(doc_lines, start=1):
         stripped = line.lstrip()
         if stripped.startswith("```") or stripped.startswith("~~~"):
             in_fence = not in_fence
             continue
         context = _quote_context(line, in_fence)
+        window = line if lineno >= len(doc_lines) else f"{line} {doc_lines[lineno]}"
         for rx in _DOC_INJECT_RE:
-            if rx.search(line) and not _is_defensive(rx, line):
+            if rx.search(window) and not _is_defensive(rx, line):
                 hits.setdefault(rx, []).append(lineno)
                 contexts[lineno] = context
     for rx, lines in hits.items():
@@ -321,6 +327,8 @@ _COMMENT_INJECT_PATTERNS = [
     r"(?i)\byou\s+are\s+an?\s+(attacker|hacker|assistant)\b",
     r"(?i)\bdeveloper\s+mode\b",
     r"(?i)\bDAN\s+mode\b",
+    r"忽略(?:之前|以前|上面|上述)(?:的)?(?:所有)?(?:指令|提示|要求)",
+    r"无视(?:之前|以前|上面|上述)(?:的)?(?:所有)?(?:指令|提示|要求)",
 ]
 _COMMENT_INJECT_RE = [re.compile(p) for p in _COMMENT_INJECT_PATTERNS]
 
@@ -355,12 +363,17 @@ def _extract_comment(line: str, path: str = "") -> str | None:
 def detect_comment_injection(code: str, file: str) -> list[Finding]:
     findings: list[Finding] = []
     hits: dict[re.Pattern, list[int]] = {}
-    for lineno, line in enumerate(code.splitlines(), start=1):
+    cm_lines = code.splitlines()
+    for lineno, line in enumerate(cm_lines, start=1):
         comment = _extract_comment(line, file)
         if comment is None:
             continue
+        nxt = _extract_comment(cm_lines[lineno], file) if lineno < len(cm_lines) else None
+        # 去掉注释标记再拼接：跨行拆分常写成 "# ignore previous" / "# instructions"
+        body = comment.lstrip("#/*<!-> 	")
+        window = body if not nxt else f"{body} {nxt.lstrip('#/*<!-> 	')}"
         for rx in _COMMENT_INJECT_RE:
-            if rx.search(comment):
+            if rx.search(window):
                 hits.setdefault(rx, []).append(lineno)
     for rx, lines in hits.items():
         match = rx.search(code.splitlines()[lines[0] - 1])
