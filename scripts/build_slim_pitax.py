@@ -13,7 +13,7 @@
   <out>/codeark-pitax/       生成的包源（codeark_pitax/ + pyproject.toml + README.md）
   <out>/dist/*.whl           wheel（未用 --no-wheel 时）
 
-发布（用户侧，需 PyPI 账号）：uv publish <out>/dist/*
+发布（用户侧，需 PyPI 账号）：uv publish <out>/dist/<wheel>
 """
 from __future__ import annotations
 
@@ -27,9 +27,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from codeark.pitax.rules import PITAX_VERSION  # noqa: E402
+
 DEFAULT_OUT = ROOT.parent / "slim-build"
 PKG = "codeark_pitax"
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 
 # 复制映射：源 → 生成文件名；rewrites 逐条替换导入
 COPY_PLAN: list[tuple[Path, str, list[tuple[str, str]]]] = [
@@ -52,8 +53,8 @@ CLI_LINES = [
     "",
     "from .scan_engine import scan_repo",
     "from .reporting import render_report",
-    "from .rules import PITAX_VERSION",
     "from .detectors import is_ai_config_path",
+    "from .rules import PITAX_VERSION",
     "",
     'SOURCE_EXTS = {".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".go", ".rs", ".c", ".cpp",',
     '    ".h", ".rb", ".php", ".sh", ".bash", ".sql", ".html", ".htm", ".vue", ".json", ".yaml",',
@@ -131,47 +132,62 @@ CLI_LINES = [
     "    sys.exit(main())",
 ]
 
-PYPROJECT_LINES = [
-    "[build-system]",
-    'requires = ["setuptools>=68"]',
-    'build-backend = "setuptools.build_meta"',
-    "",
-    "[project]",
-    'name = "codeark-pitax"',
-    f'version = "{VERSION}"',
-    'description = "Deterministic prompt-injection scanner (PITAX): scan repos/docs for '
-    'AI-assistant hijacking patterns. Zero dependencies, local only."',
-    'requires-python = ">=3.10"',
-    "dependencies = []",
-    "",
-    "[project.scripts]",
-    'codeark-pitax = "codeark_pitax.cli:main"',
-    "",
-    "[tool.setuptools.packages.find]",
-    'include = ["codeark_pitax*"]',
+# 生成 pyproject 用整块模板（TOML 无尾逗号；license 走标准分类器，规避 PEP 639 版本差异）
+PYPROJECT_TOML = """[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codeark-pitax"
+version = "{VERSION}"
+description = "Deterministic prompt-injection scanner (PITAX): scan repos/docs for AI-assistant hijacking patterns. Zero dependencies, local only."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+keywords = ["prompt-injection", "security", "static-analysis", "llm", "pitax", "ai-safety", "code-review"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    # 注意：新版 setuptools 禁用 License 分类器（PEP 639）——license 用 SPDX 字符串表达
+    "Programming Language :: Python :: 3",
+    "Topic :: Security",
 ]
 
-README_LINES = [
-    "# codeark-pitax",
-    "",
-    "Deterministic prompt-injection scanner (PITAX rules): scan repositories, documents",
-    "and untrusted text for AI-assistant hijacking patterns — invisible Unicode, trojan",
-    "source, instruction overrides, encoded payloads. Zero dependencies, zero network,",
-    "zero model calls; everything stays on your machine.",
-    "",
-    "Part of CodeRisk Arcanum (https://github.com/a9320/arcanum-spark).",
-    "",
-    "## Usage",
-    "",
-    "```bash",
-    "codeark-pitax scan ./your-repo --formats html --out ./pitax-report",
-    "```",
-    "",
-    "## Attribution",
-    "",
-    "The PITAX rule set is derived from the Prompt Injection Taxonomy v1.6.1 by",
-    "Jason Haddix / Arcanum (CC BY 4.0).",
-]
+[project.urls]
+Homepage = "https://github.com/a9320/arcanum-spark"
+Repository = "https://github.com/a9320/arcanum-spark"
+Issues = "https://github.com/a9320/arcanum-spark/issues"
+
+[project.scripts]
+codeark-pitax = "codeark_pitax.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["codeark_pitax*"]
+"""
+
+README_MD = """# codeark-pitax
+
+Deterministic prompt-injection scanner (PITAX rules): scan repositories, documents
+and untrusted text for AI-assistant hijacking patterns — invisible Unicode, trojan
+source, instruction overrides, encoded payloads. Zero dependencies, zero network,
+zero model calls; everything stays on your machine.
+
+Part of CodeRisk Arcanum (https://github.com/a9320/arcanum-spark).
+Source / issues: https://github.com/a9320/arcanum-spark
+
+## Usage
+
+```bash
+codeark-pitax scan ./your-repo --formats html --out ./pitax-report
+```
+
+## Attribution
+
+The PITAX rule set is derived from the Prompt Injection Taxonomy v1.6.1 by
+Jason Haddix / Arcanum (CC BY 4.0).
+
+License: MIT (same as arcanum-spark).
+"""
 
 
 def _write(path: Path, content: str) -> None:
@@ -200,16 +216,16 @@ def main(argv: list[str] | None = None) -> int:
         _write(pkg_dir / dest_name, text)
 
     # 便捷导出：import codeark_pitax 即得 scan_repo/scan_file（wheel 用户的公共 API）
-    init_path = pkg_dir / "__init__.py"
-    init = init_path.read_text(encoding="utf-8")
+    init = (pkg_dir / "__init__.py").read_text(encoding="utf-8")
     if "scan_repo" not in init:
-        init += "\nfrom .scan_engine import scan_file, scan_repo  # noqa: E402,F401\n"
-        _write(init_path, init)
+        nl = chr(10)
+        init += nl + "from .scan_engine import scan_file, scan_repo  # noqa: E402,F401" + nl
+        _write(pkg_dir / "__init__.py", init)
 
     _write(pkg_dir / "cli.py", "\n".join(CLI_LINES) + "\n")
     _write(pkg_dir / "__main__.py", "from .cli import main\n\nimport sys\n\nsys.exit(main())\n")
-    _write(out / "codeark-pitax" / "pyproject.toml", "\n".join(PYPROJECT_LINES) + "\n")
-    _write(out / "codeark-pitax" / "README.md", "\n".join(README_LINES) + "\n")
+    _write(out / "codeark-pitax" / "pyproject.toml", PYPROJECT_TOML.replace("{VERSION}", VERSION))
+    _write(out / "codeark-pitax" / "README.md", README_MD)
 
     print(f"generated: {out / 'codeark-pitax'}")
     if args.no_wheel:
