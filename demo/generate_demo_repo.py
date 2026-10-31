@@ -66,15 +66,22 @@ _DOC_SURFACE = [
     r"(?i)bypass\s+(all\s+)?safety",
     r"忽略(?:之前|以前|上面|上述)(?:的)?(?:所有)?(?:指令|提示|要求)",
     r"无视(?:之前|以前|上面|上述)(?:的)?(?:所有)?(?:指令|提示|要求)",
+    r"你现在(?:是|成为)(?:一名)?(?:攻击者|黑客)",
+    r"绕过(?:所有)?安全",
+    r"以前の指示を無視",
 ]
 _E57_SURFACE = [
-    r"(?i)\bignore\s+(all\s+)?previous\s+instructions\b",
-    r"(?i)\breveal\s+(the\s+)?(system|your)\s+prompt\b",
-    r"(?i)\bemail\s+(the\s+)?api\s+keys?\b",
-    r"(?i)\bexfiltrate\b",
-    r"(?i)\bdeveloper\s+mode\b",
-    r"(?i)\byou\s+are\s+now\b",
-    r"(?i)\bjailbreak\b",
+    '(?i)\\bignore\\s+(all\\s+)?previous\\s+instructions\\b',
+    '(?i)\\breveal\\s+(the\\s+)?(system|your)\\s+prompt\\b',
+    '(?i)\\bemail\\s+(the\\s+)?api\\s+keys?\\b',
+    '(?i)\\bexfiltrate\\b',
+    '(?i)\\bdeveloper\\s+mode\\b',
+    '(?i)\\byou\\s+are\\s+now\\b',
+    '(?i)\\bjailbreak\\b',
+    '你现在(?:是|成为)(?:一名)?(?:攻击者|黑客)',
+    '绕过(?:所有)?安全',
+    '以前の指示を無視',
+    '忽略(?:之前|以前|上述)(?:的)?(?:所有)?指令',
 ]
 _DOC_SURFACE_RE = [re.compile(p) for p in _DOC_SURFACE]
 _E57_SURFACE_RE = [re.compile(p) for p in _E57_SURFACE]

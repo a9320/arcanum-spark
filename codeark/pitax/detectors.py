@@ -210,6 +210,9 @@ _CONFIG_PATTERNS = [
     r"(?i)bypass\s+(all\s+)?safety",
     r"忽略(?:之前|以前|上面|上述)(?:的)?(?:所有)?(?:指令|提示|要求)",
     r"无视(?:之前|以前|上面|上述)(?:的)?(?:所有)?(?:指令|提示|要求)",
+    r"你现在(?:是|成为)(?:一名)?(?:攻击者|黑客)",
+    r"绕过(?:所有)?安全",
+    r"以前の指示を無視",
 ]
 _CONFIG_RE = [re.compile(p) for p in _CONFIG_PATTERNS]
 
@@ -330,6 +333,9 @@ _COMMENT_INJECT_PATTERNS = [
     r"(?i)\bDAN\s+mode\b",
     r"忽略(?:之前|以前|上面|上述)(?:的)?(?:所有)?(?:指令|提示|要求)",
     r"无视(?:之前|以前|上面|上述)(?:的)?(?:所有)?(?:指令|提示|要求)",
+    r"你现在(?:是|成为)(?:一名)?(?:攻击者|黑客)",
+    r"绕过(?:所有)?安全",
+    r"以前の指示を無視",
 ]
 _COMMENT_INJECT_RE = [re.compile(p) for p in _COMMENT_INJECT_PATTERNS]
 
@@ -402,6 +408,10 @@ _ENCODED_TARGET_PATTERNS = [
     r"(?i)\bdeveloper\s+mode\b",
     r"(?i)\byou\s+are\s+now\b",
     r"(?i)\bjailbreak\b",
+    r"你现在(?:是|成为)(?:一名)?(?:攻击者|黑客)",
+    r"绕过(?:所有)?安全",
+    r"以前の指示を無視",
+    r"忽略(?:之前|以前|上述)(?:的)?(?:所有)?指令",
 ]
 _ENCODED_TARGET_RE = [re.compile(p) for p in _ENCODED_TARGET_PATTERNS]
 

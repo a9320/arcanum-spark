@@ -68,6 +68,9 @@ def scan_file(path: str, content: str, _n: int = 0, *, strict: bool = False) -> 
                 *detect_comment_injection(content, path),
                 *detect_encoded_payloads(content, path),
             ]
+            # 配置/数据文件（yaml/json/toml/ini/cfg）：裸值就是指令载体，按文档口径扫
+            if path.lower().endswith((".yaml", ".yml", ".json", ".toml", ".ini", ".cfg")):
+                findings.extend(detect_doc_injection(content, path))
     except Exception as exc:  # pragma: no cover - 防御：单文件失败不拖垮整次扫描
         if strict:
             # 基准/测试用：静默按 clean 返回就是漏报，必须让调用方看见

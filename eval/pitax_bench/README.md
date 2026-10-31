@@ -15,7 +15,8 @@ No network, no model, no randomness: the same cases always give the same finding
 
 ## Cases
 
-`cases.jsonl` — 22 cases, two per rule plus eight hard negatives:
+`cases.jsonl` — 33 cases: two per rule, adversarial variants (split lines, Chinese/Japanese
+overrides, quoted examples, YAML/JSON prompt-config values) and nine hard negatives:
 
 - **14 positives** across all 9 rules (invisible characters, bidi/trojan source, AI config
   files, docs, comments, base64 / ROT13 / reverse / layered payloads);
@@ -41,7 +42,9 @@ Negatives are the point. A rule that fires on a glossary is a rule users turn of
 |---|---|---|---|
 | 2026-10-30 (first run) | 93% (13/14) | 3/8 | tag characters in docs missed; `%`-in-string, glossary term, defensive-prompt-mention false positives |
 | 2026-10-30 (adversarial round) | 79% (15/19) | 0/8 | added split-across-lines and Chinese overrides: all 4 missed |
-| 2026-10-30 (after fixes) | **100% (19/19)** | **0/8** | docs/configs now also run evasion detectors; defensive-mention and comment-marker fixes; `strict=True` surfaces detector crashes instead of returning "clean" |
+| 2026-10-30 (after fixes) | **100% (19/19)** | **0/8** |
+| 2026-10-31 (round 3: multilingual + config values) | 79% (19/24) | 0/9 | Chinese/Japanese role hijack, Chinese base64, YAML/JSON bare values: all 5 missed |
+| 2026-10-31 (after fixes) | **100% (24/24)** | **0/9** | docs/configs now also run evasion detectors; defensive-mention and comment-marker fixes; `strict=True` surfaces detector crashes instead of returning "clean" |
 
 ## Adding a case
 
