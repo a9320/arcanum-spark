@@ -29,7 +29,7 @@ sys.path.insert(0, str(ROOT))
 from codeark.pitax.rules import PITAX_VERSION  # noqa: E402
 DEFAULT_OUT = ROOT.parent / "slim-build"
 PKG = "codeark_pitax"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 # 复制映射：源 → 生成文件名；rewrites 逐条替换导入
 COPY_PLAN: list[tuple[Path, str, list[tuple[str, str]]]] = [
@@ -198,6 +198,13 @@ def main(argv: list[str] | None = None) -> int:
             text = text.replace(old, new)
         assert "from codeark" not in text, f"{src} 仍含绝对 codeark 导入"
         _write(pkg_dir / dest_name, text)
+
+    # 便捷导出：import codeark_pitax 即得 scan_repo/scan_file（wheel 用户的公共 API）
+    init_path = pkg_dir / "__init__.py"
+    init = init_path.read_text(encoding="utf-8")
+    if "scan_repo" not in init:
+        init += "\nfrom .scan_engine import scan_file, scan_repo  # noqa: E402,F401\n"
+        _write(init_path, init)
 
     _write(pkg_dir / "cli.py", "\n".join(CLI_LINES) + "\n")
     _write(pkg_dir / "__main__.py", "from .cli import main\n\nimport sys\n\nsys.exit(main())\n")
