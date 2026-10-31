@@ -25,6 +25,7 @@ import os
 from dataclasses import dataclass, field
 
 from .rules import get_rule
+from .descriptions_en import description_for, suggestion_for
 
 # ────────────────────────── 数据结构 ──────────────────────────
 @dataclass
@@ -51,13 +52,13 @@ class Finding:
             "confidence": confidence,
             "cwe": rule.get("cwe"),
             "mitre_atlas": rule.get("mitre_atlas"),
-            "description": self.message,
+            "description": description_for(self.pitax_code, self.message),
             "file": self.file,
             "line": self.line,
             "language": language,
             "code_snippet": self.evidence[:240],
             "agent": "agent_0_sanitizer",
-            "suggestion": (
+            "suggestion": suggestion_for(
                 "移除隐藏内容/恶意指令；若为误报请在 CI 中标记豁免并说明理由。"
             ),
             "pitax": {
