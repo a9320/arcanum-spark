@@ -55,6 +55,14 @@ python -m codeark.cli scan demo/vuln-demo-repo --dry --formats json,html --out r
 bash verify.sh   # 5-step deterministic regression (tests + demo scan + eval + clean-repo FP control)
 ```
 
+Got Office documents instead of a repo? Same rules, different carrier:
+
+```bash
+python -m codeark.cli docs-scan ./my-docs --formats json,html --out reports/office
+# scans .docx / .xlsx / .pptx text (including hidden runs and speaker notes) for
+# prompt-injection, invisible characters and encoded payloads; self-contained HTML report
+```
+
 `python -m codeark.cli <repo>` (without `scan`) still works — same command, kept for
 backward compatibility. Need the full model council? → `bash deploy/mi300x-oneclick.sh`,
 then `ARCA_DEPLOYMENT=local python test_e2e.py`. CI/CD usage: [`docs/CI-CD.md`](docs/CI-CD.md).

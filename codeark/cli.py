@@ -3,9 +3,11 @@
 用法：
     python -m codeark.cli <repo_dir> [--dry] [--out OUT] [--formats json,sarif,markdown,html]
     python -m codeark.cli scan <repo_dir> [同上去掉 scan 的选项]
+    python -m codeark.cli docs-scan <docx/xlsx/pptx 或目录> [--out OUT] [--formats json,html]
 
 - <repo_dir>：待扫描的仓库目录（本地路径）
 - scan：子命令别名，与直接给目录同义（保留旧用法的向后兼容）
+- docs-scan：Office 文档注入体检（docx/xlsx/pptx 抽文本 → PITAX 规则；零依赖抽取）
 - --dry：离线 dry-run（不调用 LLM，用 agent0 PITAX 基线跑通全链路；默认不启用）
 - --out：报告输出目录（默认 ./reports）
 - --formats：逗号分隔的格式（默认 json,sarif,markdown；html=自包含单页）
@@ -207,6 +209,11 @@ async def _main(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args_list = list(sys.argv[1:] if argv is None else argv)
+    # 子命令别名：`codeark docs-scan` 走 Office 文档体检（独立参数面）
+    if args_list and args_list[0] == "docs-scan":
+        from codeark.office_scan import run_cli
+
+        return run_cli(args_list[1:])
     # 子命令别名：`codeark scan <repo>` 与 `codeark <repo>` 同义（旧脚本零改动）
     if args_list and args_list[0] == "scan":
         args_list = args_list[1:]

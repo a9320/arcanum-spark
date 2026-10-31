@@ -42,3 +42,6 @@ reports/smoke-armA/
 
 # PITAX bench:每次跑都会变的最新快照，基线按日期留档
 eval/pitax_bench/score-latest.json
+
+# Office 体检一次性输出（秒级可再生）
+reports/office-demo/
