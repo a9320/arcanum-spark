@@ -69,6 +69,7 @@ _DOC_SURFACE = [
     r"你现在(?:是|成为)(?:一名)?(?:攻击者|黑客)",
     r"绕过(?:所有)?安全",
     r"以前の指示を無視",
+    r"跳过(?:所有)?安全",
 ]
 _E57_SURFACE = [
     '(?i)\\bignore\\s+(all\\s+)?previous\\s+instructions\\b',

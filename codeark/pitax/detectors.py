@@ -213,6 +213,7 @@ _CONFIG_PATTERNS = [
     r"你现在(?:是|成为)(?:一名)?(?:攻击者|黑客)",
     r"绕过(?:所有)?安全",
     r"以前の指示を無視",
+    r"跳过(?:所有)?安全",
 ]
 _CONFIG_RE = [re.compile(p) for p in _CONFIG_PATTERNS]
 
@@ -336,6 +337,7 @@ _COMMENT_INJECT_PATTERNS = [
     r"你现在(?:是|成为)(?:一名)?(?:攻击者|黑客)",
     r"绕过(?:所有)?安全",
     r"以前の指示を無視",
+    r"跳过(?:所有)?安全",
 ]
 _COMMENT_INJECT_RE = [re.compile(p) for p in _COMMENT_INJECT_PATTERNS]
 
