@@ -415,10 +415,10 @@ _ENCODED_TARGET_PATTERNS = [
 ]
 _ENCODED_TARGET_RE = [re.compile(p) for p in _ENCODED_TARGET_PATTERNS]
 
-# 字符串字面量候选：引号包裹的 20+ 字符串（不含引号/换行）。
+# 字符串字面量候选：引号包裹的 8+ 字符串（不含引号/换行；原 20——2026-10-31 基准 E36-2 实证9 字中文反转载荷漏检，误报由解码+关键词门控制）。
 # 不再限制字符集——编码判定交给分层解码器（b64 严格校验/rot13/reverse 命中关键词才剥层），
 # 否则带空格的 ROT13/反转载荷会漏检。
-_STR_LITERAL = re.compile(r'(["\'`])([^"\'`\n]{20,})\1')
+_STR_LITERAL = re.compile(r'(["\'`])([^"\'`\n]{8,})\1')
 _B64_STRICT = re.compile(r"[A-Za-z0-9+/]+={0,2}")
 _MIN_DECODE_LEN = 16
 _MAX_LAYERS = 5

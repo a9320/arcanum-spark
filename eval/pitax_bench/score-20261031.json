@@ -1,9 +1,9 @@
 {
   "summary": {
-    "cases": 33,
-    "positive": 24,
+    "cases": 40,
+    "positive": 29,
     "recall": 1.0,
-    "negative": 9,
+    "negative": 11,
     "false_positives": 0,
     "unexpected_rules": 0,
     "nondeterministic": 0,
@@ -18,26 +18,26 @@
         "hit": 2
       },
       "PIT-T-46": {
+        "expected": 4,
+        "hit": 4
+      },
+      "PIT-N-06": {
+        "expected": 8,
+        "hit": 8
+      },
+      "PIT-T-51": {
+        "expected": 6,
+        "hit": 6
+      },
+      "PIT-E-07": {
         "expected": 3,
         "hit": 3
       },
-      "PIT-N-06": {
-        "expected": 7,
-        "hit": 7
-      },
-      "PIT-T-51": {
-        "expected": 5,
-        "hit": 5
-      },
-      "PIT-E-07": {
+      "PIT-E-36": {
         "expected": 2,
         "hit": 2
       },
       "PIT-E-14": {
-        "expected": 1,
-        "hit": 1
-      },
-      "PIT-E-36": {
         "expected": 1,
         "hit": 1
       },
@@ -340,6 +340,110 @@
       "id": "NEG-9",
       "kind": "neg",
       "note": "education mention must stay clean (contextual jailbreak pattern)",
+      "expected": [],
+      "detected": [],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "E07-3",
+      "kind": "pos",
+      "note": "base64 of a Japanese override",
+      "expected": [
+        "PIT-E-07"
+      ],
+      "detected": [
+        "PIT-E-07"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "E36-2",
+      "kind": "pos",
+      "note": "reversed Chinese override",
+      "expected": [
+        "PIT-E-36"
+      ],
+      "detected": [
+        "PIT-E-36"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "T51-6",
+      "kind": "pos",
+      "note": "Chinese bypass-safety in a comment",
+      "expected": [
+        "PIT-T-51"
+      ],
+      "detected": [
+        "PIT-T-51"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "T46-4",
+      "kind": "pos",
+      "note": "Chinese override-requirement in an AI config (locks existing pattern)",
+      "expected": [
+        "PIT-T-46"
+      ],
+      "detected": [
+        "PIT-T-46"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "N06-6",
+      "kind": "pos",
+      "note": "Chinese bypass-safety in a doc (locks existing pattern)",
+      "expected": [
+        "PIT-N-06"
+      ],
+      "detected": [
+        "PIT-N-06"
+      ],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "NEG-10",
+      "kind": "neg",
+      "note": "benign hardening prose must stay clean",
+      "expected": [],
+      "detected": [],
+      "missing": [],
+      "extra": [],
+      "false_positive": false,
+      "deterministic": true,
+      "severity_mismatch": []
+    },
+    {
+      "id": "NEG-11",
+      "kind": "neg",
+      "note": "ordinary Chinese comment must stay clean",
       "expected": [],
       "detected": [],
       "missing": [],
