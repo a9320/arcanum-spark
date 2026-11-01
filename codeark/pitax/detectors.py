@@ -427,6 +427,8 @@ _ENCODED_TARGET_RE = [re.compile(p) for p in _ENCODED_TARGET_PATTERNS]
 # 不再限制字符集——编码判定交给分层解码器（b64 严格校验/rot13/reverse 命中关键词才剥层），
 # 否则带空格的 ROT13/反转载荷会漏检。
 _STR_LITERAL = re.compile(r'(["\'`])([^"\'`\n]{8,})\1')
+# 2026-11-01 Copilot 现场漏报#3（CA03 实证）：载荷躲进注释——注释内容同样过剥层解码
+_COMMENT_TOKEN = re.compile(r"[A-Za-z0-9+/=]{16,}")
 _B64_STRICT = re.compile(r"[A-Za-z0-9+/]+={0,2}")
 _MIN_DECODE_LEN = 16
 _MAX_LAYERS = 5
@@ -495,20 +497,39 @@ def detect_encoded_payloads(code: str, file: str) -> list[Finding]:
             final, layers = _peel_layers(raw)
             if not layers or not _contains_injection(final):
                 continue  # 纯明文/未命中关键词 → 不报（控制误报）
-            if len(layers) >= 2:
-                pitax_code = "PIT-E-57"
-            else:
-                pitax_code = _LAYER_TO_CODE.get(tuple(layers), "PIT-E-57")
-            findings.append(Finding(
-                pitax_code=pitax_code,
-                file=file,
-                line=lineno,
-                evidence=raw[:80] + ("..." if len(raw) > 80 else ""),
-                message=(
-                    f"检测到{len(layers)}层编码（{'→'.join(layers)}）的提示注入载荷，"
-                    "用于规避基于关键词的过滤。"
-                ),
-                decoded_payload=final[:160],
-                extra={"layers": layers},
-            ))
+            findings.append(_encoded_finding(file, lineno, raw, final, layers))
+        # 注释内容同口径：取出注释体里的 base64 形 token 过剥层（解码+关键词双闸控制误报）
+        comment = _extract_comment(line, file)
+        if comment is None:
+            continue
+        body = comment.lstrip("#/*<!-> \t")
+        seen: set[str] = set()
+        for m in _COMMENT_TOKEN.finditer(body):
+            raw = m.group(0)
+            if raw in seen:
+                continue
+            seen.add(raw)
+            final, layers = _peel_layers(raw)
+            if not layers or not _contains_injection(final):
+                continue
+            findings.append(_encoded_finding(file, lineno, raw, final, layers))
     return findings
+
+
+def _encoded_finding(file: str, lineno: int, raw: str, final: str, layers: list[str]) -> Finding:
+    if len(layers) >= 2:
+        pitax_code = "PIT-E-57"
+    else:
+        pitax_code = _LAYER_TO_CODE.get(tuple(layers), "PIT-E-57")
+    return Finding(
+        pitax_code=pitax_code,
+        file=file,
+        line=lineno,
+        evidence=raw[:80] + ("..." if len(raw) > 80 else ""),
+        message=(
+            f"检测到{len(layers)}层编码（{'→'.join(layers)}）的提示注入载荷，"
+            "用于规避基于关键词的过滤。"
+        ),
+        decoded_payload=final[:160],
+        extra={"layers": layers},
+    )
