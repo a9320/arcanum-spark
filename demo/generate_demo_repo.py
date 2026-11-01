@@ -55,6 +55,8 @@ EXFIL_URLS = [  # 不可达端点池（保留 TLD，N-06/E-57 机制不被改没
 # 只有能被 agent0 命中的指令才入池：否则语料变体的 quickscan 基线断条（回显负样本少产）。
 _DOC_SURFACE = [
     r"(?i)ignore\s+(all\s+)?previous\s+instructions",
+    r"(?i)ignore\s+(all\s+)?(?:previous\s+)?(?:safety|security)\s+(?:rules|guidelines)",
+    r"(?i)system\s+overrides?\b",
     r"(?i)override\s+(all\s+)?(previous\s+)?instructions",
     r"(?i)disregard\s+(all\s+)?(previous\s+)?instructions",
     r"(?i)system\s*prompt",
