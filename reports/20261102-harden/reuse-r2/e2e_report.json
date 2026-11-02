@@ -1,0 +1,269 @@
+{
+  "findings": [
+    {
+      "title": "underscores_in_headers + gunicorn SCRIPT_NAME 头部注入绕过 nginx /admin 拒绝",
+      "vuln_type": "AUTH_BYPASS",
+      "file_path": "server/setup.sh",
+      "line_start": 0,
+      "line_end": 0,
+      "code_snippet": "underscores_in_headers on;",
+      "severity": "high",
+      "confidence": "high",
+      "evidence": "",
+      "attack_path": "nginx 配置开启 underscores_in_headers 并 proxy_pass_request_headers on，导致 SCRIPT_NAME 请求头被透传至 gunicorn。gunicorn 会将 SCRIPT_NAME 头写入 WSGI environ，导致 Flask 路径被重写。攻击者请求 /asdf/admin/key 并发送 SCRIPT_NAME: asdf/，nginx 仅看到 /asdf... 放行，gunicorn 将实际 path_info 改为 /admin/key，从而绕过 location ^~ /admin/ { deny all; }。",
+      "remediation": ""
+    },
+    {
+      "title": "/admin/key 未授权密钥泄露",
+      "vuln_type": "INFORMATION_DISCLOSURE",
+      "file_path": "server/server.py",
+      "line_start": 0,
+      "line_end": 0,
+      "code_snippet": "@app.route('/admin/key')\\ndef get_key():\\n    return jsonify(key=get_info()['key'])",
+      "severity": "high",
+      "confidence": "high",
+      "evidence": "",
+      "attack_path": "get_key 路由仅调用 get_info 检查 key_id 格式和文件存在，未校验 paid 标志或身份。结合上述 SCRIPT_NAME 绕过，攻击者可通过伪造路径获取任意 key_id 对应的加密密钥，进而解密受害者文件。",
+      "remediation": ""
+    }
+  ],
+  "attack_chains": [
+    {
+      "title": "",
+      "preconditions": [
+        "nginx has underscores_in_headers enabled",
+        "gunicorn proxy_pass_request_headers is enabled",
+        "SCRIPT_NAME header injection is possible"
+      ],
+      "lateral_moves": [
+        "Attackers can send a request with SCRIPT_NAME header set to 'asdf/'",
+        "This modifies the request path to '/asdf/admin/key' which bypasses nginx's /admin/ deny rule",
+        "Access to '/admin/key' endpoint allows extraction of encryption key"
+      ],
+      "impact": "Unrestricted access to encryption keys enables decryption of sensitive data including the flag",
+      "remediation": "Modify nginx configuration to disable underscores_in_headers and prevent SCRIPT_NAME header injection"
+    },
+    {
+      "title": "",
+      "preconditions": [
+        "攻击者能够向服务器发送 HTTP 请求",
+        "服务器配置允许访问 /admin/key 路径",
+        "相关代码未被修改"
+      ],
+      "lateral_moves": [
+        "攻击者构造 HTTP GET 请求访问 /admin/key 端点以获取加密密钥",
+        "利用获取到的密钥解密加密的文件"
+      ],
+      "impact": "攻击者能够获取加密密钥并解密敏感数据，包括 flag.txt",
+      "remediation": "修改 server.py 中的 get_key 函数，添加权限验证以确保只有授权用户才能访问该端点；在 Nginx 配置中进一步限制对 /admin 路径的访问"
+    }
+  ],
+  "conclusion": "本次审计发现存在高危漏洞利用链路：攻击者可通过 Nginx 配置缺陷（underscores_in_headers）结合 Gunicorn 对 SCRIPT_NAME 头的处理特性，实现路径重写从而绕过 Nginx 的访问控制限制；结合后端 `/admin/key` 接口缺乏身份验证的漏洞，攻击者可成功提取加密密钥，进而解密敏感文件（如 flag.txt）。建议：1. 在 Nginx 配置中禁用 `underscores_in_headers`；2. 在业务代码中对敏感接口实现严格的鉴权机制。",
+  "meta": {
+    "quarantine_stats": {
+      "files_total": 14,
+      "files_changed": 0,
+      "chars_removed": 0,
+      "patterns_neutralized": 0,
+      "changed_files": []
+    },
+    "deepen_failures": 0,
+    "node_errors": {},
+    "severity_floor_upgraded": 0,
+    "agent0_findings": [],
+    "hypothesis_source": "pinned",
+    "hypothesis_set": {
+      "hypotheses": [
+        {
+          "id": "H1",
+          "title": "Docker socket 挂载导致容器逃逸与主机权限提升",
+          "vuln_type": "PRIVILEGE_ESCALATION",
+          "file_path": "docker-compose.yml",
+          "line_start": 5,
+          "line_end": 5,
+          "code_snippet": "- /var/run/docker.sock:/var/run/docker.sock",
+          "attack_path": "docker-compose.yml 将宿主机的 /var/run/docker.sock 挂载进 game-server 容器。容器内任意可执行代码可通过 Docker API 以宿主机 root 权限创建/控制容器，实现容器逃逸和主机接管。",
+          "confidence": "high",
+          "suggested_verification": "检查 docker-compose.yml 中 volumes 条目，启动容器后在容器内执行 docker info / docker run --rm -v /:/host alpine chroot /host ls /root 验证是否可访问宿主机。"
+        },
+        {
+          "id": "H2",
+          "title": "underscores_in_headers + gunicorn SCRIPT_NAME 头部注入绕过 nginx /admin 拒绝",
+          "vuln_type": "AUTH_BYPASS",
+          "file_path": "server/setup.sh",
+          "line_start": 9,
+          "line_end": 9,
+          "code_snippet": "underscores_in_headers on;",
+          "attack_path": "nginx 配置开启 underscores_in_headers 并 proxy_pass_request_headers on，请求头 SCRIPT_NAME 被透传至 gunicorn。gunicorn 会将 SCRIPT_NAME 头写入 WSGI environ，导致 Flask 路径被重写。攻击者请求 /asdf/admin/key 并发送 SCRIPT_NAME: asdf/，nginx 仅看到 /asdf... 放行，gunicorn 将实际 path_info 改为 /admin/key，从而绕过 location ^~ /admin/ { deny all; }。",
+          "confidence": "high",
+          "suggested_verification": "向 http://target/asdf/admin/key 发送请求并带头 SCRIPT_NAME: asdf/，验证是否返回 /admin/key 的响应；同时检查 server/entrypoint.sh 中 gunicorn 启动参数及 server/server.py 路由。"
+        },
+        {
+          "id": "H3",
+          "title": "/admin/key 未授权密钥泄露",
+          "vuln_type": "INFORMATION_DISCLOSURE",
+          "file_path": "server/server.py",
+          "line_start": 55,
+          "line_end": 58,
+          "code_snippet": "@app.route('/admin/key')\ndef get_key():\n    return jsonify(key=get_info()['key'])",
+          "attack_path": "get_key 路由仅调用 get_info 检查 key_id 格式和文件存在，未校验 paid 标志或身份。结合上述 SCRIPT_NAME 绕过，攻击者可通过伪造路径获取任意 key_id 对应的加密密钥，进而解密受害者文件。",
+          "confidence": "high",
+          "suggested_verification": "使用已知的 key_id 如 05d1dc92ce82cc09d9d7ff1ac9d5611d 通过绕过路径请求 /admin/key，检查返回 JSON 是否包含 key 字段；对比 server/server.py 中 decrypt 路由的 paid 检查。"
+        },
+        {
+          "id": "H4",
+          "title": "README 隐藏注释中含 ANSI 逃逸与潜在指令注入信号",
+          "vuln_type": "PROMPT_INJECTION",
+          "file_path": "readme.md",
+          "line_start": 38,
+          "line_end": 38,
+          "code_snippet": "<!--Spoilers!  8;41;31m/-->",
+          "attack_path": "readme.md 的 spoiler 区域使用 HTML 注释包裹并包含 ANSI 逃逸序列。UNTRUSTED_DATA 边界内出现 [QUARANTINED:potential-instruction] 隔离标记，表明仓库文件可能携带针对 AI 分析流程的隐藏指令或视觉欺骗载荷，存在文档投毒风险。",
+          "confidence": "low",
+          "suggested_verification": "提取 readme.md 中 HTML 注释及 solve.py 中的 ANSI 序列 8;41;31m / 0m，检查是否包含指令类文本；对所有 UNTRUSTED_DATA 文件进行静态指令模式扫描并记录隔离标记出现位置。"
+        }
+      ],
+      "coverage_notes": "已覆盖仓库中所有提供的文本文件：docker-compose.yml、Dockerfile、Makefile、server/setup.sh、server/entrypoint.sh、server/server.py、server/make_flag.py、server/templates/index.html、solve.py、readme.md、challenge.json、flag.txt、test_solver/test.sh 及 server/keys 示例。未执行动态运行时验证，未检查未提供的文件如 dist/flag.txt.enc、supervisord.conf、gatekeeping.tar.gz 内部内容，也未分析依赖库版本漏洞或容器运行时行为。PITAX 确定性检测已运行返回空结果，上述假设为基线外的语义增量发现。"
+    },
+    "gated_hypothesis_set": {
+      "hypotheses": [
+        {
+          "id": "H1",
+          "title": "Docker socket 挂载导致容器逃逸与主机权限提升",
+          "vuln_type": "PRIVILEGE_ESCALATION",
+          "file_path": "docker-compose.yml",
+          "line_start": 5,
+          "line_end": 5,
+          "code_snippet": "- /var/run/docker.sock:/var/run/docker.sock",
+          "attack_path": "docker-compose.yml 将宿主机的 /var/run/docker.sock 挂载进 game-server 容器。容器内任意可执行代码可通过 Docker API 以宿主机 root 权限创建/控制容器，实现容器逃逸和主机接管。",
+          "confidence": "high",
+          "suggested_verification": "检查 docker-compose.yml 中 volumes 条目，启动容器后在容器内执行 docker info / docker run --rm -v /:/host alpine chroot /host ls /root 验证是否可访问宿主机。"
+        },
+        {
+          "id": "H2",
+          "title": "underscores_in_headers + gunicorn SCRIPT_NAME 头部注入绕过 nginx /admin 拒绝",
+          "vuln_type": "AUTH_BYPASS",
+          "file_path": "server/setup.sh",
+          "line_start": 9,
+          "line_end": 9,
+          "code_snippet": "underscores_in_headers on;",
+          "attack_path": "nginx 配置开启 underscores_in_headers 并 proxy_pass_request_headers on，请求头 SCRIPT_NAME 被透传至 gunicorn。gunicorn 会将 SCRIPT_NAME 头写入 WSGI environ，导致 Flask 路径被重写。攻击者请求 /asdf/admin/key 并发送 SCRIPT_NAME: asdf/，nginx 仅看到 /asdf... 放行，gunicorn 将实际 path_info 改为 /admin/key，从而绕过 location ^~ /admin/ { deny all; }。",
+          "confidence": "high",
+          "suggested_verification": "向 http://target/asdf/admin/key 发送请求并带头 SCRIPT_NAME: asdf/，验证是否返回 /admin/key 的响应；同时检查 server/entrypoint.sh 中 gunicorn 启动参数及 server/server.py 路由。"
+        },
+        {
+          "id": "H3",
+          "title": "/admin/key 未授权密钥泄露",
+          "vuln_type": "INFORMATION_DISCLOSURE",
+          "file_path": "server/server.py",
+          "line_start": 55,
+          "line_end": 58,
+          "code_snippet": "@app.route('/admin/key')\ndef get_key():\n    return jsonify(key=get_info()['key'])",
+          "attack_path": "get_key 路由仅调用 get_info 检查 key_id 格式和文件存在，未校验 paid 标志或身份。结合上述 SCRIPT_NAME 绕过，攻击者可通过伪造路径获取任意 key_id 对应的加密密钥，进而解密受害者文件。",
+          "confidence": "high",
+          "suggested_verification": "使用已知的 key_id 如 05d1dc92ce82cc09d9d7ff1ac9d5611d 通过绕过路径请求 /admin/key，检查返回 JSON 是否包含 key 字段；对比 server/server.py 中 decrypt 路由的 paid 检查。"
+        },
+        {
+          "id": "H4",
+          "title": "README 隐藏注释中含 ANSI 逃逸与潜在指令注入信号",
+          "vuln_type": "PROMPT_INJECTION",
+          "file_path": "readme.md",
+          "line_start": 38,
+          "line_end": 38,
+          "code_snippet": "<!--Spoilers!  8;41;31m/-->",
+          "attack_path": "readme.md 的 spoiler 区域使用 HTML 注释包裹并包含 ANSI 逃逸序列。UNTRUSTED_DATA 边界内出现 [QUARANTINED:potential-instruction] 隔离标记，表明仓库文件可能携带针对 AI 分析流程的隐藏指令或视觉欺骗载荷，存在文档投毒风险。",
+          "confidence": "low",
+          "suggested_verification": "提取 readme.md 中 HTML 注释及 solve.py 中的 ANSI 序列 8;41;31m / 0m，检查是否包含指令类文本；对所有 UNTRUSTED_DATA 文件进行静态指令模式扫描并记录隔离标记出现位置。"
+        }
+      ],
+      "coverage_notes": "已覆盖仓库中所有提供的文本文件：docker-compose.yml、Dockerfile、Makefile、server/setup.sh、server/entrypoint.sh、server/server.py、server/make_flag.py、server/templates/index.html、solve.py、readme.md、challenge.json、flag.txt、test_solver/test.sh 及 server/keys 示例。未执行动态运行时验证，未检查未提供的文件如 dist/flag.txt.enc、supervisord.conf、gatekeeping.tar.gz 内部内容，也未分析依赖库版本漏洞或容器运行时行为。PITAX 确定性检测已运行返回空结果，上述假设为基线外的语义增量发现。"
+    },
+    "gate": {
+      "enabled": true,
+      "backend": "deterministic",
+      "fallback": false,
+      "triage_healthy": true,
+      "ordered_ids": [
+        "H1",
+        "H2",
+        "H3",
+        "H4"
+      ],
+      "selected_ids": [
+        "H1",
+        "H2",
+        "H3",
+        "H4"
+      ],
+      "pruned_ids": [],
+      "scores": {
+        "H1": 12.0,
+        "H2": 12.0,
+        "H3": 12.0,
+        "H4": 12.0
+      },
+      "protected_ids": [],
+      "echo_ids": [],
+      "duplicate_ids": [],
+      "degenerate_ids": []
+    },
+    "verifications": [
+      {
+        "hypothesis_id": "H1",
+        "hypothesis_title": "Docker socket 挂载导致容器逃逸与主机权限提升",
+        "verdict": "UNCERTAIN",
+        "confidence": 0.5,
+        "evidence": "docker-compose.yml:5:    - /var/run/docker.sock:/var/run/docker.sock",
+        "verification_method": "partial evidence + inference",
+        "evidence_source": "repo_file",
+        "partial_grounding": false,
+        "degraded": false
+      },
+      {
+        "hypothesis_id": "H2",
+        "hypothesis_title": "underscores_in_headers + gunicorn SCRIPT_NAME 头部注入绕过 nginx /admin 拒绝",
+        "verdict": "CONFIRMED",
+        "confidence": 0.95,
+        "evidence": "server/setup.sh:19: underscores_in_headers on;\nserver/setup.sh:27: proxy_pass_request_headers on;\nserver/setup.sh:38: location ^~ /admin/ { deny all; }\nserver/server.py:52: @app.route('/admin/key')",
+        "verification_method": "repo_file",
+        "evidence_source": "repo_file",
+        "partial_grounding": false,
+        "degraded": false
+      },
+      {
+        "hypothesis_id": "H3",
+        "hypothesis_title": "/admin/key 未授权密钥泄露",
+        "verdict": "CONFIRMED",
+        "confidence": 0.95,
+        "evidence": "server/server.py:55: @app.route('/admin/key')\nserver/server.py:56: def get_key():\nserver/server.py:57:     return jsonify(key=get_info()['key'])",
+        "verification_method": "repo_file",
+        "evidence_source": "repo_file",
+        "partial_grounding": false,
+        "degraded": false
+      },
+      {
+        "hypothesis_id": "H4",
+        "hypothesis_title": "README 隐藏注释中含 ANSI 逃逸与潜在指令注入信号",
+        "verdict": "UNCERTAIN",
+        "confidence": 0.3,
+        "evidence": "readme.md:38: <!--Spoilers!  8;41;31m/-->",
+        "verification_method": "reasoning_only",
+        "evidence_source": "repo_file",
+        "partial_grounding": false,
+        "degraded": false
+      }
+    ],
+    "verify_degraded": 0,
+    "azure": {
+      "enabled": false,
+      "content_safety": {
+        "enabled": false,
+        "reason": "disabled"
+      },
+      "language": {
+        "enabled": false,
+        "reason": "disabled"
+      }
+    }
+  }
+}

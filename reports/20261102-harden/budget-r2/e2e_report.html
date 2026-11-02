@@ -1,0 +1,82 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="codeark">
+<title>CodeRisk Arcanum — Scan Report</title>
+<style>
+:root{--ink:#111;--muted:#5b6470;--line:#d8dee6;--bg:#fff;--panel:#f6f8fa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif}
+main{max-width:960px;margin:0 auto;padding:32px 20px 56px}
+h1{font-size:26px;margin:0 0 4px}
+h2{font-size:19px;margin:32px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.sub{color:var(--muted);margin:0 0 20px}
+.cards{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0}
+.card{flex:1 1 140px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.card b{display:block;font-size:22px;line-height:1.2}
+.card span{color:var(--muted);font-size:12px}
+.finding{border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:12px 0}
+.finding h3{margin:0 0 6px;font-size:16px}
+.chip{display:inline-block;border-radius:999px;padding:1px 9px;font-size:11px;font-weight:700;
+ letter-spacing:.04em;margin-right:8px;vertical-align:2px;color:#fff}
+.sev-critical{background:#8b1a1a}.sev-high{background:#b4341f}.sev-medium{background:#9a6b00}.sev-low{background:#3b6b3b}
+.meta-line{color:var(--muted);font-size:13px;margin:0 0 8px}
+dl{margin:8px 0 0}dt{font-weight:600;font-size:13px;margin-top:8px}dd{margin:2px 0 0;color:#222}
+pre.code{background:#0f1720;color:#e6edf3;border-radius:6px;padding:10px 12px;overflow:auto;
+ font:12.5px/1.5 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;white-space:pre-wrap}
+.note{background:#fff8e1;border:1px solid #ecd9a0;border-radius:6px;padding:10px 12px;font-size:13px}
+ul.tight{margin:6px 0;padding-left:22px}
+footer{margin-top:40px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);padding-top:12px}
+@media print{body{font-size:12px}main{padding:0}.finding{break-inside:avoid}}
+</style></head><body><main>
+<h1>CodeRisk Arcanum — Scan Report</h1>
+<p class="sub">Deterministic rules + AI judge. Generated locally; nothing was sent to any external channel.</p>
+<div class="cards">
+<div class="card"><b>2</b><span>findings</span></div>
+<div class="card"><b>0</b><span>PITAX rule hits</span></div>
+<div class="card"><b>4</b><span>hypotheses</span></div>
+<div class="card"><b>4</b><span>verdicts</span></div>
+<div class="card"><b>0</b><span>degraded verdicts</span></div>
+</div>
+<h2>Conclusion</h2>
+<p>存在高风险漏洞链：攻击者可利用 Nginx 配置中 `underscores_in_headers` 开启以及 Gunicorn 对 `SCRIPT_NAME` 头部处理的特性，通过构造特定请求头绕过 Nginx 对 `/admin/` 路径的访问限制。此绕过行为使得攻击者能够访问本应受限的 `/admin/key` 接口，该接口缺乏身份验证机制，从而导致系统加密密钥泄露，最终允许攻击者解密受害者敏感数据（如 flag）。建议立即关闭 Nginx 中的 `underscores_in_headers` 功能，并在 `/admin/key` 等敏感接口增加严格的身份验证与授权校验。</p>
+<h2>Audit trail</h2>
+<ul class="tight">
+<li>Prompt quarantine: 0/14 files sanitized, 0 injection trigger phrases neutralized, 0 invisible characters stripped.</li>
+</ul>
+<h2>Azure gate</h2>
+<p class="note">Azure gate: <strong>disabled</strong> (explicitly recorded — local door only, no cloud call was made).</p>
+<h2>Findings (2)</h2>
+<article class="finding">
+<h3><span class="chip sev-high">HIGH</span>underscores_in_headers + gunicorn SCRIPT_NAME 头部注入绕过 nginx /admin 拒绝</h3>
+<p class="meta-line">server/setup.sh · AUTH_BYPASS</p>
+<dl>
+<dt>Code</dt><dd><pre class="code">underscores_in_headers on;</pre></dd>
+<dt>Attack path</dt><dd>Nginx 配置开启 underscores_in_headers 并 proxy_pass_request_headers on，请求头 SCRIPT_NAME 被透传至 gunicorn。gunicorn 会将 SCRIPT_NAME 头写入 WSGI environ，导致 Flask 路径被重写。攻击者请求 /asdf/admin/key 并发送 SCRIPT_NAME: asdf/，nginx 仅看到 /asdf... 放行，gunicorn 将实际 path_info 改为 /admin/key，从而绕过 location ^~ /admin/ { deny all; }。该漏洞可用于进一步访问未授权的密钥接口。</dd>
+<dt>Confidence</dt><dd>high</dd>
+</dl></article>
+<article class="finding">
+<h3><span class="chip sev-high">HIGH</span>/admin/key 未授权密钥泄露</h3>
+<p class="meta-line">server/server.py · INFORMATION_DISCLOSURE</p>
+<dl>
+<dt>Code</dt><dd><pre class="code">@app.route(&#x27;/admin/key&#x27;)\ndef get_key():\n    return jsonify(key=get_info()[&#x27;key&#x27;])</pre></dd>
+<dt>Attack path</dt><dd>get_key 路由仅调用 get_info 检查 key_id 格式和文件存在，未校验 paid 标志或身份。结合 H2 的 SCRIPT_NAME 路径重写绕过，攻击者可通过伪造路径访问该接口获取任意 key_id 对应的加密密钥，进而解密受害者文件（如 flag）。</dd>
+<dt>Confidence</dt><dd>high</dd>
+</dl></article>
+<h2>Attack chains (2)</h2>
+<h3>1. Attack chain</h3><ul class="tight">
+<li><strong>Preconditions:</strong> Nginx配置中启用了underscores_in_headers; gunicorn启用了proxy_pass_request_headers; 攻击者能够构造包含SCRIPT_NAME头部的请求</li>
+<li><strong>Lateral moves:</strong> 攻击者构造请求路径/asdf/admin/key; 攻击者设置SCRIPT_NAME头部为asdf/; gunicorn将SCRIPT_NAME视为基路径，实际请求路径为/admin/key</li>
+<li><strong>Impact:</strong> 攻击者能够绕过Nginx的/admin路径访问限制，获取加密密钥并解密文件</li>
+<li><strong>Remediation:</strong> 修改Nginx配置文件，关闭underscores_in_headers功能，同时修改gunicorn配置，禁用从请求头读取SCRIPT_NAME头部。具体修改如下：
+1. 在Nginx配置文件中，注释或删除underscores_in_headers on;（路径：server/setup.sh，行号：19）
+2. 在gunicorn启动命令中添加--limit-request-line选项，限制请求行大小，防止头部注入（路径：server/entrypoint.sh，行号：6，修改为：setuidgid app gunicorn -w 8 server:app -b unix:/tmp/gunicorn.sock --user app --access-logfile - --limit-request-line 0）</li>
+</ul>
+<h3>2. Attack chain</h3><ul class="tight">
+<li><strong>Preconditions:</strong> The /admin/key endpoint is exposed without proper authorization checks.; The server allows unauthenticated access to the encryption key via this endpoint.</li>
+<li><strong>Lateral moves:</strong> An attacker sends a GET request to /admin/key to retrieve the encryption key.; The retrieved key is used to decrypt sensitive data, such as the flag file.</li>
+<li><strong>Impact:</strong> The encryption key is exposed, allowing attackers to decrypt all encrypted data, including the flag.</li>
+<li><strong>Remediation:</strong> Modify server/server.py to add authorization checks for the /admin/key endpoint, ensuring only authenticated users can access it.</li>
+</ul>
+<footer>Generated locally by CodeRisk Arcanum. Unknown values are reported as unknown, never as clean. Publication of this report requires human authorization.</footer>
+</main></body></html>

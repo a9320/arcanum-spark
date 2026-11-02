@@ -1,0 +1,86 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="codeark">
+<title>CodeRisk Arcanum — Scan Report</title>
+<style>
+:root{--ink:#111;--muted:#5b6470;--line:#d8dee6;--bg:#fff;--panel:#f6f8fa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif}
+main{max-width:960px;margin:0 auto;padding:32px 20px 56px}
+h1{font-size:26px;margin:0 0 4px}
+h2{font-size:19px;margin:32px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.sub{color:var(--muted);margin:0 0 20px}
+.cards{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0}
+.card{flex:1 1 140px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.card b{display:block;font-size:22px;line-height:1.2}
+.card span{color:var(--muted);font-size:12px}
+.finding{border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:12px 0}
+.finding h3{margin:0 0 6px;font-size:16px}
+.chip{display:inline-block;border-radius:999px;padding:1px 9px;font-size:11px;font-weight:700;
+ letter-spacing:.04em;margin-right:8px;vertical-align:2px;color:#fff}
+.sev-critical{background:#8b1a1a}.sev-high{background:#b4341f}.sev-medium{background:#9a6b00}.sev-low{background:#3b6b3b}
+.meta-line{color:var(--muted);font-size:13px;margin:0 0 8px}
+dl{margin:8px 0 0}dt{font-weight:600;font-size:13px;margin-top:8px}dd{margin:2px 0 0;color:#222}
+pre.code{background:#0f1720;color:#e6edf3;border-radius:6px;padding:10px 12px;overflow:auto;
+ font:12.5px/1.5 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;white-space:pre-wrap}
+.note{background:#fff8e1;border:1px solid #ecd9a0;border-radius:6px;padding:10px 12px;font-size:13px}
+ul.tight{margin:6px 0;padding-left:22px}
+footer{margin-top:40px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);padding-top:12px}
+@media print{body{font-size:12px}main{padding:0}.finding{break-inside:avoid}}
+</style></head><body><main>
+<h1>CodeRisk Arcanum — Scan Report</h1>
+<p class="sub">Deterministic rules + AI judge. Generated locally; nothing was sent to any external channel.</p>
+<div class="cards">
+<div class="card"><b>2</b><span>findings</span></div>
+<div class="card"><b>0</b><span>PITAX rule hits</span></div>
+<div class="card"><b>4</b><span>hypotheses</span></div>
+<div class="card"><b>4</b><span>verdicts</span></div>
+<div class="card"><b>0</b><span>degraded verdicts</span></div>
+</div>
+<h2>Conclusion</h2>
+<p>整体结论：该系统存在高危的配置漏洞与逻辑漏洞，攻击者可以通过 Nginx 配置缺陷与后端路由权限缺失相结合，实现对敏感密钥的窃取，进而解密系统核心敏感数据。
+
+主要威胁：
+1. 路径绕过风险：由于 Nginx 配置了 `underscores_in_headers` 且透传了请求头，结合 Gunicorn 对 `SCRIPT_NAME` 的处理机制，导致 Nginx 的路径访问控制失效。
+2. 敏感信息泄露：`/admin/key` 接口缺乏身份验证，一旦路径绕过成功，攻击者可直接获取加密密钥。
+
+建议：
+1. 在 Nginx 配置中关闭 `underscores_in_headers` 或确保后端无法通过 `SCRIPT_NAME` 篡改路径。
+2. 在 `server/server.py` 的敏感接口（如 `/admin/key`）中实现严格的身份验证与权限校验。</p>
+<h2>Audit trail</h2>
+<ul class="tight">
+<li>Prompt quarantine: 0/14 files sanitized, 0 injection trigger phrases neutralized, 0 invisible characters stripped.</li>
+</ul>
+<h2>Azure gate</h2>
+<p class="note">Azure gate: <strong>disabled</strong> (explicitly recorded — local door only, no cloud call was made).</p>
+<h2>Findings (2)</h2>
+<article class="finding">
+<h3><span class="chip sev-high">HIGH</span>underscores_in_headers + gunicorn SCRIPT_NAME 头部注入绕过 nginx /admin 拒绝</h3>
+<p class="meta-line">server/setup.sh · AUTH_BYPASS</p>
+<dl>
+<dt>Attack path</dt><dd>Nginx 配置开启了 underscores_in_headers 并透传了请求头，攻击者可以通过构造包含 SCRIPT_NAME 的请求，利用 Gunicorn 对该请求头的处理机制改变后端实际访问路径，从而绕过 Nginx 对 /admin/ 路径的访问限制。</dd>
+<dt>Confidence</dt><dd>high</dd>
+</dl></article>
+<article class="finding">
+<h3><span class="chip sev-high">HIGH</span>/admin/key 未授权密钥泄露</h3>
+<p class="meta-line">server/server.py · INFORMATION_DISCLOSURE</p>
+<dl>
+<dt>Attack path</dt><dd>结合 Nginx 路径绕过漏洞，攻击者可以访问到未受保护的 /admin/key 路由，由于该接口缺乏身份验证，会直接返回敏感加密密钥，导致攻击者能够解密系统核心敏感文件（如 flag.txt.enc）。</dd>
+<dt>Confidence</dt><dd>high</dd>
+</dl></article>
+<h2>Attack chains (2)</h2>
+<h3>1. Attack chain</h3><ul class="tight">
+<li><strong>Preconditions:</strong> Nginx has underscores_in_headers enabled; Nginx proxy_pass_request_headers is set to on; Gunicorn is configured to run as user &#x27;app&#x27;; Gunicorn is set to read SCRIPT_NAME header</li>
+<li><strong>Lateral moves:</strong> Attackers send a request with a SCRIPT_NAME header to manipulate the request path; Attackers exploit the misconfigured Gunicorn to bypass Nginx&#x27;s /admin/ restriction; Attackers access the /admin/key endpoint to retrieve the encryption key</li>
+<li><strong>Impact:</strong> Attackers can decrypt any encrypted files, including the flag.txt.enc file which contains the flag</li>
+<li><strong>Remediation:</strong> Modify the Gunicorn configuration in entrypoint.sh to disable reading the SCRIPT_NAME header or set it to a fixed value, ensuring that the header is not used to alter request paths</li>
+</ul>
+<h3>2. Attack chain</h3><ul class="tight">
+<li><strong>Preconditions:</strong> 攻击者能够向/admin/key发送请求; 服务器未对/admin/key访问进行身份验证</li>
+<li><strong>Lateral moves:</strong> 攻击者发送GET请求到/admin/key端点; 服务器返回加密密钥; 攻击者使用密钥解密敏感文件</li>
+<li><strong>Impact:</strong> 攻击者能够获取加密密钥并解密敏感文件，导致敏感信息泄露</li>
+<li><strong>Remediation:</strong> 在server.py中添加身份验证逻辑到get_key函数，确保只有授权用户才能访问该端点。具体修改如下：在server/server.py的第55-57行添加认证检查，例如检查用户是否有权限访问。例如，在get_key函数中添加@auth_required装饰器或在函数内部进行权限验证。</li>
+</ul>
+<footer>Generated locally by CodeRisk Arcanum. Unknown values are reported as unknown, never as clean. Publication of this report requires human authorization.</footer>
+</main></body></html>
