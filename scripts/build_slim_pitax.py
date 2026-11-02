@@ -30,7 +30,7 @@ from codeark.pitax.rules import PITAX_VERSION  # noqa: E402
 
 DEFAULT_OUT = ROOT.parent / "slim-build"
 PKG = "codeark_pitax"
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 
 # 复制映射：源 → 生成文件名；rewrites 逐条替换导入
 COPY_PLAN: list[tuple[Path, str, list[tuple[str, str]]]] = [
@@ -96,6 +96,10 @@ CLI_LINES = [
     '    parser.add_argument("--formats", default="json,markdown",',
     '                        help="json,sarif,markdown,html")',
     '    parser.add_argument("--out", default="./pitax-report")',
+    '    parser.add_argument("--fail-on-findings", action="store_true",',
+    '                        help="exit 3 when any finding is reported (CI gate)")',
+    '    parser.add_argument("--fail-on", default="",',
+    '                        help="exit 3 only at or above this severity: low,medium,high,critical")',
     "    args = parser.parse_args(argv)",
     "",
     "    target = Path(args.target).resolve()",
@@ -125,6 +129,14 @@ CLI_LINES = [
     "        print(f'- {fp} ({fp.stat().st_size} B)')",
     '    print(f"findings: {len(dicts)}  files: {len(files)}  skipped: {skipped}")',
     '    print("local only: nothing was uploaded, no model was called")',
+    "    if args.fail_on_findings or args.fail_on:",
+    '        levels = {"low": 1, "medium": 2, "high": 3, "critical": 4}',
+    "        gate = levels.get((args.fail_on or 'low').strip().lower(), 1)",
+    "        hit = [d for d in dicts",
+    "               if levels.get(str(d.get('severity') or 'medium').lower(), 2) >= gate]",
+    "        if hit:",
+    '            print(f"GATE: {len(hit)} finding(s) at or above {args.fail_on or \'low\'} — failing")',
+    "            return 3",
     "    return 0",
     "",
     "",
