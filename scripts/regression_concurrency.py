@@ -46,7 +46,7 @@ LOCAL_PORTS = [
 
 
 def _chat(base_url: str, model: str, user: str, system: str, max_tokens: int,
-          timeout: float) -> str:
+          timeout: float) -> tuple[str, str]:
     payload = {
         "model": model,
         "messages": ([{"role": "system", "content": system}] if system else [])
@@ -68,7 +68,14 @@ def _chat(base_url: str, model: str, user: str, system: str, max_tokens: int,
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         body = json.loads(resp.read().decode("utf-8", "replace"))
-    return (body.get("choices") or [{}])[0].get("message", {}).get("content") or ""
+    msg = (body.get("choices") or [{}])[0].get("message") or {}
+    content = msg.get("content") or ""
+    reasoning = msg.get("reasoning_content") or msg.get("reasoning") or ""
+    # 思考型模型（muse/r1）常把全部预算烧进 reasoning、content 为空（2026-11-02
+    # DSW 实测 192 tokens 下 content=''）——标记出现在 reasoning 里同样算"看到了
+    # 标记"，故返回 (content, reasoning) 由调用方拼接判定；只看 content 会让这两个
+    # 服务的测试无效（静默假绿，当日首跑已实证）。
+    return content, reasoning
 
 
 def _mark() -> str:
@@ -76,7 +83,7 @@ def _mark() -> str:
 
 
 def run_warm(base_url: str, model: str, rounds: int, timeout: float,
-             system: str, max_tokens: int = 192) -> dict:
+             system: str, max_tokens: int = 512) -> dict:
     """顺序 A→B：B 的响应不得含 A 的标记（同一 slot 复用下的状态残留）。"""
     leaks = []
     for i in range(rounds):
@@ -87,10 +94,12 @@ def run_warm(base_url: str, model: str, rounds: int, timeout: float,
             + "\n".join(f"行{j}: 记录编号 {ma}-{j}，内容为常规审计日志。" for j in range(1, 25))
             + f"\n\n只输出代号 {ma}，不要输出其他任何内容。"
         )
-        a_out = _chat(base_url, model, a_user, system, max_tokens, timeout)
+        a_c, a_r = _chat(base_url, model, a_user, system, max_tokens, timeout)
+        a_out = a_c + " " + a_r
         # B：完全无关的短任务 + 自己的标记
         b_user = f"忽略此前所有内容。这是新任务：请只原样输出代号 {mb}。"
-        b_out = _chat(base_url, model, b_user, system, max_tokens, timeout)
+        b_c, b_r = _chat(base_url, model, b_user, system, max_tokens, timeout)
+        b_out = b_c + " " + b_r
         if ma in b_out:
             leaks.append({"round": i + 1, "mode": "warm", "leaked": ma,
                           "a_out": a_out[:120], "b_out": b_out[:200]})
@@ -102,7 +111,7 @@ def run_warm(base_url: str, model: str, rounds: int, timeout: float,
 
 
 def run_concurrent(base_url: str, model: str, concurrency: int, timeout: float,
-                   system: str, max_tokens: int = 192) -> dict:
+                   system: str, max_tokens: int = 512) -> dict:
     """K 路并发：每路唯一标记，任一响应含他人标记 = slot 错配/串状态。"""
     marks = [_mark() for _ in range(concurrency)]
 
@@ -111,8 +120,8 @@ def run_concurrent(base_url: str, model: str, concurrency: int, timeout: float,
         user = (
             f"请只原样输出代号 {m}。" + "（上下文填充：" + "x" * (120 * idx) + "）"
         )
-        out = _chat(base_url, model, user, system, max_tokens, timeout)
-        return {"idx": idx, "mark": m, "out": out}
+        c, r = _chat(base_url, model, user, system, max_tokens, timeout)
+        return {"idx": idx, "mark": m, "out": c + " " + r}
 
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
         results = list(pool.map(one, range(concurrency)))
@@ -150,7 +159,7 @@ def main() -> int:
     ap.add_argument("--rounds", type=int, default=4, help="warm 模式往返次数")
     ap.add_argument("--concurrency", type=int, default=3, help="concurrent 模式并发数")
     ap.add_argument("--timeout", type=float, default=120.0)
-    ap.add_argument("--max-tokens", type=int, default=192,
+    ap.add_argument("--max-tokens", type=int, default=512,
                     help="生成预算；思考型模型 32 会全烧 reasoning 致 content 空（假绿）")
     ap.add_argument("--system", default="你是代码安全审计助手。",
                     help="共享 system prompt（模拟我们五服务的固定模板）")
