@@ -16,6 +16,10 @@ celery>=5.4
 # ── 引擎层（engine/，传统漏洞检测：静态分析/污点/依赖/LLM 语义）──
 rich>=13.0        # 引擎控制台输出（硬依赖）
 httpx>=0.28       # Nutrient DWS PDF + LLM client（llama.cpp OpenAI 兼容接口）
+# numpy 上界：ROCm wheel 生态对 numpy 2.x 兼容不完整（AMD 社区问答 ID 612/192——
+# numpy 2.0 与 ROCm torch wheel 组合报错，官方安装矩阵钉 1.26.4）。范围表达沿用本文
+# 件"范围约束"策略；DSW 上若已装 2.x，下次 pip install -r 会回落到 <2（预期行为）。
+numpy>=1.26,<2
 
 # ── 测试 ──
 pytest>=8.3

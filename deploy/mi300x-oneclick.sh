@@ -34,6 +34,24 @@ if [ ! -x "$LL" ]; then
 fi
 echo "== llama-server 就位: $($LL --version 2>/dev/null | head -1) =="
 
+# 0.5) Python 环境验收（知识库 ID 870/1032：先证明机器正确起来了再信数字）
+#      只验不装（pip 是恢复序固定步骤，此处 fail-loud 而非 fail-stop——oneclick 职责是起 GPU 服务，
+#      缺 python 依赖不阻塞 llama-server，但必须让操作者第一眼看到）。
+python - <<'PY' || echo "!! Python 依赖未就绪：先 cd 仓根 && pip install -r requirements.txt（DSW 恢复序固定步骤）"
+import sys
+try:
+    import torch
+except ImportError:
+    sys.exit(1)
+hip = getattr(torch.version, "hip", None)
+print(f"== python 验收: torch={torch.__version__} hip={hip} cuda_available={torch.cuda.is_available()}")
+if not hip:
+    sys.exit("!! torch 不是 ROCm 构建（torch.version.hip=None）——PyPI 默认 CUDA wheel，须装 whl/rocm 索引版")
+if not torch.cuda.is_available():
+    sys.exit("!! torch.cuda.is_available()=False——查 /dev/kfd /dev/dri 与 render 组")
+print("== gpu_add:", (torch.ones(1, device="cuda") + torch.ones(1, device="cuda")).item())
+PY
+
 # 2) 目录
 mkdir -p $MODELS/gemma4-qat $MODELS/qwen38 $MODELS/r1-32b $MODELS/Muse-Glimmer-30B-GGUF $MODELS/gpt-oss-20b
 
@@ -156,6 +174,27 @@ Q=$(stat -c %s $MODELS/qwen38/Qwen3.8-27B-UD-Q4_K_XL.gguf)
 if [ "$Q" = "17559178144" ]; then echo "qwen 校验 OK"; else
   echo "FATAL: qwen 字节数 $Q != 17559178144，拒绝带病起服务，请重跑本脚本" >&2; exit 1; fi
 
+# 4.5) 加固参数探测（知识库 §13 P0-1/P0-13 落地；2026-11-02）
+#      证据：AMD 社区问答 ID 27148/22629/29092（跨请求串话 bug 族=判决正确性命门）、
+#      ID 712/849（--fit on 默认静默搬层 ~10% 且抢池）、ID 936/942（每 slot 32 个
+#      ctx-checkpoint ×~150MiB 静默吃主机 RAM）。四项均不改模型输出语义，故可默认开启；
+#      但 llama.cpp 构建版本差异大，逐项 --help 探测——不支持的静默跳过（防 unknown
+#      argument 致五服务全挂）。
+LL_HELP=$($LL --help 2>&1 || true)
+EXTRA_ARGS=""
+for spec in "--cache-ram 0" "--no-cache-idle-slots" "--fit off" "--ctx-checkpoints 2"; do
+  flag=${spec%% *}
+  # --fit 必须带尾空格匹配，否则 --fit-target 会误命中（同前缀不同参数）
+  pattern=$flag
+  [ "$flag" = "--fit" ] && pattern="--fit "
+  if printf '%s' "$LL_HELP" | grep -q -- "$pattern"; then
+    EXTRA_ARGS="$EXTRA_ARGS $spec"
+  else
+    echo "!! 当前 llama.cpp 不支持 $flag（跳过；建议更新构建后复查知识库 §13 P0-1）" >&2
+  fi
+done
+echo "== 加固参数:${EXTRA_ARGS:- （当前构建均不支持，已全部跳过）}"
+
 # 5) 写四服务启动脚本（含端口表与清理旧进程）
 cat > /root/start-arcanum.sh << 'INNER_EOF'
 #!/bin/bash
@@ -185,6 +224,8 @@ nohup $LL -m /root/models/gpt-oss-20b/gpt-oss-20b-MXFP4.gguf \
   > /root/srv_gptoss.log 2>&1 &
 echo "5 servers launching"
 INNER_EOF
+# 注入加固参数（5 处 --jinja 前；EXTRA_ARGS 空则行内不变=多一个空格，无害）
+sed -i "s/ --jinja/ ${EXTRA_ARGS} --jinja/" /root/start-arcanum.sh
 chmod +x /root/start-arcanum.sh
 
 # 6) 启动四服务
