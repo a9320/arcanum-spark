@@ -54,6 +54,11 @@ def _chat(base_url: str, model: str, user: str, system: str, max_tokens: int,
         "temperature": 0,
         "max_tokens": max_tokens,
         "stream": False,
+        # 思考型模型（muse/r1/gpt-oss）在短 max_tokens 下会把预算全烧进 reasoning，
+        # content 返回空 → 串话判定退化成"全部未回显"假绿（2026-11-02 DSW smoke
+        # 实测：muse max_tokens=64 → content='' reasoning_len=197）。模板支持的模型
+        # 关思考直出；不支持的模型忽略该字段（无害），靠 max_tokens 余量兜住。
+        "chat_template_kwargs": {"enable_thinking": False},
     }
     req = urllib.request.Request(
         base_url.rstrip("/") + "/chat/completions",
@@ -71,7 +76,7 @@ def _mark() -> str:
 
 
 def run_warm(base_url: str, model: str, rounds: int, timeout: float,
-             system: str) -> dict:
+             system: str, max_tokens: int = 192) -> dict:
     """顺序 A→B：B 的响应不得含 A 的标记（同一 slot 复用下的状态残留）。"""
     leaks = []
     for i in range(rounds):
@@ -82,10 +87,10 @@ def run_warm(base_url: str, model: str, rounds: int, timeout: float,
             + "\n".join(f"行{j}: 记录编号 {ma}-{j}，内容为常规审计日志。" for j in range(1, 25))
             + f"\n\n只输出代号 {ma}，不要输出其他任何内容。"
         )
-        a_out = _chat(base_url, model, a_user, system, 32, timeout)
+        a_out = _chat(base_url, model, a_user, system, max_tokens, timeout)
         # B：完全无关的短任务 + 自己的标记
         b_user = f"忽略此前所有内容。这是新任务：请只原样输出代号 {mb}。"
-        b_out = _chat(base_url, model, b_user, system, 32, timeout)
+        b_out = _chat(base_url, model, b_user, system, max_tokens, timeout)
         if ma in b_out:
             leaks.append({"round": i + 1, "mode": "warm", "leaked": ma,
                           "a_out": a_out[:120], "b_out": b_out[:200]})
@@ -97,7 +102,7 @@ def run_warm(base_url: str, model: str, rounds: int, timeout: float,
 
 
 def run_concurrent(base_url: str, model: str, concurrency: int, timeout: float,
-                   system: str) -> dict:
+                   system: str, max_tokens: int = 192) -> dict:
     """K 路并发：每路唯一标记，任一响应含他人标记 = slot 错配/串状态。"""
     marks = [_mark() for _ in range(concurrency)]
 
@@ -106,7 +111,7 @@ def run_concurrent(base_url: str, model: str, concurrency: int, timeout: float,
         user = (
             f"请只原样输出代号 {m}。" + "（上下文填充：" + "x" * (120 * idx) + "）"
         )
-        out = _chat(base_url, model, user, system, 32, timeout)
+        out = _chat(base_url, model, user, system, max_tokens, timeout)
         return {"idx": idx, "mark": m, "out": out}
 
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
@@ -145,6 +150,8 @@ def main() -> int:
     ap.add_argument("--rounds", type=int, default=4, help="warm 模式往返次数")
     ap.add_argument("--concurrency", type=int, default=3, help="concurrent 模式并发数")
     ap.add_argument("--timeout", type=float, default=120.0)
+    ap.add_argument("--max-tokens", type=int, default=192,
+                    help="生成预算；思考型模型 32 会全烧 reasoning 致 content 空（假绿）")
     ap.add_argument("--system", default="你是代码安全审计助手。",
                     help="共享 system prompt（模拟我们五服务的固定模板）")
     ap.add_argument("--mode", choices=["warm", "concurrent", "both"], default="both")
@@ -167,10 +174,11 @@ def main() -> int:
             continue
         results = []
         if args.mode in ("warm", "both"):
-            results.append(run_warm(base, model, args.rounds, args.timeout, args.system))
+            results.append(run_warm(base, model, args.rounds, args.timeout, args.system,
+                                    args.max_tokens))
         if args.mode in ("concurrent", "both"):
             results.append(run_concurrent(base, model, args.concurrency,
-                                          args.timeout, args.system))
+                                          args.timeout, args.system, args.max_tokens))
         leaks = [lk for r in results for lk in r["leaks"]]
         hard = [lk for lk in leaks if "leaked" in lk or "foreign" in lk]
         row.update({
