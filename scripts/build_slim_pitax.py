@@ -30,7 +30,7 @@ from codeark.pitax.rules import PITAX_VERSION  # noqa: E402
 
 DEFAULT_OUT = ROOT.parent / "slim-build"
 PKG = "codeark_pitax"
-VERSION = "0.1.6"
+VERSION = "0.1.7"
 
 # 复制映射：源 → 生成文件名；rewrites 逐条替换导入
 COPY_PLAN: list[tuple[Path, str, list[tuple[str, str]]]] = [
@@ -48,6 +48,7 @@ CLI_LINES = [
     "from __future__ import annotations",
     "",
     "import argparse",
+    "import json",
     "import sys",
     "from pathlib import Path",
     "",
@@ -125,7 +126,9 @@ CLI_LINES = [
     "    ext = {'json': 'json', 'sarif': 'sarif', 'markdown': 'md', 'html': 'html'}",
     "    for name, content in reports.items():",
     "        fp = out / f'report.{ext.get(name, name)}'",
-    "        fp.write_text(content, encoding='utf-8')",
+    "        # sarif 是 dict（其余格式是 str）——落盘前序列化，否则 write_text 报类型错",
+    "        text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False, indent=2)",
+    "        fp.write_text(text, encoding='utf-8')",
     "        print(f'- {fp} ({fp.stat().st_size} B)')",
     '    print(f"findings: {len(dicts)}  files: {len(files)}  skipped: {skipped}")',
     '    print("local only: nothing was uploaded, no model was called")',
