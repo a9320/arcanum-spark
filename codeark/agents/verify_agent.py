@@ -276,10 +276,10 @@ PLAIN_JSON_CONTRACT = """\
 - hypothesis_id（字符串，原样等于数据块中的 id）
 - hypothesis_title（字符串）
 - verdict（字符串，只能是 CONFIRMED / REFUTED / UNCERTAIN）
-- confidence（0~1 数值）
+- confidence（数值，只取 0.95/0.9/0.75/0.5/0.3 五档之一；0.95=逐字证据直接证实，
+  0.9=证据证实含推断，0.75=部分证据+库知识，0.5=证据不足，0.3=只有推理）
 - evidence（字符串；引用仓内文件写成 `path:line: 原文片段`）
 - verification_method（字符串）
-- confidence（只取 0.95/0.9/0.75/0.5/0.3 五档之一）
 - evidence_source（可选字符串，四选一：repo_file/tool_result/library_knowledge/reasoning_only）
 不要包成 verification_result，不要用 status 代替 verdict，不要把 evidence 写成数组。
 """

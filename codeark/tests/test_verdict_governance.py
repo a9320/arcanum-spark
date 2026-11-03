@@ -112,3 +112,8 @@ def test_prompt_anchors_present() -> None:
     assert "evidence_source" in VERIFY_ONE_NOTOOLS_SYSTEM_PROMPT
     assert "0.95/0.9/0.75/0.5/0.3" in PLAIN_JSON_CONTRACT
     assert "evidence_source" in PLAIN_JSON_CONTRACT
+    # 2026-11-02 实锤：契约里 confidence 曾重复定义两次（"0~1 数值" + "五档之一"），
+    # gpt-oss 在 reasoning 里长篇纠结 "duplicate keys"（六卷各 10-12 次），最终自造
+    # confidence_level 字段绕过（reports/20261102-harden/*/run.log 实证）。
+    assert PLAIN_JSON_CONTRACT.count("- confidence") == 1, "confidence 字段定义必须唯一"
+    assert "0~1 数值" not in PLAIN_JSON_CONTRACT, "旧数值定义已废弃（与五档语义冲突）"

@@ -47,6 +47,45 @@ __all__ = [
 logging.getLogger("strands.models.openai").setLevel(logging.ERROR)
 
 
+def _patch_strands_tool_choice_for_llamacpp() -> None:
+    """把 strands 的 dict 形态 tool_choice 改写为 llama.cpp 能吃的字符串形态。
+
+    llama.cpp 的 OpenAI 兼容层只接受字符串 tool_choice（auto/required/none）。
+    strands 在 structured_output 场景（arbiter 的 FinalReport、scout 的
+    HypothesisSet 等）会用 ``{"tool": {"name": ...}}`` 强制指定工具，
+    ``OpenAIModel._format_request_tool_choice`` 把它格式化成
+    ``{"type":"function","function":{"name":...}}``；llama-server 不认该类型，
+    记 ``W Wrong type supplied for parameter 'tool_choice', using default value``
+    并**静默回落 auto**（2026-11-02 srv_gemma.log 34 次实证，对应
+    strands/event_loop.py:547/697 传参路径）。回落后果="必须调用该工具"的约束失效，
+    模型可能改吐纯文本、解析失败走重试/兜底。
+
+    单工具场景下 "required" 与"指定该工具"语义等价，故把 dict 形态改写为
+    "required"（auto/any/None 分支保持原样）。本地 strands 1.54 与钉版的 1.56
+    该函数体一致，patch 幂等。
+    """
+    try:
+        from strands.models.openai import OpenAIModel
+    except Exception:  # noqa: BLE001 — 纯确定性套件不含 strands，静默跳过
+        return
+    raw = OpenAIModel.__dict__.get("_format_request_tool_choice")
+    func = getattr(raw, "__func__", None)
+    if func is None or getattr(func, "_arca_llamacpp_patched", False):
+        return
+
+    def _patched(cls, tool_choice):  # noqa: ANN001, ANN202
+        out = func(cls, tool_choice)
+        if isinstance(out.get("tool_choice"), dict):
+            return {"tool_choice": "required"}
+        return out
+
+    _patched._arca_llamacpp_patched = True  # type: ignore[attr-defined]
+    OpenAIModel._format_request_tool_choice = classmethod(_patched)
+
+
+_patch_strands_tool_choice_for_llamacpp()
+
+
 # ── 枚举 ──
 
 class ModelProvider(str, Enum):
