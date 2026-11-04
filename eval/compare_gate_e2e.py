@@ -90,6 +90,31 @@ def accept_arm(
     gate_info = meta.get("gate") if isinstance(meta.get("gate"), dict) else {}
     fallback = gate_info.get("fallback", summary.get("gate", {}).get("fallback"))
     protected = gate_info.get("protected_ids", summary.get("gate", {}).get("protected_ids"))
+    pruned_ids = [str(pid) for pid in (gate_info.get("pruned_ids") or [])]
+    prune_mode = str(gate_info.get("prune_mode") or ("structural" if pruned_ids else "off"))
+    pruning_active = prune_mode != "off" or bool(pruned_ids)
+    kept_set, original_set, pruned_set = set(gated_ids), set(original_ids), set(pruned_ids)
+    subset_integrity = (
+        bool(gated_ids)
+        and len(gated_ids) == len(kept_set)
+        and kept_set <= original_set
+        and kept_set.isdisjoint(pruned_set)
+        and kept_set | pruned_set == original_set
+    )
+    # P6 rule-layer preservation：剪枝姿态下，臂的 (file, rule) 基线键必须仍出现在 findings
+    # （render 层回注 agent0 规则行；off 模式无剪枝可丢 → 不计入，保持 v1 判据集不变）。
+    baseline_rule_keys = {
+        summarize_ablation._finding_key(row)  # noqa: SLF001  # 与消融器同源键函数
+        for row in meta.get("agent0_findings") or []
+        if isinstance(row, dict)
+    }
+    arm_finding_keys = {
+        summarize_ablation._finding_key(row)  # noqa: SLF001
+        for row in report.get("findings") or []
+        if isinstance(row, dict)
+    }
+    rule_layer_missing = sorted(baseline_rule_keys - arm_finding_keys)
+    rule_layer_preservation = not rule_layer_missing
 
     arm_confirmed = _confirmed_ids(report)
     coverage_missing = baseline_confirmed is None or arm_confirmed is None
@@ -99,8 +124,12 @@ def accept_arm(
         if not coverage_missing else None
     )
 
+    p1_key, p1_value = (
+        ("P1_subset_integrity", subset_integrity) if pruning_active
+        else ("P1_reorder_only", reorder_only)
+    )
     criteria = {
-        "P1_reorder_only": reorder_only,
+        p1_key: p1_value,
         "P2_no_fallback": fallback is False,
         "P3_quality_floor": (
             row["confirmed"] >= baseline_row["confirmed"]
@@ -108,15 +137,21 @@ def accept_arm(
         ),
         "P4_confirmed_coverage": confirmed_coverage,
     }
+    if pruning_active:
+        criteria["P6_rule_layer_preservation"] = rule_layer_preservation
     core_ok = all(
         criteria[key] is True
-        for key in ("P1_reorder_only", "P2_no_fallback", "P3_quality_floor")
-    )
+        for key in ("P2_no_fallback", "P3_quality_floor")
+    ) and p1_value is True
     return {
         "arm": arm_dir.name,
         "backend": summary.get("backend") or gate_info.get("backend"),
         "criteria": criteria,
-        "passed": core_ok and confirmed_coverage is not False,
+        "passed": (
+            core_ok
+            and confirmed_coverage is not False
+            and criteria.get("P6_rule_layer_preservation", True) is not False
+        ),
         "observations": {
             "hypotheses": row["baseline_findings"],
             "verify_requests": summary.get("verify_requests"),
@@ -127,6 +162,9 @@ def accept_arm(
             "refuted": row["refuted"],
             "uncertain": row["uncertain"],
             "protected_ids": protected,
+            "prune_mode": prune_mode,
+            "pruned_ids": pruned_ids,
+            "rule_layer_missing": rule_layer_missing if pruning_active else None,
             "elapsed_seconds": summary.get("elapsed_seconds") or row["elapsed_seconds"],
             "node_errors": summary.get("node_errors"),
         },
@@ -170,23 +208,28 @@ def render_markdown(acceptance: dict[str, Any]) -> str:
         "# Gate e2e Acceptance",
         "",
         f"> baseline=`{acceptance['baseline']}` — verdict: **{acceptance['verdict']}** "
-        "(P1 reorder-only / P2 no-fallback / P3 quality-floor / P4 confirmed-coverage; "
+        "(P1/P1′ reorder-or-subset-integrity / P2 no-fallback / P3 quality-floor / "
+        "P4 confirmed-coverage / P6 rule-layer preservation[structural]; "
         "REFUTED is a model verdict, not an FP rate)",
         "",
-        "| Arm | Backend | P1 | P2 | P3 | P4 | Confirmed(base) | Final(base) | Verify req | Protected | Seconds | Verdict |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Arm | Backend | P1/P1′ | P2 | P3 | P4 | P6 | Confirmed(base) | Final(base) | Verify req | Protected | Seconds | Verdict |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for arm in acceptance["arms"]:
         obs = arm["observations"]
         conf, final = arm["criteria"], obs
         p4 = conf["P4_confirmed_coverage"]
         p4_cell = "✅" if p4 is True else ("❌" if p4 is False else "–")
+        p1_value = next(value for key, value in conf.items() if key.startswith("P1"))
+        p6 = conf.get("P6_rule_layer_preservation")
+        p6_cell = "✅" if p6 is True else ("❌" if p6 is False else "–")
         lines.append(
             f"| {arm['arm']} | {arm.get('backend') or 'null'} "
-            f"| {'✅' if conf['P1_reorder_only'] else '❌'} "
+            f"| {'✅' if p1_value else '❌'} "
             f"| {'✅' if conf['P2_no_fallback'] else '❌'} "
             f"| {'✅' if conf['P3_quality_floor'] else '❌'} "
             f"| {p4_cell} "
+            f"| {p6_cell} "
             f"| {obs['confirmed_vs_baseline'][0]}({obs['confirmed_vs_baseline'][1]}) "
             f"| {obs['final_findings_vs_baseline'][0]}({obs['final_findings_vs_baseline'][1]}) "
             f"| {obs['verify_requests'] if obs['verify_requests'] is not None else 'null'} "

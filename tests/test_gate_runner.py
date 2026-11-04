@@ -89,3 +89,32 @@ def test_make_laya_gate_requires_model_path():
         assert "--model" in str(exc)
     else:
         raise AssertionError("empty model path must be rejected")
+
+
+def test_main_passes_prune_flags(monkeypatch, tmp_path):
+    captured: dict = {}
+
+    def fake_main(args):
+        captured["args"] = args
+        return 0
+
+    monkeypatch.setattr(runner, "_main", fake_main)
+    monkeypatch.setattr(runner.asyncio, "run", lambda value: value)
+    monkeypatch.setattr(sys, "argv", [
+        "run_gate_e2e.py", str(tmp_path),
+        "--backend", "deterministic",
+        "--prune", "structural",
+        "--min-keep", "2",
+    ])
+    assert runner.main() == 0
+    assert captured["args"].prune_mode == "structural"
+    assert captured["args"].min_keep == 2
+
+
+def test_main_rejects_shelved_prune_env(monkeypatch, tmp_path):
+    """ARCA_GATE_PRUNE=threshold（已搁置）→ 显式失败 exit 2，不静默跑 off。"""
+    monkeypatch.setenv("ARCA_GATE_PRUNE", "threshold")
+    monkeypatch.setattr(sys, "argv", [
+        "run_gate_e2e.py", str(tmp_path), "--backend", "deterministic",
+    ])
+    assert runner.main() == 2

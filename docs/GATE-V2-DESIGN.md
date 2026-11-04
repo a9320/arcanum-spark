@@ -171,7 +171,7 @@ P3 quality-floor / P4 confirmed-coverage。v2 增补（按 `meta.gate.prune_mode
 5. `eval/compare_gate_e2e.py`：按 `prune_mode` 分支判 P1'，新增 P5/P6/P7；MD 表加 Pruned/Saving 两列。
 6. 测试：`codeark/tests/test_gate.py`（白名单/保护不剪/地板/子集/off=无操作）、
    `tests/test_gate_v12.py`（旋钮校验+工厂透传）、`tests/test_gate_compare.py`（P5/P6/P7 判定）、
-   `tests/test_gate_runner.py`（CLI 透传）；同步 `scripts/test_count.py` 锚（当前 308）。
+   `tests/test_gate_runner.py`（CLI 透传）；同步 `scripts/test_count.py` 锚（2026-11-04 基线 529）。
 
 **v1.1 注（实现范围收缩）**：依 §6 负结果裁定，本轮实现姿态只有 `off`/`structural`——
 条目 1/2 的 `tau`/`max_keep` 参数与 `ARCA_GATE_TAU`/`ARCA_GATE_MAX` 旋钮**不接线**（保留签名位即可，

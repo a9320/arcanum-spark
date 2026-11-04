@@ -125,3 +125,53 @@ def test_p4_null_when_verifications_absent(tmp_path):
     row = result["arms"][0]
     assert row["criteria"]["P4_confirmed_coverage"] is None
     assert "confirmed_coverage" in row["missing_evidence"]
+
+
+# ── gate v2 structural 判据（P1′ subset-integrity + P6 rule-layer preservation）──
+
+
+def _rewrite_arm(arm: Path, *, gate: dict | None = None,
+                 append_findings: list[dict] | None = None) -> None:
+    path = arm / "e2e_report.json"
+    report = json.loads(path.read_text(encoding="utf-8"))
+    if gate:
+        report["meta"]["gate"].update(gate)
+    if append_findings:
+        report["findings"].extend(append_findings)
+    path.write_text(json.dumps(report), encoding="utf-8")
+
+
+def test_structural_subset_integrity_and_p6_accept(tmp_path):
+    arm = _arm_dir(tmp_path, gated_ids=["H2"], fallback=False, confirmed=True)
+    _rewrite_arm(
+        arm,
+        gate={"prune_mode": "structural", "pruned_ids": ["H1"]},
+        append_findings=[{"file": "src/app.py", "type": "PIT-E-57"}],  # render 层回注规则行
+    )
+    result = compare.compare_arms(_baseline_file(tmp_path), [arm])
+    row = result["arms"][0]
+    assert result["verdict"] == "ACCEPT"
+    assert row["criteria"]["P1_subset_integrity"] is True
+    assert row["criteria"]["P6_rule_layer_preservation"] is True
+    assert row["observations"]["prune_mode"] == "structural"
+    assert row["observations"]["pruned_ids"] == ["H1"]
+
+
+def test_structural_p6_missing_rule_row_rejects(tmp_path):
+    arm = _arm_dir(tmp_path, gated_ids=["H2"], fallback=False, confirmed=True)
+    _rewrite_arm(arm, gate={"prune_mode": "structural", "pruned_ids": ["H1"]})
+    result = compare.compare_arms(_baseline_file(tmp_path), [arm])
+    row = result["arms"][0]
+    assert result["verdict"] == "REJECT"
+    assert row["criteria"]["P6_rule_layer_preservation"] is False
+    assert row["observations"]["rule_layer_missing"] == [("src/app.py", "PIT-E-57")]
+
+
+def test_structural_subset_violation_rejects(tmp_path):
+    """kept ∩ pruned 非空（声称剪了 H1 但 H1 仍进 Verify）→ P1′ 失败。"""
+    arm = _arm_dir(tmp_path, gated_ids=["H1", "H2"], fallback=False, confirmed=True)
+    _rewrite_arm(arm, gate={"prune_mode": "structural", "pruned_ids": ["H1"]})
+    result = compare.compare_arms(_baseline_file(tmp_path), [arm])
+    row = result["arms"][0]
+    assert result["verdict"] == "REJECT"
+    assert row["criteria"]["P1_subset_integrity"] is False

@@ -41,6 +41,7 @@ from codeark.graph.gate_factory import (  # noqa: E402  # gate 工厂单一数�
     make_deterministic_gate,
     make_laya_gate,
     resolve_backend,
+    resolve_prune,
 )
 from codeark.graph.pipeline import CodeRiskGraph  # noqa: E402
 from codeark.models.factory import make_stage_models_from_env  # noqa: E402
@@ -52,6 +53,7 @@ __all__ = [
     "make_deterministic_gate",
     "make_laya_gate",
     "resolve_backend",
+    "resolve_prune",
     "main",
 ]
 
@@ -68,12 +70,12 @@ async def _main(args: argparse.Namespace) -> int:
 
     if args.backend == "laya":
         try:
-            gate = make_laya_gate(args.model or "")
+            gate = make_laya_gate(args.model or "", prune_mode=args.prune_mode, min_keep=args.min_keep)
         except ValueError as exc:
             print(f"gate e2e failed: {exc}")
             return 2
     else:
-        gate = make_deterministic_gate()
+        gate = make_deterministic_gate(prune_mode=args.prune_mode, min_keep=args.min_keep)
 
     pinned = None
     if args.hypotheses_from:
@@ -115,6 +117,9 @@ async def _main(args: argparse.Namespace) -> int:
     summary = {
         "repo": str(repo),
         "backend": args.backend,
+        "prune_mode": result.gate.get("prune_mode", args.prune_mode),
+        "pruned_ids": list(result.gate.get("pruned_ids") or []),
+        "budget": result.gate.get("budget"),
         "hypothesis_source": getattr(result, "hypothesis_source", "scout"),
         "gate": result.gate,
         "elapsed_seconds": round(elapsed, 3),
@@ -133,7 +138,8 @@ async def _main(args: argparse.Namespace) -> int:
     print(f"[gate-e2e] backend={args.backend} files={len(files)} elapsed={elapsed:.1f}s")
     print(f"  hypotheses={summary['hypotheses']} verify_requests={summary['verify_requests']} verdicts={verdicts}")
     print(f"  gate: backend={result.gate.get('backend')} protected={result.gate.get('protected_ids')}"
-          f" fallback={result.gate.get('fallback', False)}")
+          f" fallback={result.gate.get('fallback', False)} prune_mode={summary['prune_mode']}"
+          f" pruned={len(summary['pruned_ids'])}")
     print(f"  final_findings={summary['final_findings']} risk_score={result.risk_score}"
           f" node_errors={result.node_errors}")
     print(f"  reports -> {out_dir}")
@@ -158,13 +164,18 @@ def load_pinned_hypotheses(path: str) -> dict:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Gate v1 e2e acceptance runner (reorder-only)")
+    parser = argparse.ArgumentParser(description="Gate e2e acceptance runner (off/structural pruning)")
     parser.add_argument("repo", help="repository directory to scan")
     parser.add_argument("--backend", default=None, choices=["laya", "deterministic"],
                         help="laya=模型分+确定性保护；deterministic=纯确定性对照臂"
                              "（缺省读 ARCA_GATE_BACKEND，仍缺省 laya=挂默认）")
     parser.add_argument("--model", default=None,
                         help="laya 模型目录（缺省读 ARCA_GATE_MODEL；DSW: /mnt/workspace/models/laya-r6）")
+    parser.add_argument("--prune", default=None, choices=["off", "structural"],
+                        help="剪枝姿态（缺省读 ARCA_GATE_PRUNE，仍缺省 off=gate v1 语义；"
+                             "threshold/cap 已按 GATE-V2-DESIGN §6 v1.1 搁置）")
+    parser.add_argument("--min-keep", default=None, dest="min_keep", type=int,
+                        help="剪枝地板（缺省读 ARCA_GATE_PRUNE_MIN_KEEP，仍缺省 1）")
     parser.add_argument("--out", help="报告输出目录（默认 reports/<repo>_gate）")
     parser.add_argument("--hypotheses-from", default=None, dest="hypotheses_from",
                         help="baseline e2e 报告 report.json：恢复 meta.hypothesis_set 并跳过 Scout"
@@ -172,8 +183,19 @@ def main() -> int:
     args = parser.parse_args()
     try:
         args.backend = resolve_backend(args.backend, os.environ.get("ARCA_GATE_BACKEND"))
+        args.prune_mode = resolve_prune(args.prune, os.environ.get("ARCA_GATE_PRUNE"))
     except ValueError as exc:
         print(f"gate e2e failed: {exc}")
+        return 2
+    if args.min_keep is None:
+        raw = (os.environ.get("ARCA_GATE_PRUNE_MIN_KEEP") or "").strip()
+        try:
+            args.min_keep = int(raw) if raw else 1
+        except ValueError:
+            print(f"gate e2e failed: ARCA_GATE_PRUNE_MIN_KEEP 非法: {raw!r}")
+            return 2
+    if args.min_keep < 1:
+        print("gate e2e failed: --min-keep 必须是 >=1 的整数")
         return 2
     if args.backend == "laya" and not args.model:
         args.model = os.environ.get("ARCA_GATE_MODEL") or ""
