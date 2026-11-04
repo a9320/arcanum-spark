@@ -1,10 +1,16 @@
 """Scout-to-Verify gate primitives.
 
-The gate is deliberately a reorder-only layer. It never deletes Scout output,
-and it is only activated when the pipeline receives an explicit callable. The
-built-in scorer is deterministic and dependency-free; a later Laya adapter may
-pass model scores into :func:`rerank_hypotheses` without changing the pipeline
-contract.
+The gate is a reorder-only layer by default (``prune_mode="off"`` = v1
+semantics). The ``structural`` posture additionally removes three kinds of
+constructive redundancy — exact file+type echoes (only when backed by an
+agent0 baseline key, I3), content duplicates (first kept, I4) and degenerate
+repetitions — while recording every removal in gate metadata. Threshold/cap
+postures are shelved by pre-registration (docs/GATE-V2-DESIGN.md §6 v1.1)
+and raise explicitly: no silent fallback.
+
+The built-in scorer is deterministic and dependency-free; a later Laya adapter
+may pass model scores into :func:`rerank_hypotheses` without changing the
+pipeline contract.
 """
 from __future__ import annotations
 
@@ -13,7 +19,11 @@ from typing import Any, Mapping
 
 from codeark.models.schemas import HypothesisSet, assign_hypothesis_ids
 
-__all__ = ["GateResult", "rerank_hypotheses"]
+__all__ = ["GateResult", "PRUNE_MODES", "rerank_hypotheses"]
+
+PRUNE_MODES = ("off", "structural")
+_SHELVED_PRUNE_MODES = ("threshold", "cap")
+_PRUNE_REASONS = ("echo", "duplicate", "degenerate")
 
 
 def _norm_path(value: Any) -> str:
@@ -67,8 +77,17 @@ def rerank_hypotheses(
     *,
     scores: Mapping[str, float] | None = None,
     backend: str = "deterministic-v1",
+    prune_mode: str = "off",
+    tau: float | None = None,
+    max_keep: int | None = None,
+    min_keep: int = 1,
 ) -> GateResult:
     """Return a stable reorder while retaining every Scout hypothesis.
+
+    ``prune_mode="structural"`` additionally drops echo/duplicate/degenerate
+    candidates (never ``protected`` ones) and enforces the ``min_keep`` floor;
+    every removal lands in ``metadata["prune_reasons"]`` and ``pruned_ids``.
+    The default ``off`` mode is bit-compatible with gate v1 (no deletion).
 
     ``scores`` is an optional external model score map keyed by hypothesis ID.
     The deterministic protections are applied around those scores:
@@ -83,6 +102,18 @@ def rerank_hypotheses(
     """
     if not isinstance(hypothesis_set, HypothesisSet):
         raise TypeError("gate expects a HypothesisSet")
+    mode = str(prune_mode or "off").strip().lower()
+    if mode in _SHELVED_PRUNE_MODES:
+        raise ValueError(
+            f"prune_mode={mode!r} 已按 GATE-V2-DESIGN §6 v1.1 搁置（τ 双负结果）；"
+            f"仅支持 {PRUNE_MODES}"
+        )
+    if mode not in PRUNE_MODES:
+        raise ValueError(f"unsupported prune_mode: {prune_mode!r}（仅支持 {PRUNE_MODES}）")
+    if tau is not None or max_keep is not None:
+        raise ValueError("tau/max_keep 仅属 threshold/cap 姿态（已搁置）；off/structural 下不得设置")
+    if isinstance(min_keep, bool) or not isinstance(min_keep, int) or min_keep < 1:
+        raise ValueError(f"min_keep 必须是 >=1 的整数: {min_keep!r}")
     copied = hypothesis_set.model_copy(deep=True)
     assign_hypothesis_ids(copied)
     hypotheses = list(copied.hypotheses)
@@ -158,15 +189,44 @@ def rerank_hypotheses(
         })
 
     ordered = sorted(rows, key=lambda row: (-row["score"], row["index"]))
-    copied.hypotheses = [hypotheses[row["index"]] for row in ordered]
+    prune_reasons: dict[str, str] = {}
+    if mode == "structural":
+        # 原始 index 序扫描：I4（duplicate 保首）与地板回补都按最早出现优先。
+        for row in rows:
+            if row["protected"]:  # I2：protected 永不剪
+                continue
+            reason = next((name for name in _PRUNE_REASONS if row[name]), None)
+            if reason is not None:
+                prune_reasons[row["id"]] = reason
+        # I5 地板：剪到 min_keep 以下时按 index 从早到晚回补。
+        for row in rows:
+            if len(rows) - len(prune_reasons) >= min_keep:
+                break
+            prune_reasons.pop(row["id"], None)
+    kept_ordered = [row for row in ordered if row["id"] not in prune_reasons]
+    pruned_ids = [row["id"] for row in rows if row["id"] in prune_reasons]
+    copied.hypotheses = [hypotheses[row["index"]] for row in kept_ordered]
+    kept_ids = [row["id"] for row in kept_ordered]
     metadata = {
         "enabled": True,
         "backend": backend,
         "fallback": False,
         "triage_healthy": healthy,
-        "ordered_ids": [row["id"] for row in ordered],
-        "selected_ids": [row["id"] for row in ordered],
-        "pruned_ids": [],
+        "prune_mode": mode,
+        "tau": None,
+        "max_keep": None,
+        "min_keep": min_keep,
+        "ordered_ids": kept_ids,
+        "selected_ids": kept_ids,
+        "kept_ids": kept_ids,
+        "pruned_ids": pruned_ids,
+        "prune_reasons": prune_reasons,
+        "budget": {
+            "candidates": len(rows),
+            "kept": len(kept_ids),
+            "pruned": len(pruned_ids),
+            "saving_ratio": round(len(pruned_ids) / len(rows), 6) if rows else 0.0,
+        },
         "scores": {row["id"]: round(float(row["score"]), 6) for row in rows},
         "protected_ids": [row["id"] for row in rows if row["protected"]],
         "echo_ids": [row["id"] for row in rows if row["echo"]],

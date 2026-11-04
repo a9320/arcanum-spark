@@ -8,6 +8,7 @@ from codeark.graph.gate_factory import (
     build_gate_from_env,
     make_laya_gate,
     resolve_backend,
+    resolve_prune,
 )
 from codeark.models.schemas import HypothesisSet, VulnHypothesis
 
@@ -38,8 +39,15 @@ def _fixture_set() -> HypothesisSet:
 
 
 def _clear_gate_env(monkeypatch):
-    monkeypatch.delenv("ARCA_GATE_BACKEND", raising=False)
-    monkeypatch.delenv("ARCA_GATE_MODEL", raising=False)
+    for name in (
+        "ARCA_GATE_BACKEND",
+        "ARCA_GATE_MODEL",
+        "ARCA_GATE_PRUNE",
+        "ARCA_GATE_PRUNE_MIN_KEEP",
+        "ARCA_GATE_PRUNE_TAU",
+        "ARCA_GATE_PRUNE_MAX",
+    ):
+        monkeypatch.delenv(name, raising=False)
 
 
 def test_resolve_backend_defaults_aliases_and_explicit_priority():
@@ -118,3 +126,50 @@ def test_baseline_rows_from_agent0_maps_aliases():
         {"file": "b.py", "rule": "T2", "title": "t2"},
     ]
     assert baseline_rows_from_agent0(None) == []
+
+
+# ── gate v2 structural 旋钮（ARCA_GATE_PRUNE，§6 v1.1 仅 off/structural）──
+
+
+def test_resolve_prune_defaults_alias_and_shelved():
+    assert resolve_prune(None, None) == "off"
+    assert resolve_prune(None, "") == "off"
+    assert resolve_prune(None, " STRUCTURAL ") == "structural"
+    assert resolve_prune("structural", "off") == "structural"
+    for mode in ("threshold", "cap"):
+        with pytest.raises(ValueError):
+            resolve_prune(None, mode)
+    with pytest.raises(ValueError):
+        resolve_prune(None, "yolo")
+
+
+def test_build_gate_from_env_structural_wires_through(monkeypatch):
+    _clear_gate_env(monkeypatch)
+    monkeypatch.setenv("ARCA_GATE_BACKEND", "deterministic")
+    monkeypatch.setenv("ARCA_GATE_PRUNE", "structural")
+    gate, meta = build_gate_from_env()
+    assert gate is not None and meta == "deterministic"
+
+    result = gate(_fixture_set(), [{"file": "src/config.py", "type": "PIT-E-57"}])
+    assert result.metadata["prune_mode"] == "structural"
+    assert result.metadata["pruned_ids"] == ["REDUN-1"]
+    assert result.metadata["prune_reasons"] == {"REDUN-1": "echo"}
+    assert [h.id for h in result.hypothesis_set.hypotheses] == ["H9"]
+
+
+def test_build_gate_from_env_shelved_knobs_degrade_not_silent(monkeypatch):
+    _clear_gate_env(monkeypatch)
+    monkeypatch.setenv("ARCA_GATE_BACKEND", "deterministic")
+    monkeypatch.setenv("ARCA_GATE_PRUNE_TAU", "0.5")
+    gate, meta = build_gate_from_env()
+    assert gate is None
+    assert "搁置" in meta
+
+
+def test_build_gate_from_env_min_keep_validation(monkeypatch):
+    _clear_gate_env(monkeypatch)
+    monkeypatch.setenv("ARCA_GATE_BACKEND", "deterministic")
+    monkeypatch.setenv("ARCA_GATE_PRUNE_MIN_KEEP", "0")
+    gate, meta = build_gate_from_env()
+    assert gate is None
+    assert "MIN_KEEP" in meta

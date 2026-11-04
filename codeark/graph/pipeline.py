@@ -206,6 +206,24 @@ class CodeRiskGraph:
             remediation="修复对应 PITAX 规则命中的代码/配置",
         ) for _ in confirmed]
 
+    # ── gate v2 不变量防御：I1 子集性 / I2 保护优先（违反即抛错，由调用点收口 fallback）──
+    @staticmethod
+    def _check_gate_invariants(original: Any, gated: Any, gate_meta: dict[str, Any]) -> None:
+        original_ids = [getattr(h, "id", "") for h in getattr(original, "hypotheses", [])]
+        kept_ids = [getattr(h, "id", "") for h in getattr(gated, "hypotheses", [])]
+        pruned_ids = [str(pid) for pid in (gate_meta.get("pruned_ids") or [])]
+        if len(kept_ids) != len(set(kept_ids)):
+            raise ValueError("gate 不变量 I1 违反：kept 含重复 id")
+        if not set(kept_ids) <= set(original_ids):
+            raise ValueError("gate 不变量 I1 违反：kept 含原集外 id")
+        if set(kept_ids) & set(pruned_ids):
+            raise ValueError("gate 不变量 I1 违反：kept ∩ pruned 非空")
+        if set(kept_ids) | set(pruned_ids) != set(original_ids):
+            raise ValueError("gate 不变量 I1 违反：kept ∪ pruned != original")
+        protected_ids = {str(pid) for pid in (gate_meta.get("protected_ids") or [])}
+        if protected_ids & set(pruned_ids):
+            raise ValueError("gate 不变量 I2 违反：protected 假设被剪")
+
     # ── 主入口 ──
     async def run(
         self, files: dict[str, str], *, pinned_hypothesis_set: Any = None
@@ -289,6 +307,8 @@ class CodeRiskGraph:
                     raise TypeError("hypothesis_gate must return GateResult or (HypothesisSet, metadata)")
                 if not hasattr(verify_hypothesis_set, "hypotheses"):
                     raise TypeError("hypothesis_gate returned no HypothesisSet")
+                # I1/I2 防御校验：gate 声称的剪枝必须自洽，越界即走 fallback（fail-open）
+                self._check_gate_invariants(res.hypothesis_set, verify_hypothesis_set, res.gate)
             except Exception as exc:
                 res.gate = {
                     "enabled": True,
