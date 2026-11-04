@@ -5,9 +5,10 @@
 #      ②崩溃自动重试一次（exit≠0 且无 report 产出才重试；语义空跑交卷不重试）。
 # 补跑姿势：备份旧 report 后 rm 之，本脚本幂等自动重跑该题。
 set -u
-cd /root/arcanum-spark || exit 1
+cd "$(dirname "$0")/.." || exit 1   # 仓位随 pod 而异（10-09=/root、11-02=/mnt/workspace），不再硬编码
 export ARCA_DEPLOYMENT=local ARCA_VERIFY_TEMPERATURE=0
-G=/mnt/workspace/runs/20261003-k1
+# 新臂跑批必须传 K1_BASE= 隔离目录，否则幂等逻辑会因旧 qwen 基线卷"已有 report"直接全 skip（K1 gpt-oss 重判窗口的用法，见 docs/MTP-GOV-K1-EXEC-20261104.md §4）
+G=${K1_BASE:-/mnt/workspace/runs/20261003-k1}
 TIMEOUT_SECS=${K1_TIMEOUT:-5400}
 mkdir -p "$G/logs"
 python -c "
