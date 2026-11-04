@@ -40,11 +40,13 @@
 | 1 | 开机恢复 | §0.3 READY 三证全绿 | 字节数缺=重播种；oneclick 日志出现下载行=播种路径错，停并核 | ~30–45 min |
 | 2 | B2 MTP 首验 | 出二值定论：模型无 MTP 头→"不适用"结案；有头→探测即 PASS（A/B 另议） | 构建不支持=异常（11-02 已实证支持），查构建版本 | ~5 min |
 | 3 | 方差治理 Exp A/B | `gov_summary.py` 三判据全绿（档位一致率 ≥4/5；H1 grounding 随臂漂移+H2 对照；conf_ref=0） | 任一不达标=登记册采样类记**负结果**，不改判据、不现场重跑 | ~1 h |
-| 4 | K1 gpt-oss 重判 | 20/20 有 report.json + `k1_rescore.sh` manifest SHA 闸 PASS 出分 | rescore exit 2=缺卷/坏卷，幂等补跑；单卷超时记录顺延下窗 | 分 2–3 窗 |
-| 5 | 收尾入仓+直推 | push 出现 `master -> master` | 三分型处置（§5） | ~10 min |
+| 4 | gate v2 structural 两臂验收 | Arm0 off 与归档逐位一致；Arm1 P1′/P2/P3/P4/P6 全过（P6=规则层保持） | 任一硬判据红=REJECT 记负结果，**不动实现** | ~15 min |
+| 5 | K1 gpt-oss 重判 | 20/20 有 report.json + `k1_rescore.sh` manifest SHA 闸 PASS 出分 | rescore exit 2=缺卷/坏卷，幂等补跑；单卷超时记录顺延下窗 | 分 2–3 窗 |
+| 6 | 收尾入仓+直推 | push 出现 `master -> master` | 三分型处置（§6） | ~10 min |
 
-**窗口优先级**：块 3 > 块 4（Exp A/B 必须在单窗内一条龙跑完；K1 靠 `k1_batch.sh` 幂等天然可分段。
-时间不足时宁可在块 4 中途收工归档，也不砍块 3 的卷数——判据是 N=5/N=3×2 定死的。）
+**窗口优先级**：块 3 > 块 4 > 块 5（Exp A/B 必须单窗一条龙；gate 两臂便宜且闭环 v1.1 实现验证；
+K1 靠 `k1_batch.sh` 幂等天然可分段。时间不足时宁可在块 5 中途收工归档，也不砍块 3 的卷数——
+判据是 N=5/N=3×2 定死的。）
 
 ## §2 块 2：B2 MTP 首验（逐字抄 HARDEN-AB-EXEC §5）
 
@@ -79,7 +81,34 @@ BASE=/mnt/workspace/runs/20261104-gov MODE=ALL bash scripts/run-arm-gov.sh
 结果落法：PASS → 记"治理有效（单次观察口径）"进设计稿 §六实施记录；FAIL → 登记册采样类记负结果。
 两种结局都收 `20261104-gov/` 入仓（§5），**都不回滚 D1/D2**（已属生产链路）。
 
-## §4 块 4：K1 全量重判（verify=gpt-oss 生产臂，vs 10-03 qwen 基线）
+## §4 块 4：gate v2 structural 两臂验收（实现已落地 `214fb50`；判据=GATE-V2-DESIGN §5/§6 v1.1）
+
+前提：仓 ≥ `214fb50`；考仓在持久区（`/mnt/workspace/repos/variant-23`、`variant-27`）；
+基线=仓内归档 `reports/variant-23_gate_laya/e2e_report.json`（`meta.hypothesis_set` 6 条可作钉集；
+归档属 v1 重排臂、假设集未删，可作 P3/P4 对照）。环境链路照 verify-acceptance（五服务就绪）。
+
+```bash
+BASE=/mnt/workspace/runs/20261104-gate
+mkdir -p "$BASE"
+for v in variant-23 variant-27; do
+  REPO=/mnt/workspace/repos/$v
+  SRC=reports/${v}_gate_laya/e2e_report.json
+  python eval/run_gate_e2e.py "$REPO" --backend deterministic --prune off \
+    --hypotheses-from "$SRC" --out "$BASE/$v-arm0-off"
+  python eval/run_gate_e2e.py "$REPO" --backend deterministic --prune structural \
+    --hypotheses-from "$SRC" --out "$BASE/$v-arm1-structural"
+  python eval/compare_gate_e2e.py --baseline "$SRC" \
+    --arm "$BASE/$v-arm0-off" --arm "$BASE/$v-arm1-structural" \
+    --out "$BASE/$v-acceptance.json"
+done
+```
+
+判读：Arm0 应 ACCEPT 且假设集与归档逐位一致（off 语义）；Arm1 必须 P1′/P2/P3/P4/P6 全 True，
+且 `prune_reasons` 只含 echo/duplicate/degenerate；**任一项红=REJECT 记负结果，不改判据、不现场调参**。
+预期读数：诚实基线 21 假设仅 4.8% 可剪（GATE-V2-DESIGN §7）——两仓 `pruned=0` 属预期而非失败
+（P5 已随 v1.1 搁置，不因 pruned=0 判失败）。
+
+## §5 块 5：K1 全量重判（verify=gpt-oss 生产臂，vs 10-03 qwen 基线）
 
 基线对照 = `runs/20261003-k1`（qwen verify 判词：机制 tp12 / 语义 tp13，判决层台账 K1 终态）。
 本块在 gpt-oss verify（10-17 拍板生产默认）下重跑同 20 题。**新臂必须走 `K1_BASE=` 参数化**
@@ -100,7 +129,7 @@ bash scripts/k1_rescore.sh /mnt/workspace/runs/20261104-k1-gptoss /mnt/workspace
 - **只记录分布差异，不裁决"换模后更好"**（归因是方差治理/台账另案，防单次观察过度解读）；
 - 耗时口径：用 `logs/` 逐题时间戳差实算单题带，写入 WORK_LOG 供后续排窗。
 
-## §5 块 5：收尾（无论通过与否）
+## §6 块 6：收尾（无论通过与否）
 
 1. **入仓**（逐条 `git add`，禁 `-A`）：`reports/20261104-<块名>/`（卷目录 + driver 输出
    + 相关 srv 日志 + `start-arcanum.sh` 快照仅作留档并注明"以 cmdline 为准"）；每块单独 commit。
@@ -116,7 +145,7 @@ bash scripts/k1_rescore.sh /mnt/workspace/runs/20261104-k1-gptoss /mnt/workspace
    （双副本兜底，GitHub push 绿之前不关机）。
 4. push 绿 + tar 在位 → **可关机**。
 
-## §6 本单结题动作（跑批窗之外，本地）
+## §7 本单结题动作（跑批窗之外，本地）
 
 - 结果回填：Exp A/B 三判据读数进 `VERDICT-VARIANCE-GOVERNANCE.md` §六实施记录"待 DSW 验收"行；
   B2 三分支结论进 `HARDEN-AB-EXEC-20261102.md` §5；K1 翻转清单与两口径 tp/fn 进判决层台账 + WORK_LOG。
