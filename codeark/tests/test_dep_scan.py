@@ -198,6 +198,18 @@ def test_composer_parse_helpers() -> None:
     print("  ✅ composer 解析辅助函数")
 
 
+def test_windows_absolute_path_keys_still_dispatch() -> None:
+    """2026-11-05 实测漏检锚：rsplit("/") 在 Windows 绝对路径（反斜杠）下拿到整串路径，
+    清单分派静默失效 → MCP dep_scan 单文件调用 0 findings。Path.name 两种分隔符都认。"""
+    files = {
+        r"C:\Users\dev\project\requirements.txt": "requests==2.28.0\n",
+        r"C:\Users\dev\project\package.json": '{"dependencies": {"lodash": "4.17.15"}}',
+    }
+    findings = scan_deps(files)
+    pkgs = {f["package"] for f in findings}
+    assert pkgs == {"requests", "lodash"}, f"绝对路径 key 应正常分派，实际 {pkgs}"
+
+
 if __name__ == "__main__":
     print("=== dep_scan 逻辑测试 ===")
     test_requirements_hit()
@@ -212,4 +224,5 @@ if __name__ == "__main__":
     test_composer_php_constraint_floor()
     test_php_multistage_and_noise()
     test_composer_parse_helpers()
+    test_windows_absolute_path_keys_still_dispatch()
     print("\n全部通过 ✅")

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import PurePath
 from typing import Any
 
 # 内置已知漏洞库（OSV 本地数据缺失时回落）
@@ -297,7 +298,9 @@ def scan_deps(files: dict[str, str]) -> list[dict[str, Any]]:
     """
     all_findings: list[dict[str, Any]] = []
     for path, content in files.items():
-        base = path.rsplit("/", 1)[-1].lower()
+        # Path.name 同时处理 / 与 \——rsplit("/") 在 Windows 绝对路径下拿到整串路径，
+        # 清单分派静默失效（MCP 单文件调用即此形态，实测漏检）
+        base = PurePath(path).name.lower()
         if base == "requirements.txt":
             all_findings += _check_deps(_parse_requirements(content), "PyPI", path)
         elif base == "pyproject.toml":
