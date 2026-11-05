@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "_policy": "逐条豁免台账。每条必须有 id/path_prefix/rule/reason/owner/added/expires；过期即闸门红；未被任何 finding 用到的条目会打印为 stale（防台账只增不减）。目录级条目应尽量少用，能定位到单文件+单规则码就不要写整目录。",
+  "entries": [
+    {
+      "id": "EXC-1",
+      "path_prefix": "demo/",
+      "rule": "*",
+      "reason": "阳性对照靶仓：12 处已知漏洞是仪器自检的靶（expected.json 口径），命中=扫描器正常工作",
+      "owner": "a9320",
+      "added": "2026-10-30",
+      "expires": "2027-01-31"
+    },
+    {
+      "id": "EXC-3",
+      "path_prefix": "codeark/tests/",
+      "rule": "*",
+      "reason": "引擎单测必须内置合成攻击样本才能验引擎；命中=扫描器正常工作，非自身漏洞",
+      "owner": "a9320",
+      "added": "2026-10-30",
+      "expires": "2027-01-31"
+    },
+    {
+      "id": "EXC-4",
+      "path_prefix": "scripts/smoke/",
+      "rule": "*",
+      "reason": "冒烟脚本内嵌注入样例做零联网锚（MockTransport）",
+      "owner": "a9320",
+      "added": "2026-10-30",
+      "expires": "2027-01-31"
+    }
+  ]
+}

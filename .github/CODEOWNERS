@@ -1,0 +1,21 @@
+# CodeRisk Arcanum — ownership of agent-facing surfaces
+# 这些路径是"给 AI 读的输入面"或判定核心：改动必须过 owner 审阅。
+# 配套闸门：scripts/policy_ownership_gate.py（CI 里强制"策略文件必须被认领"）。
+
+# 判定核心（规则与扫描器）
+/codeark/pitax/            @a9320
+/scripts/self_scan_gate.py @a9320
+/scripts/policy_ownership_gate.py @a9320
+/config/self-scan-exemptions.json @a9320
+/eval/pitax_bench/cases.jsonl @a9320
+
+# 基础设施
+/.github/workflows/        @a9320
+
+# agent-facing 策略文件（当前仓库暂无；一旦出现必须在此认领，否则 CI 红）
+/AGENTS.md                 @a9320
+/CLAUDE.md                 @a9320
+/GEMINI.md                 @a9320
+/.cursor/rules             @a9320
+/.github/copilot-instructions.md @a9320
+/prompts.yaml              @a9320

@@ -10,13 +10,14 @@
 未跟踪噪音，CI checkout 本身即干净）→ codeark.cli --dry 全确定性管线
 （产品同款路径，防口径漂移）→ 策略断言。
 
-豁免策略（findings 允许存在的目录，均有明确依据）：
-- demo/  阳性对照仓（12 处已知漏洞的"仪器自检"靶，expected.json 口径）
-- tests/、codeark/tests/、scripts/smoke/  测试/冒烟文件必须内置合成攻击样本
-  才能测引擎（命中=扫描器正常工作，非自身漏洞）
+豁免策略：**逐条台账** `config/self-scan-exemptions.json`（2026-11-05 由外评意见改造）。
+每条含 id / path_prefix / rule / reason / owner / added / expires：
+- **过期即红**：expires 早于今天 ⇒ 该条目失效，其下的命中变成"白名单外"；
+- **未使用即提示**：台账里没匹配到任何 finding 的条目打印为 stale，防止只增不减；
+- 能定位到单文件+单规则码就不要写整目录（目录级条目天然会悄悄长大）。
 
-用法：python scripts/self_scan_gate.py [--keep]
-退出码：0=闸门过；1=白名单外出现命中（需人工判读）；2=环境错误。
+用法：python scripts/self_scan_gate.py [--keep] [--fail-on-stale]
+退出码：0=过；1=白名单外/过期命中（--fail-on-stale 时 stale 也判 1）；2=环境或台账错误。
 """
 from __future__ import annotations
 
@@ -27,18 +28,49 @@ import subprocess
 import sys
 import tempfile
 from collections import Counter
+from datetime import date
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+LEDGER_PATH = REPO_ROOT / "config" / "self-scan-exemptions.json"
+_REQUIRED_FIELDS = ("id", "path_prefix", "rule", "reason", "owner", "added", "expires")
 
-# 豁免前缀（目录绑定含尾斜杠，防 tests_extra 类误配；正斜杠归一后匹配）
-_ALLOW_FINDINGS_PREFIXES = ("demo/", "tests/", "codeark/tests/", "scripts/smoke/")
+
+def load_ledger(path: Path = LEDGER_PATH) -> list[dict]:
+    """读台账并校验字段齐全；缺文件/坏 JSON/缺字段 ⇒ 闸门环境错（退出码 2）。"""
+    if not path.is_file():
+        print(f"!! 环境错误：豁免台账缺失 {path}")
+        raise SystemExit(2)
+    try:
+        entries = json.loads(path.read_text(encoding="utf-8")).get("entries", [])
+    except json.JSONDecodeError as e:
+        print(f"!! 环境错误：台账 JSON 坏损（{e}）")
+        raise SystemExit(2)
+    for i, e in enumerate(entries, 1):
+        missing = [k for k in _REQUIRED_FIELDS if not str(e.get(k) or "").strip()]
+        if missing:
+            print(f"!! 环境错误：台账第 {i} 条缺字段 {missing}（id={e.get('id', '?')}）")
+            raise SystemExit(2)
+    return entries
 
 
-def findings_allowed(path: str) -> bool:
-    """该路径的 findings 是否落在豁免策略内。"""
-    p = str(path).replace("\\", "/").lstrip("./")
-    return p.startswith(_ALLOW_FINDINGS_PREFIXES)
+def _norm(path: str) -> str:
+    return str(path).replace("\\", "/").lstrip("./")
+
+
+def match_exemption(path: str, rule: str, entries: list[dict], today: str) -> tuple[dict | None, str]:
+    """返回 (匹配到的条目或 None, 说明)。过期条目按未匹配处理并给出原因。"""
+    p = _norm(path)
+    r = str(rule or "*")
+    for e in entries:
+        if not p.startswith(str(e["path_prefix"])):
+            continue
+        if str(e["rule"]) not in ("*", r):
+            continue
+        if str(e["expires"]) < today:
+            return None, f"台账条目 {e['id']} 已于 {e['expires']} 过期"
+        return e, ""
+    return None, ""
 
 
 def _collect_first_party(dest: Path) -> int:
@@ -57,9 +89,14 @@ def _collect_first_party(dest: Path) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="第一方生产代码零命中闸门")
+    ap = argparse.ArgumentParser(description="第一方生产代码零命中闸门（逐条豁免台账）")
     ap.add_argument("--keep", action="store_true", help="保留临时扫描副本便于复核")
+    ap.add_argument("--fail-on-stale", action="store_true",
+                    help="台账里有未匹配到任何 finding 的条目也判红（默认仅提示）")
     args = ap.parse_args(argv)
+
+    ledger = load_ledger()
+    today = date.today().isoformat()
 
     tmpscan = Path(tempfile.mkdtemp(prefix="selfscan_src_"))
     tmpout = Path(tempfile.mkdtemp(prefix="selfscan_out_"))
@@ -83,21 +120,40 @@ def main(argv: list[str] | None = None) -> int:
             return 2
 
         findings = json.loads(report.read_text(encoding="utf-8")).get("findings", [])
-        bad = [f for f in findings
-               if not findings_allowed(str(f.get("file_path") or f.get("file") or ""))]
-        allowed = [f for f in findings if f not in bad]
+        used_ids: set[str] = set()
+        bad: list[tuple[dict, str]] = []
+        allowed: list[dict] = []
+        for f in findings:
+            p = str(f.get("file_path") or f.get("file") or "")
+            r = str(f.get("vuln_type") or f.get("rule") or "")
+            entry, why = match_exemption(p, r, ledger, today)
+            if entry is not None:
+                allowed.append(f)
+                used_ids.add(str(entry["id"]))
+            else:
+                bad.append((f, why))
         by_zone = Counter("豁免区" if f in allowed else "白名单外" for f in findings)
-        print(f"== findings 总数 {len(findings)}：{dict(by_zone)}")
+        print(f"== findings 总数 {len(findings)}：{dict(by_zone)}（台账 {len(ledger)} 条，"
+              f"今日 {today}）")
         for f in allowed:
             print(f"   [豁免] {f.get('severity')} {f.get('vuln_type') or f.get('rule')}"
                   f" @ {f.get('file_path')}")
-        for f in bad:
+        for f, why in bad:
+            note = f" :: {why}" if why else ""
             print(f"   [命中] {f.get('severity')} {f.get('vuln_type') or f.get('rule')}"
-                  f" @ {f.get('file_path')} :: {str(f.get('title') or f.get('description'))[:70]}")
+                  f" @ {f.get('file_path')} :: {str(f.get('title') or f.get('description'))[:70]}{note}")
+        stale = [e for e in ledger if str(e["id"]) not in used_ids]
+        for e in stale:
+            print(f"   [台账 stale] {e['id']}（{e['path_prefix']}）没有任何 finding 匹配——"
+                  f"若目录已清理请删掉该条目，防止豁免悄悄长大")
         if bad:
-            print(f"❌ FAIL: 白名单外出现 {len(bad)} 条命中——生产路径可疑模式，需人工判读")
+            print(f"❌ FAIL: 白名单外/过期 {len(bad)} 条命中——生产路径可疑模式，需人工判读")
             return 1
-        print("✅ PASS: 第一方生产代码零命中（豁免区仅 demo 阳性对照与测试合成样本）")
+        if stale and args.fail_on_stale:
+            print(f"❌ FAIL: {len(stale)} 条台账条目已无命中（--fail-on-stale）")
+            return 1
+        print("✅ PASS: 第一方生产代码零命中（豁免逐条台账："
+              + "、".join(sorted(used_ids)) + "）")
         return 0
     finally:
         if args.keep:

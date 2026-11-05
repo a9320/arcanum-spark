@@ -34,6 +34,12 @@ jobs:
       - name: Self-scan gate (first-party zero findings)
         run: python scripts/self_scan_gate.py
 
+      # 策略文件所有权闸门（2026-11-05 外评落地）：AGENTS.md/.cursor/rules/
+      # copilot-instructions 这类"给 AI 读的文件"必须被 CODEOWNERS 认领，
+      # 否则红——它们是 agent 输入面，不允许无主漂移。
+      - name: Policy files ownership gate (CODEOWNERS)
+        run: python scripts/policy_ownership_gate.py
+
       # PITAX 规则基准（2026-10-30 立项）：带标签 27 例（19 正/8 硬负），
       # 规则改动的回归闸——recall 100% 与负例 FP=0 缺一即红
       - name: PITAX rule benchmark (strict)
