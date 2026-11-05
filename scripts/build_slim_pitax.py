@@ -1,7 +1,8 @@
 """构建零依赖瘦包 codeark-pitax（分发物生成器，非第二份实现）。
 
 单一事实源纪律：规则与检测逻辑只在 `codeark/pitax/` + `codeark/tools/pitax_scan.py` +
-`codeark/agents/report_agent.py` 三处存在；本脚本把它们**复制并重写导入**成独立分发包
+`codeark/tools/dep_scan.py` + `codeark/agents/report_agent.py` + `codeark/office_text.py` +
+`codeark/office_scan.py` 存在；本脚本把它们**复制并重写导入**成独立分发包
 `codeark_pitax`（纯标准库，零第三方依赖），供 PyPI 发布与 arcanum-mcp 一键安装。
 
 用法：
@@ -30,7 +31,7 @@ from codeark.pitax.rules import PITAX_VERSION  # noqa: E402
 
 DEFAULT_OUT = ROOT.parent / "slim-build"
 PKG = "codeark_pitax"
-VERSION = "0.1.7"
+VERSION = "0.2.0"
 
 # 复制映射：源 → 生成文件名；rewrites 逐条替换导入
 COPY_PLAN: list[tuple[Path, str, list[tuple[str, str]]]] = [
@@ -41,6 +42,22 @@ COPY_PLAN: list[tuple[Path, str, list[tuple[str, str]]]] = [
         [("from ..pitax.detectors import", "from .detectors import")],
     ),
     (ROOT / "codeark" / "agents" / "report_agent.py", "reporting.py", []),
+    # office 文档投毒体检 + 依赖漏洞比对（MCP C1/C3 承重资产，纯标准库）
+    (ROOT / "codeark" / "office_text.py", "office_text.py", []),
+    (
+        ROOT / "codeark" / "office_scan.py",
+        "office_scan.py",
+        [
+            ("from codeark.agents.report_agent import build_html", "from .reporting import build_html"),
+            ("from codeark.office_text import", "from .office_text import"),
+            ("from codeark.pitax.detectors import (", "from .detectors import ("),
+            ("from codeark.tools.pitax_scan import scan_file", "from .scan_engine import scan_file"),
+        ],
+    ),
+    (ROOT / "codeark" / "tools" / "dep_scan.py", "dep_scan.py", []),
+    # laya 假设排序运行时（rank_hypotheses 用）：顶层纯标准库，torch 只在
+    # vendor rl_agent_api.py（随 checkpoint 目录）运行时引入，slim 可安全携带
+    (ROOT / "codeark" / "graph" / "laya_runtime.py", "laya_runtime.py", []),
 ]
 
 CLI_LINES = [
@@ -230,11 +247,16 @@ def main(argv: list[str] | None = None) -> int:
         assert "from codeark" not in text, f"{src} 仍含绝对 codeark 导入"
         _write(pkg_dir / dest_name, text)
 
-    # 便捷导出：import codeark_pitax 即得 scan_repo/scan_file（wheel 用户的公共 API）
+    # 便捷导出：import codeark_pitax 即得 scan/office/dep 公共 API（wheel 用户）
     init = (pkg_dir / "__init__.py").read_text(encoding="utf-8")
     if "scan_repo" not in init:
         nl = chr(10)
         init += nl + "from .scan_engine import scan_file, scan_repo  # noqa: E402,F401" + nl
+    if "scan_office_tree" not in init:
+        init += (
+            "from .office_scan import scan_office_file, scan_office_tree  # noqa: E402,F401\n"
+            "from .dep_scan import scan_deps  # noqa: E402,F401\n"
+        )
         _write(pkg_dir / "__init__.py", init)
 
     _write(pkg_dir / "cli.py", "\n".join(CLI_LINES) + "\n")

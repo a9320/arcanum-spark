@@ -44,6 +44,13 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
+# laya 唯一实现已提升至 codeark/graph/laya_runtime.py（2026-11-05 单一事实源）；
+# 直跑（python eval/replay.py）时 sys.path[0]=eval/，须先补仓库根再导入
+_ROOT = Path(__file__).resolve().parents[1]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+from codeark.graph import laya_runtime  # noqa: E402
+
 SCHEMA = "gate-dataset/1"
 
 # ────────────────────────── 文本工具（CJK 友好，零依赖）──────────────────────────
@@ -364,92 +371,13 @@ def score_tfidf(items: list[dict], baseline: list[dict]) -> list[float]:
     return out
 
 
-def _load_laya_agent(model_path: str):
-    """vendor 加载：模型目录自带 rl_agent_api.py（RLAgent），零额外依赖。
-
-    非 transformers pipeline（2026-09-26 官方源码级研读纠偏）；sibling 导入
-    （rl_common 等）依赖 sys.path，插入模型目录后不回收（CLI 一次性进程无害）。
-    """
-    if not model_path:
-        raise ValueError("laya 后端需要 --model <模型目录>（DSW: /mnt/workspace/models/laya）")
-    import importlib.util
-    import sys
-
-    root = Path(model_path)
-    api = root / "rl_agent_api.py"
-    if not api.exists():
-        raise FileNotFoundError(
-            f"未找到 {api}——rl_agent_api.py/rl_common.py 应随模型目录自带"
-            "（多 checkpoint 布局：单检查点子目录才含 API 脚本）")
-    sys.path.insert(0, str(root))
-    spec = importlib.util.spec_from_file_location("laya_rl_agent_api", api)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod.RLAgent(str(root))
-
-
-def _laya_state(item: dict, baseline_rows: list[dict]) -> str:
-    """单假设压缩 state——**Scout 阶段信息 ONLY**。
-
-    裁决/验证方法是 Verify 后信息，入 state = 标签泄漏（zero-shot 分数即作弊，
-    违反防泄漏口径）；基线上下文只给同文件行——回显判定是文件域的，token 预算
-    也只装得下这个（英文根 ~320 / typed-decisions ~768）。
-    """
-    fp = str(item.get("file_path") or "")
-    lines = [
-        f"vuln_type: {item.get('vuln_type', '')}",
-        f"file: {fp}",
-        f"title: {str(item.get('title') or '')[:160]}",
-        f"attack_path: {str(item.get('attack_path') or '')[:400]}",
-    ]
-    same = [b for b in baseline_rows if norm_path(str(b.get("file") or "")) == norm_path(fp)]
-    lines.append("baseline rows on this file:")
-    if same:
-        for b in same[:6]:
-            lines.append(f"- [{b.get('rule', '')}] {str(b.get('title') or '')[:80]}")
-    else:
-        lines.append("- none")
-    return "\n".join(lines)
-
-
-_SCORE_LAYA_INSTRUCTIONS = (
-    "Decide whether this vulnerability hypothesis deserves a Verify-stage budget. "
-    "A = keep, B = prune."
-)
-_SCORE_LAYA_CRITERIA = {
-    "A": "KEEP: semantic increment beyond the rule baseline, or backed by tool evidence",
-    "B": "PRUNE: echoes a baseline row (same file+type), duplicates another hypothesis, "
-         "degenerate repetition, or no semantic increment",
-}
-
-
-def score_laya(
-    items: list[dict], baseline: list[dict], model_path: str
-) -> tuple[list[float], list[float]]:
-    """Laya（System One 决策模型）后端：逐假设 P(KEEP) + confidence。
-
-    考题契约（2026-09-26 定稿）：2-option choice（A=KEEP/B=PRUNE）——noul 有
-    标签偏置坑（issue #156）、score 原语最弱（SST-5 0.372）均不用；
-    act_probability 官方已废弃（AUROC 0.30）禁用。每假设一次 system_one 调用
-    （state 是文件域压缩格式，全量拼接塞不下 token 预算）。
-    返回 (P(KEEP) 列表, confidence 列表)；Brier/ECE 在 cmd_score 接线。
-    """
-    agent = _load_laya_agent(model_path)
-    probs: list[float] = []
-    confs: list[float] = []
-    for i, it in enumerate(items):
-        out = agent.system_one(
-            _laya_state(it, baseline),
-            {f"q{i}": {"type": "choice", "instructions": _SCORE_LAYA_INSTRUCTIONS,
-                       "criteria": dict(_SCORE_LAYA_CRITERIA)}},
-        )
-        # 官方契约（rl_agent_api.py system_one 尾行）：{"model", "answers": {qid: {...}}, "usage"}，
-        # answers[qid] = {"choice", "probabilities": {选项: 概率}, "confidence", "rl_agent"}
-        a = ((out or {}).get("answers") or {}).get(f"q{i}") or {}
-        p = float((a.get("probabilities") or {}).get("A") or 0.0)
-        probs.append(min(max(p, 0.0), 1.0))
-        confs.append(float(a.get("confidence") or 0.0))
-    return probs, confs
+# laya 家族唯一实现=codeark.graph.laya_runtime（2026-11-05 提升）；
+# 赋值绑定（非包装函数）保证 replay.score_laya 与实现是同一对象——单一事实源
+_load_laya_agent = laya_runtime._load_laya_agent
+_laya_state = laya_runtime._laya_state
+_SCORE_LAYA_INSTRUCTIONS = laya_runtime._SCORE_LAYA_INSTRUCTIONS
+_SCORE_LAYA_CRITERIA = laya_runtime._SCORE_LAYA_CRITERIA
+score_laya = laya_runtime.score_laya
 
 
 def average_precision(ranked_labels: list[str]) -> float:

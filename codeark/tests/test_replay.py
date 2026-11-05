@@ -266,6 +266,10 @@ def test_score_laya_with_stub(monkeypatch):
                                       "probabilities": {"A": 0.9, "B": 0.1}, "confidence": 0.8}},
                     "usage": {"input_tokens": 128, "output_tokens": 0}}
 
+    # 2026-11-05 起唯一实现在 codeark.graph.laya_runtime（replay 转发），
+    # stub 必须打在实现模块上；转发模块也一并打上以锁死转发路径不偷偷复活本地实现
+    from codeark.graph import laya_runtime
+    monkeypatch.setattr(laya_runtime, "_load_laya_agent", lambda p: _StubAgent())
     monkeypatch.setattr(replay, "_load_laya_agent", lambda p: _StubAgent())
     items = [
         {"id": "H1", "title": "t1", "vuln_type": "V", "file_path": "src/a.py",

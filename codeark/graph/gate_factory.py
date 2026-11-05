@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Callable
 
 from codeark.graph.gate import PRUNE_MODES, GateResult, rerank_hypotheses
+from codeark.graph.laya_runtime import score_laya  # 唯一实现（2026-11-05 自 eval/replay.py 提升）
 from codeark.models.schemas import HypothesisSet
 
 __all__ = [
@@ -64,27 +65,16 @@ def make_deterministic_gate(prune_mode: str = "off", min_keep: int = 1) -> GateC
     return gate
 
 
-def _import_replay():
-    """eval/replay.py 运行时懒导入（score_laya 单一数据源）。
-
-    eval/ 不是包，按脚本态目录导入；codeark 不产生对 eval 的导入期依赖。
-    """
-    eval_dir = Path(__file__).resolve().parents[2] / "eval"
-    if str(eval_dir) not in sys.path:
-        sys.path.insert(0, str(eval_dir))
-    import replay
-    return replay
-
-
 def make_laya_gate(model_path: str, prune_mode: str = "off", min_keep: int = 1) -> GateCallable:
     """laya 评分 gate：live HypothesisSet → items → score_laya → scores map → 重排。
 
     只喂 Scout 阶段信息（_laya_state 契约），Verify 裁决不进 gate——防标签泄漏。
+    score_laya 唯一实现在 codeark.graph.laya_runtime（2026-11-05 提升，
+    原 eval/replay.py 懒导入路径随之退役）。
     prune_mode="structural" 时叠加结构性剪枝（剪枝面与打分独立，I3 仍只认精确键）。
     """
     if not model_path:
         raise ValueError("laya gate 需要 --model <模型目录>")
-    replay = _import_replay()  # 构造期导入：eval/ 缺席在挂载时暴露，不拖到扫描中途
 
     def gate(hypothesis_set, agent0_findings):
         items = [
@@ -99,7 +89,7 @@ def make_laya_gate(model_path: str, prune_mode: str = "off", min_keep: int = 1) 
             for h in hypothesis_set.hypotheses
         ]
         baseline = baseline_rows_from_agent0(agent0_findings)
-        probs, _confs = replay.score_laya(items, baseline, model_path)
+        probs, _confs = score_laya(items, baseline, model_path)
         scores = {item["id"]: float(p) for item, p in zip(items, probs)}
         return rerank_hypotheses(
             hypothesis_set, agent0_findings, scores=scores, backend="laya",

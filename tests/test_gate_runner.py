@@ -57,7 +57,10 @@ def test_make_laya_gate_converts_baseline_and_applies_scores(monkeypatch):
         captured.update(items=items, baseline=baseline, model=model_path)
         return [0.1, 0.2, 0.3], [0.5, 0.5, 0.5]
 
-    monkeypatch.setattr(replay, "score_laya", fake_score_laya)
+    # 2026-11-05 起 score_laya 唯一实现在 codeark.graph.laya_runtime，
+    # gate_factory 直接从彼处 import——stub 打在 gate_factory 的模块命名空间
+    from codeark.graph import gate_factory
+    monkeypatch.setattr(gate_factory, "score_laya", fake_score_laya)
 
     gate = runner.make_laya_gate("/fake/laya-r3")
     result = gate(_hs(), _BASELINE)
