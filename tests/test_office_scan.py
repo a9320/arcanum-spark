@@ -114,6 +114,52 @@ def test_tree_scan_skips_unsupported_and_records_errors(tmp_path):
     assert "PIT-N-06" in {f["type"] for f in findings}
     assert list(cov["errors"]) == [str(tmp_path / "broken.docx")]
     assert cov["errors"][str(tmp_path / "broken.docx")] == "BadZipFile"
+    assert cov["caps"]["stopped_by"] is None
+
+
+def test_tree_walk_depth_cap_disclosed(tmp_path, monkeypatch):
+    """MAX_DEPTH 截断必须披露（stopped_by=max_depth），不静默丢文件。"""
+    import codeark.office_scan as oss
+
+    monkeypatch.setattr(oss, "MAX_DEPTH", 1)
+    deep = tmp_path / "a" / "b" / "c"
+    deep.mkdir(parents=True)
+    with zipfile.ZipFile(deep / "deep.docx", "w") as zf:
+        zf.writestr("word/document.xml", _docx_xml("benign"))
+    with zipfile.ZipFile(tmp_path / "near.docx", "w") as zf:
+        zf.writestr("word/document.xml", _docx_xml("benign"))
+
+    _, meta = scan_office_tree(tmp_path)
+    cov = meta["office_scan"]
+    assert cov["files"] == 1
+    assert cov["caps"]["stopped_by"] == "max_depth"
+
+
+def test_tree_walk_max_files_cap_disclosed(tmp_path, monkeypatch):
+    import codeark.office_scan as oss
+
+    monkeypatch.setattr(oss, "MAX_FILES", 1)
+    for name in ("a.docx", "b.docx"):
+        with zipfile.ZipFile(tmp_path / name, "w") as zf:
+            zf.writestr("word/document.xml", _docx_xml("benign"))
+
+    _, meta = scan_office_tree(tmp_path)
+    cov = meta["office_scan"]
+    assert cov["files"] == 1
+    assert cov["caps"]["stopped_by"] == "max_files"
+
+
+def test_tree_walk_max_total_bytes_cap_disclosed(tmp_path, monkeypatch):
+    import codeark.office_scan as oss
+
+    monkeypatch.setattr(oss, "MAX_TOTAL_BYTES", 10)
+    with zipfile.ZipFile(tmp_path / "a.docx", "w") as zf:
+        zf.writestr("word/document.xml", _docx_xml("benign"))
+
+    _, meta = scan_office_tree(tmp_path)
+    cov = meta["office_scan"]
+    assert cov["files"] == 0
+    assert cov["caps"]["stopped_by"] == "max_total_bytes"
 
 
 def test_report_is_selfcontained_and_counts_findings(tmp_path):
