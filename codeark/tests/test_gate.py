@@ -8,6 +8,7 @@ from codeark.graph import pipeline as pl
 from codeark.graph.gate import rerank_hypotheses
 from codeark.models.schemas import (
     FinalReport,
+    FinalReportFinding,
     HypothesisSet,
     VerificationResult,
     VulnHypothesis,
@@ -292,3 +293,87 @@ def test_pipeline_gate_invariants_defense():
         pl.CodeRiskGraph._check_gate_invariants(
             original, gated, {"pruned_ids": ["H2"], "protected_ids": ["H2"]}
         )
+
+
+@pytest.mark.asyncio
+async def test_structural_prune_keeps_rule_layer_in_final_report(monkeypatch):
+    """P6 集成锚：echo 假设被 structural 剪掉后，agent0 规则行仍在最终报告 findings。
+
+    这是 GATE-V2-DESIGN §4 安全性论证的非空验证——归档语料上 P6 恒为空真
+    （variant-23/27 剪 0 条；pandas 剪 1 条但其 agent0 规则行为 0），
+    故必须用构造夹具钉住真实渲染链路（render_report → merge_agent0_baseline）。
+    """
+    hypotheses = HypothesisSet(
+        hypotheses=[
+            _hyp("", "echo row", "PIT-E-57", "src/config.py", "encoded payload echo"),
+            _hyp("", "semantic", "LOGIC_ERROR", "src/new.py", "cross-file impact"),
+        ],
+        coverage_notes="test",
+    )
+    baseline = [{
+        "file": "src/config.py",
+        "type": "PIT-E-57",
+        "title": "encoded payload",
+        "severity": "high",
+        "pitax": {"decoded_payload": "X"},
+    }]
+    verify_ids: list[str] = []
+
+    monkeypatch.setattr(pl, "run_agent0", lambda _files: baseline)
+
+    async def fake_scout(*_args, **_kwargs):
+        return hypotheses
+
+    async def fake_verify(hypothesis_set, *_args, **_kwargs):
+        verify_ids.extend(h.id for h in hypothesis_set.hypotheses)
+        return [VerificationResult(
+            hypothesis_id=h.id,
+            hypothesis_title=h.title,
+            verdict="CONFIRMED",
+            confidence=0.9,
+            evidence="e",
+            verification_method="test",
+        ) for h in hypothesis_set.hypotheses]
+
+    async def fake_deepen(*_args, **_kwargs):
+        return []
+
+    async def fake_arbiter(hypothesis_set, *_args, **_kwargs):
+        return FinalReport(
+            findings=[
+                FinalReportFinding(
+                    title=h.title, vuln_type=h.vuln_type, file_path=h.file_path,
+                )
+                for h in hypothesis_set.hypotheses
+            ],
+            conclusion="test",
+        )
+
+    monkeypatch.setattr(pl, "run_scout", fake_scout)
+    monkeypatch.setattr(pl, "run_verify_split", fake_verify)
+    monkeypatch.setattr(pl, "run_deepen", fake_deepen)
+    monkeypatch.setattr(pl, "run_arbiter", fake_arbiter)
+
+    def gate(hypothesis_set, agent0_findings):
+        return rerank_hypotheses(
+            hypothesis_set, agent0_findings, backend="test", prune_mode="structural",
+        )
+
+    result = await pl.CodeRiskGraph(model=object(), hypothesis_gate=gate).run({"a.py": "x"})
+
+    # 1) 剪枝真的发生：echo 假设没进 Verify
+    assert len(verify_ids) == 1
+    pruned = result.gate["pruned_ids"]
+    assert len(pruned) == 1
+    assert result.gate["prune_reasons"] == {pruned[0]: "echo"}
+
+    # 2) 被剪假设的规则层结论仍在最终报告里（渲染层回注，P6 语义）
+    report = json.loads(result.reports["json"])
+    keys = {
+        (f.get("file") or f.get("file_path"), f.get("rule") or f.get("vuln_type"))
+        for f in report["findings"]
+    }
+    assert ("src/config.py", "PIT-E-57") in keys
+
+    # 3) 语义增量（未被剪）同样在
+    assert ("src/new.py", "LOGIC_ERROR") in keys

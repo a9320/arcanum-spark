@@ -83,30 +83,45 @@ BASE=/mnt/workspace/runs/20261104-gov MODE=ALL bash scripts/run-arm-gov.sh
 
 ## §4 块 4：gate v2 structural 两臂验收（实现已落地 `214fb50`；判据=GATE-V2-DESIGN §5/§6 v1.1）
 
-前提：仓 ≥ `214fb50`；考仓在持久区（`/mnt/workspace/repos/variant-23`、`variant-27`）；
-基线=仓内归档 `reports/variant-23_gate_laya/e2e_report.json`（`meta.hypothesis_set` 6 条可作钉集；
-归档属 v1 重排臂、假设集未删，可作 P3/P4 对照）。环境链路照 verify-acceptance（五服务就绪）。
+**预注册预测（先写死，跑完只对表）**：
+
+| 仓 | 钉集来源 | hyp | 预期 Arm1 pruned |
+| --- | --- | --- | --- |
+| variant-23 | `reports/variant-23_gate_laya/e2e_report.json` | 6 | 0 |
+| variant-27 | `reports/variant-27_gate_laya/e2e_report.json` | 5 | 0 |
+| pandas | `reports/v12-fp/pandas-e2e-gate/report.json` | 3 | 1（H1，`degenerate`） |
+
+预测依据 = 本地离线重放（11-06，structural + 归档假设集）：**21 假设剪 1 条 = 4.8%**，与设计稿 §7 基线一致。
+
+**空真声明（必须写进判读）**：variant-23/27 剪 0 条 ⇒ 两臂 gated 集相同，P4/P6 在两仓是空真；
+pandas 虽剪 1 条，但其 `agent0_findings` 与 CONFIRMED 均为 0 ⇒ P6 同样空真。
+**P6 的非空验证锚 = 单测 `codeark/tests/test_gate.py::test_structural_prune_keeps_rule_layer_in_final_report`**
+（构造 echo 假设 → 剪除 → 真渲染链路 → 断言规则行仍在 findings）。本块真机跑批只负责"不回归、不失真"。
+
+命令（laya 双臂，单变量=pruning；Arm0 的 `ordered_ids` 应与归档逐位一致）：
 
 ```bash
 BASE=/mnt/workspace/runs/20261104-gate
 mkdir -p "$BASE"
-for v in variant-23 variant-27; do
-  REPO=/mnt/workspace/repos/$v
-  SRC=reports/${v}_gate_laya/e2e_report.json
-  python eval/run_gate_e2e.py "$REPO" --backend deterministic --prune off \
+for v in variant-23 variant-27 pandas; do
+  if [ "$v" = pandas ]; then
+    REPO=/mnt/workspace/repos/pandas; SRC=reports/v12-fp/pandas-e2e-gate/report.json
+  else
+    REPO=/mnt/workspace/repos/$v; SRC=reports/${v}_gate_laya/e2e_report.json
+  fi
+  python eval/run_gate_e2e.py "$REPO" --backend laya --model /mnt/workspace/models/laya-r7 \
     --hypotheses-from "$SRC" --out "$BASE/$v-arm0-off"
-  python eval/run_gate_e2e.py "$REPO" --backend deterministic --prune structural \
-    --hypotheses-from "$SRC" --out "$BASE/$v-arm1-structural"
+  python eval/run_gate_e2e.py "$REPO" --backend laya --model /mnt/workspace/models/laya-r7 \
+    --prune structural --hypotheses-from "$SRC" --out "$BASE/$v-arm1-structural"
   python eval/compare_gate_e2e.py --baseline "$SRC" \
     --arm "$BASE/$v-arm0-off" --arm "$BASE/$v-arm1-structural" \
     --out "$BASE/$v-acceptance.json"
 done
 ```
 
-判读：Arm0 应 ACCEPT 且假设集与归档逐位一致（off 语义）；Arm1 必须 P1′/P2/P3/P4/P6 全 True，
-且 `prune_reasons` 只含 echo/duplicate/degenerate；**任一项红=REJECT 记负结果，不改判据、不现场调参**。
-预期读数：诚实基线 21 假设仅 4.8% 可剪（GATE-V2-DESIGN §7）——两仓 `pruned=0` 属预期而非失败
-（P5 已随 v1.1 搁置，不因 pruned=0 判失败）。
+判读：① Arm0 ACCEPT 且 `ordered_ids` 与归档一致（off 语义未动）；② Arm1 ACCEPT、`prune_reasons`
+只含 echo/duplicate/degenerate、`pruned` 与上表预测一致（不一致=先查钉集/仓版本，**不现场改判据**）；
+③ **任一项红=REJECT 记负结果**。P5 已随 v1.1 搁置，`pruned=0` 不判失败。
 
 ## §5 块 5：K1 全量重判（verify=gpt-oss 生产臂，vs 10-03 qwen 基线）
 

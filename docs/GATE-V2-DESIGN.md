@@ -67,9 +67,10 @@ budget: {candidates, kept, pruned, saving_ratio}
 
 ## 4. 安全性论证：为什么 A 姿态对规则层无损
 
-- **规则行在渲染层回注**：`codeark/agents/report_agent.py:259-272` 把
-  `meta.agent0_findings` 逐条并入 findings（`findings = dedup([*rule_rows, *findings])`），
-  且 `apply_severity_floor` 保证规则级别只升不降。所以一条 echo 假设被剪，
+- **规则行在渲染层回注**：`codeark/agents/report_agent.py:109-133`
+  （`merge_agent0_baseline`，`render_report` 内调用）把
+  `meta.agent0_findings` 逐条并入 findings（`dedup_findings([*rule_rows, *normalized])`），
+  且 `apply_severity_floor`（`report_agent.py:55`）保证规则级别只升不降。所以一条 echo 假设被剪，
   **它的 (file, rule) 结论仍在报告里**——Verify 对它本来就买不到新东西。
 - **反向证据（必须承认的损失面）**：语义增量假设（无 agent0 备份）被剪就真的消失。
   variant-23 活标本：`H3 src/privileges.py LOGIC_ERROR` 与 agent0 的
