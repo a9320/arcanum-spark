@@ -90,6 +90,8 @@ def test_aggregate_counts():
         # v0.7 新增三键
         "confident_refutations": 0, "confident_refutations_semantic": 0,
         "insufficient_runs": 0,
+        # D4 新增两键
+        "verdict_flips": 0, "questions_with_flips": 0,
     }
 
 
@@ -135,6 +137,47 @@ def test_artifact_split_from_unplanned():
     assert [r["id"] for r in out["judgment"]["unplanned_confirmed"]] == ["H2"]
     agg = m8._aggregate([out])
     assert agg["artifact_confirmed"] == 2 and agg["unplanned_confirmed"] == 1
+
+
+# ── D4：跨卷 verdict / 档位翻转（复核候选清单）──
+
+def _report_conf(rows: list[tuple[str, str, str, float]]) -> dict:
+    hyps = [{"id": h, "vuln_type": t, "title": f"t-{h}"} for h, t, _, _ in rows]
+    vers = [{"hypothesis_id": h, "hypothesis_title": f"t-{h}", "verdict": v,
+             "confidence": c} for h, _, v, c in rows]
+    return {"meta": {"hypothesis_set": {"hypotheses": hyps}, "verifications": vers}}
+
+
+def test_aggregate_runs_records_verdict_flips():
+    r1 = m8.judge_question(_ENTRY, _report_conf([("H1", "PIT-T-46", "CONFIRMED", 0.9)]), None)
+    r2 = m8.judge_question(_ENTRY, _report_conf([("H1", "PIT-T-46", "UNCERTAIN", 0.9)]), None)
+    agg = m8._aggregate_runs([r1, r2], 1)
+    flips = agg["judgment"]["verdict_flips"]
+    assert len(flips) == 1
+    assert flips[0]["verdicts"] == ["CONFIRMED", "UNCERTAIN"]
+    assert flips[0]["runs_present"] == 2
+    assert m8._aggregate([agg])["verdict_flips"] == 1
+    assert m8._aggregate([agg])["questions_with_flips"] == 1
+
+
+def test_aggregate_runs_records_tier_flip_and_quiet_when_consistent():
+    r1 = m8.judge_question(_ENTRY, _report_conf([("H1", "PIT-T-46", "CONFIRMED", 0.9)]), None)
+    r2 = m8.judge_question(_ENTRY, _report_conf([("H1", "PIT-T-46", "CONFIRMED", 0.75)]), None)
+    agg = m8._aggregate_runs([r1, r2], 1)
+    flips = agg["judgment"]["verdict_flips"]
+    assert len(flips) == 1
+    assert flips[0]["confidence_tiers"] == [0.9, 0.75]
+
+    r3 = m8.judge_question(_ENTRY, _report_conf([("H1", "PIT-T-46", "CONFIRMED", 0.9)]), None)
+    assert m8._aggregate_runs([r1, r3], 1)["judgment"]["verdict_flips"] == []
+
+
+def test_verdict_flips_ignore_single_run_hypotheses():
+    """只出现在单卷的假设无对照，不计翻转（Scout 采样方差不误报）。"""
+    r1 = m8.judge_question(_ENTRY, _report_conf([("H1", "PIT-T-46", "CONFIRMED", 0.9)]), None)
+    r2 = m8.judge_question(_ENTRY, _report_conf([("H2", "PIT-T-46", "REFUTED", 0.9)]), None)
+    agg = m8._aggregate_runs([r1, r2], 1)
+    assert agg["judgment"]["verdict_flips"] == []
 
 
 # ── v0.1：语义等价类口径 ──

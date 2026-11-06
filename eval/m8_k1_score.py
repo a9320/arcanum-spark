@@ -254,6 +254,7 @@ def judge_question(entry: dict, report: dict | None, upstream_root: Path | None)
         "intended_types": entry.get("intended_types"),
         "pipeline": None,
         "judgment": None,
+        "verdicts": None,  # D4：逐假设原始裁决（跨卷翻转的原料；单卷也落）
         **_flag_digest(
             upstream_root / entry["upstream_path"]
             if upstream_root and entry.get("upstream_path")
@@ -279,6 +280,7 @@ def judge_question(entry: dict, report: dict | None, upstream_root: Path | None)
     }
     confirmed, refuted_intended, unplanned, unclassifiable = [], [], [], []
     artifact_confirmed, refuted_sem, unplanned_sem = [], [], []
+    verdict_rows: list[dict] = []
     intended = entry.get("intended_types")
     for v in verifications:
         if not isinstance(v, dict):
@@ -287,6 +289,7 @@ def judge_question(entry: dict, report: dict | None, upstream_root: Path | None)
         row = {"id": vid, "vuln_type": type_by_id.get(vid), "verdict": v.get("verdict"),
                "title": v.get("hypothesis_title"), "file_path": path_by_id.get(vid),
                "confidence": _conf(v)}
+        verdict_rows.append(row)
         verdict = str(v.get("verdict") or "").upper()
         if verdict == "CONFIRMED":
             confirmed.append(row)
@@ -369,6 +372,7 @@ def judge_question(entry: dict, report: dict | None, upstream_root: Path | None)
             "confident_refutations": confident_refutations_sem,
         } if intended is not None else None,
     }
+    out["verdicts"] = verdict_rows
     return out
 
 
@@ -395,6 +399,70 @@ def _merge_counts(blocks: list) -> dict | None:
             for k, v in st.items():
                 merged[k] = merged.get(k, 0) + int(v or 0)
     return merged if found else None
+
+
+# D1 五档锚（与 codeark/agents/verify_agent.snap_confidence 同规则；eval 脚本保持
+# 零 codeark 依赖，故本地实现一份，改锚时两处同步——2026-11-04 D4）
+_CONF_TIERS = (0.95, 0.9, 0.75, 0.5, 0.3)
+
+
+def _conf_tier(value: Any) -> float | None:
+    """round-to-nearest-anchor；平手取更靠近 0.5 的锚；越界夹取 [0.3, 0.95]。"""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    v = max(0.3, min(0.95, v))
+    return float(min(_CONF_TIERS, key=lambda a: (abs(v - a), abs(a - 0.5))))
+
+
+def _hyp_key(row: dict) -> tuple[str, str, str]:
+    """跨卷假设身份键：Scout 采样方差下 id 跨卷不可靠（见 _merge_rows 同因）。"""
+    return (
+        str(row.get("file_path") or "").replace("\\", "/").strip().lower(),
+        str(row.get("vuln_type") or "").strip().upper(),
+        str(row.get("title") or "").strip().lower(),
+    )
+
+
+def _verdict_flips(rows_run: list[dict]) -> list[dict]:
+    """D4：同一假设跨卷 verdict / 五档置信度不一致 → 记翻转（复核候选清单）。
+
+    仅统计出现在 ≥2 卷的假设；单卷独有假设不计（无对照）。返回逐条明细，
+    flips>0 的判决进复核候选（与 confident_refutations 并列的第二复核臂）。
+    """
+    per_run: list[dict[tuple, dict]] = []
+    for r in rows_run:
+        mapping: dict[tuple, dict] = {}
+        for row in r.get("verdicts") or []:
+            if isinstance(row, dict):
+                mapping.setdefault(_hyp_key(row), row)
+        per_run.append(mapping)
+    keys: set[tuple] = set()
+    for mapping in per_run:
+        keys.update(mapping)
+    flips: list[dict] = []
+    for key in sorted(keys):
+        verdicts: list[str] = []
+        tiers: list[float | None] = []
+        for mapping in per_run:
+            row = mapping.get(key)
+            if row is None:
+                continue
+            verdicts.append(str(row.get("verdict") or "").upper())
+            tiers.append(_conf_tier(row.get("confidence")))
+        if len(verdicts) < 2:
+            continue
+        if len(set(verdicts)) > 1 or len(set(tiers)) > 1:
+            flips.append({
+                "file_path": key[0],
+                "vuln_type": key[1],
+                "title": key[2],
+                "verdicts": verdicts,
+                "confidence_tiers": tiers,
+                "runs_present": len(verdicts),
+            })
+    return flips
 
 
 def _aggregate_runs(rows_run: list[dict], min_runs: int) -> dict:
@@ -452,6 +520,7 @@ def _aggregate_runs(rows_run: list[dict], min_runs: int) -> dict:
         "confident_refutations": _merge_rows(rows_run, "confident_refutations") if intended_present else None,
         "runs": runs,
         "runs_fn_true": sum(1 for j in judged if j.get("fn") is True),
+        "verdict_flips": _verdict_flips(rows_run),
         "insufficient_runs": insufficient,
         "semantic": None if not intended_present else {
             "tp": tp_sem,
@@ -486,6 +555,8 @@ def _aggregate(rows: list[dict]) -> dict:
         "artifact_confirmed": sum(len(j.get("artifact_confirmed") or []) for j in judged),
         "confident_refutations": sum(len(j.get("confident_refutations") or []) for j in judged),
         "insufficient_runs": sum(1 for j in judged if j.get("insufficient_runs") is True),
+        "verdict_flips": sum(len(j.get("verdict_flips") or []) for j in judged),
+        "questions_with_flips": sum(1 for j in judged if j.get("verdict_flips")),
         "tp_semantic": sum(1 for s in sem if s.get("tp") is True),
         "fn_semantic": sum(1 for s in sem if s.get("fn") is True),
         "fn_indeterminate_semantic": sum(
