@@ -288,7 +288,8 @@ def judge_question(entry: dict, report: dict | None, upstream_root: Path | None)
         vid = str(v.get("hypothesis_id"))
         row = {"id": vid, "vuln_type": type_by_id.get(vid), "verdict": v.get("verdict"),
                "title": v.get("hypothesis_title"), "file_path": path_by_id.get(vid),
-               "confidence": _conf(v)}
+               "confidence": _conf(v),
+               "starving": bool(v.get("starving"))}  # D3 透传（旧 JSON 无此键→False）
         verdict_rows.append(row)
         verdict = str(v.get("verdict") or "").upper()
         if verdict == "CONFIRMED":
@@ -430,6 +431,8 @@ def _verdict_flips(rows_run: list[dict]) -> list[dict]:
 
     仅统计出现在 ≥2 卷的假设；单卷独有假设不计（无对照）。返回逐条明细，
     flips>0 的判决进复核候选（与 confident_refutations 并列的第二复核臂）。
+    D3：逐条附 `starved_runs`（该假设 starving=True 的卷序号，0 起）——
+    翻转涉饥饿卷的归"证据状态差异"，与纯采样方差分开判读。
     """
     per_run: list[dict[tuple, dict]] = []
     for r in rows_run:
@@ -445,12 +448,15 @@ def _verdict_flips(rows_run: list[dict]) -> list[dict]:
     for key in sorted(keys):
         verdicts: list[str] = []
         tiers: list[float | None] = []
-        for mapping in per_run:
+        starved_runs: list[int] = []
+        for ri, mapping in enumerate(per_run):
             row = mapping.get(key)
             if row is None:
                 continue
             verdicts.append(str(row.get("verdict") or "").upper())
             tiers.append(_conf_tier(row.get("confidence")))
+            if row.get("starving"):
+                starved_runs.append(ri)
         if len(verdicts) < 2:
             continue
         if len(set(verdicts)) > 1 or len(set(tiers)) > 1:
@@ -461,6 +467,7 @@ def _verdict_flips(rows_run: list[dict]) -> list[dict]:
                 "verdicts": verdicts,
                 "confidence_tiers": tiers,
                 "runs_present": len(verdicts),
+                "starved_runs": starved_runs,
             })
     return flips
 
@@ -521,6 +528,11 @@ def _aggregate_runs(rows_run: list[dict], min_runs: int) -> dict:
         "runs": runs,
         "runs_fn_true": sum(1 for j in judged if j.get("fn") is True),
         "verdict_flips": _verdict_flips(rows_run),
+        # D3：证据不足卷计数（与 verdict_flips 的采样方差分开——4c 根因定性从混合拆开）
+        "starved_verdicts": sum(
+            1 for r in rows_run for row in (r.get("verdicts") or [])
+            if isinstance(row, dict) and row.get("starving")
+        ),
         "insufficient_runs": insufficient,
         "semantic": None if not intended_present else {
             "tp": tp_sem,
@@ -557,6 +569,10 @@ def _aggregate(rows: list[dict]) -> dict:
         "insufficient_runs": sum(1 for j in judged if j.get("insufficient_runs") is True),
         "verdict_flips": sum(len(j.get("verdict_flips") or []) for j in judged),
         "questions_with_flips": sum(1 for j in judged if j.get("verdict_flips")),
+        "starved_verdicts": sum(int(j.get("starved_verdicts") or 0) for j in judged),
+        "flips_with_starved_runs": sum(
+            1 for j in judged for f in (j.get("verdict_flips") or [])
+            if isinstance(f, dict) and f.get("starved_runs")),
         "tp_semantic": sum(1 for s in sem if s.get("tp") is True),
         "fn_semantic": sum(1 for s in sem if s.get("fn") is True),
         "fn_indeterminate_semantic": sum(

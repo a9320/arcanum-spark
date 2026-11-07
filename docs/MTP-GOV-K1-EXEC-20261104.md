@@ -165,3 +165,13 @@ bash scripts/k1_rescore.sh /mnt/workspace/runs/20261104-k1-gptoss /mnt/workspace
 - 结果回填：Exp A/B 三判据读数进 `VERDICT-VARIANCE-GOVERNANCE.md` §六实施记录"待 DSW 验收"行；
   B2 三分支结论进 `HARDEN-AB-EXEC-20261102.md` §5；K1 翻转清单与两口径 tp/fn 进判决层台账 + WORK_LOG。
 - 本单无论全绿/部分负结果，**都不产生代码改动**；固化项只认"每 PASS 单独 commit"规则。
+
+## §8 追记（2026-11-07 晚）：D3 starving 已落地——本窗不载入，验收留下窗
+
+- D3（证据包饥饿前置标记）已于本单成文后落地本地（schema+verify_agent+判分器+测试，
+  verify 5/5，实施记录=设计稿 §七）。**本窗各块仍按本单 HEAD（`c5ce389`）跑，不载入 D3**——
+  预注册实验固定 HEAD 纪律优先；D3 提交在窗口收工后才上仓。
+- **D3 真机验收（下窗任一 minpack/default 双臂跑顺带观测）**：判据=minpack 卷
+  `starving=True`（包宽率 `pack_fraction` 触发）/ default 卷全 False；只观察遥测，
+  不改 §1 预注册闸门。读数一行（对 report.json）：
+  `python3 -c "import json;d=json.load(open('<OUT>/e2e_report.json'));[print(v.get('hypothesis_id'),v.get('starving'),v.get('pack_tokens'),v.get('pack_coverage'),v.get('pack_fraction')) for v in d['verifications']]"`

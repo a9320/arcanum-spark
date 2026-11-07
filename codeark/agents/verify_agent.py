@@ -389,6 +389,75 @@ def _evidence_pack(files: dict[str, str], hyp, fp: str) -> dict[str, str]:
     return pack
 
 
+def _starving_thresholds() -> tuple[float, float]:
+    """D3 饥饿双阈值：(点名覆盖率, 包宽率)。0=该闸关。"""
+    def _f(name: str, default: str) -> float:
+        try:
+            return float(os.getenv(name, default))
+        except ValueError:
+            return float(default)
+
+    return (
+        _f("ARCA_VERIFY_STARVING_COVERAGE", "1.0"),
+        _f("ARCA_VERIFY_STARVING_MIN_FRACTION", "0.5"),
+    )
+
+
+def _pack_health(files: dict[str, str], hyp, fp: str, pack: dict[str, str]) -> tuple[int, float, float]:
+    """D3 证据包健康度统计（设计稿 VERDICT-VARIANCE-GOVERNANCE §二 D3）。
+
+    返回 (pack_tokens, 点名覆盖率, 包宽率)：
+    - pack_tokens：包内内容 _est_tokens 粗估；
+    - 点名覆盖率：假设点名文件（file_path + attack_path/suggested_verification
+      中点名的仓内路径）进入包的比例——预算截断点名文件时下降；
+    - 包宽率：pack_tokens/全仓 tokens——minpack 类极小包（budget=1 时点名文件
+      被 force 进包、点名覆盖率恒 1.0）的盲区补刀，4c 饥饿机理由此点亮。
+    fp 为幻觉路径时 pack=全量，两率均 1.0。
+    """
+    pack_tokens = sum(_est_tokens(v) for v in pack.values())
+    total = sum(_est_tokens(v) for v in files.values()) or 1
+    fraction = pack_tokens / total
+    by_norm = {_norm_path(k) for k in files}
+    norm_fp = _norm_path(fp)
+    if norm_fp not in by_norm:
+        return pack_tokens, 1.0, 1.0
+    named = {norm_fp}
+    hints = " ".join([
+        str(getattr(hyp, "attack_path", "") or ""),
+        str(getattr(hyp, "suggested_verification", "") or ""),
+    ])
+    for raw in _EVIDENCE_PATH_RE.findall(hints):
+        np_ = _norm_path(raw)
+        if np_ in by_norm:
+            named.add(np_)
+    pack_norms = {_norm_path(k) for k in pack}
+    coverage = len(named & pack_norms) / len(named)
+    return pack_tokens, coverage, fraction
+
+
+def _stamp_pack_health(result: VerificationResult, files: dict[str, str], hyp, fp: str,
+                       pack: dict[str, str]) -> VerificationResult:
+    """D3 回填（唯一写入点）：pack 健康度统计盖写到判决记录 + 饥饿判定。
+
+    模型产出值已在 _apply_governance 清零；此处以我方计算值覆盖。
+    starving = 点名覆盖率 < ARCA_VERIFY_STARVING_COVERAGE（默认 1.0）
+             或 包宽率 < ARCA_VERIFY_STARVING_MIN_FRACTION（默认 0.5）；
+    阈值 0 = 关闸。1e-9 容差防浮点表示误差误报。
+    """
+    tokens, coverage, fraction = _pack_health(files, hyp, fp, pack)
+    cov_thr, frac_thr = _starving_thresholds()
+    starving = (
+        (cov_thr > 0 and coverage + 1e-9 < cov_thr)
+        or (frac_thr > 0 and fraction + 1e-9 < frac_thr)
+    )
+    return result.model_copy(update={
+        "pack_tokens": tokens,
+        "pack_coverage": round(coverage, 4),
+        "pack_fraction": round(fraction, 4),
+        "starving": starving,
+    })
+
+
 def _check_evidence_quote(evidence: str, files: dict[str, str]) -> tuple[bool, str]:
     """E2 引文校验：evidence 提到仓内文件时，必须含该文件 ≥12 字符的逐字片段。
 
@@ -737,13 +806,18 @@ def snap_confidence(value: float) -> float:
 
 
 def _apply_governance(v: VerificationResult) -> VerificationResult:
-    """D1 confidence snap（env 可关）+ D2 evidence_source 清洗与 partial_grounding 派生。"""
+    """D1 confidence snap（env 可关）+ D2 evidence_source 清洗与 partial_grounding 派生
+    + D3 pack 三字段清零（我方计算字段，模型不得产出；verify_agent pack 侧回填）。"""
     if _anchors_enabled():
         v.confidence = snap_confidence(v.confidence)
     src = (v.evidence_source or "").strip().lower()
     v.evidence_source = src if src in _VALID_EVIDENCE_SOURCES else None
     v.partial_grounding = bool(
         v.verdict == "CONFIRMED" and v.evidence_source == "library_knowledge")
+    v.starving = False
+    v.pack_tokens = 0
+    v.pack_coverage = 1.0
+    v.pack_fraction = 1.0
     return v
 
 
@@ -861,6 +935,9 @@ async def run_verify_split(
                             + " (quote-check-failed)"
                         ),
                     )
+            # D3 证据包健康度回填（严格降级之后：降级路径同样带统计，
+            # starving 不被上面的重建丢失）
+            result = _stamp_pack_health(result, safe, hyp, fp, pack)
             return result
 
     results = await asyncio.gather(*[_run(i, h) for i, h in enumerate(hyps)])

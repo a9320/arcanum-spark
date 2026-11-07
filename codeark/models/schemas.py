@@ -105,6 +105,31 @@ class VerificationResult(BaseModel):
         description="True=invoke/输出契约失败后的降级记录；verdict 的 UNCERTAIN "
         "不代表模型真实判断，聚合与判分不得与真实 UNCERTAIN 混同",
     )
+    starving: bool = Field(
+        default=False,
+        description="方差治理 D3（我方计算，模型不得产出）：证据包饥饿判定——"
+        "点名覆盖率 < ARCA_VERIFY_STARVING_COVERAGE（默认 1.0）或包宽率 < "
+        "ARCA_VERIFY_STARVING_MIN_FRACTION（默认 0.5，0=关闸）；归一化层清零，"
+        "verify_agent pack 侧回填；判分器据此把'证据不足卷'与采样方差分开计数",
+    )
+    pack_tokens: int = Field(
+        default=0,
+        description="D3 统计：证据包内容 token 粗估（_est_tokens 口径）",
+    )
+    pack_coverage: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="D3 统计：假设点名文件（file_path + attack_path/"
+        "suggested_verification 点名的仓内路径）进包覆盖率 0~1",
+    )
+    pack_fraction: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="D3 统计：包宽率=pack_tokens/全仓 tokens——minpack 类极小包"
+        "（4c 饥饿机理）下点名文件被 force 进包、点名覆盖率恒 1.0 的盲区补刀",
+    )
 
 
 # ── id 对齐（确定性，替代 title 字符串匹配）──

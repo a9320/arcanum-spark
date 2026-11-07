@@ -76,3 +76,13 @@
 - **D2**：`VerificationResult` 增 `evidence_source`（自由字符串入库防 junk 炸校验，归一化层清洗为四值）+ `partial_grounding`（派生字段，模型不得产出：CONFIRMED ∧ library_knowledge）；prompt 三块加四选一指引。
 - **测试**：`codeark/tests/test_verdict_governance.py` 9 锚（snap 锚值/平手/夹取/env 关闸/清洗/派生/双收口贯通/prompt 契约）；410 collected 全绿零回归。
 - **待 DSW 验收**（预注册 §四）：①gatekeeping 固定假设集 N=5 档位一致率 ≥4/5；②t4c minpack 臂重跑 H1 grounding 分布随臂漂移（H2 零效应对照）；③confident_refutations 保持 0。
+
+## 七、实施记录（P2：D4 2026-11-07 上半天 + D3 2026-11-07 晚）
+
+- **D4（跨卷方差指标自动化）**：`eval/m8_k1_score.py` `_verdict_flips`（同假设跨卷 verdict/五档档位不一致即记，仅计 ≥2 卷在场的假设）+ `_aggregate_runs`/`_aggregate` 两级计数；复核第二臂与 confident_refutations 并列。六卷实测 0 翻转（2026-11-06 卷）。测试=`tests/test_m8_k1_score.py` D4 区。
+- **D3（证据包饥饿前置标记）**：
+  - **schema**：`VerificationResult` +4 字段 `starving/pack_tokens/pack_coverage(点名覆盖率)/pack_fraction(包宽率)`——均"我方计算，模型不得产出"，`_apply_governance` 清零，`_stamp_pack_health` 为唯一写入点（严格降级分支之后回填，降级路径同样带统计）。
+  - **双触发（对 §二 D3 规格的偏离，实施期定稿待追认）**：规格原文只写"点名覆盖率 < 阈值"；实施发现 **minpack 臂（budget=1）下点名文件被 force 进包 ⇒ 点名覆盖率恒 1.0，恰在 4c 饥饿机理上全盲** ⇒ 增第二触发**包宽率** `pack_fraction=pack_tokens/全仓 tokens`（minpack 趋 0）。阈值 env：`ARCA_VERIFY_STARVING_COVERAGE`（默认 1.0）/`ARCA_VERIFY_STARVING_MIN_FRACTION`（默认 0.5）；0=关闸；1e-9 容差防浮点误报。fp 幻觉路径（pack=全量）两率恒 1.0 不误报。
+  - **判分器**：verdict 行透传 `starving`（旧 JSON 无键→False 零回归）；flips 逐条附 `starved_runs`（该假设饥饿卷序号）——翻转涉饥饿卷归"证据状态差异"，与纯采样方差分开判读；`_aggregate_runs`/`_aggregate` 增 `starved_verdicts` 与 `flips_with_starved_runs`（4c 根因定性从混合拆开的机读入口）。
+  - **测试**：`codeark/tests/test_verify_starving.py` 13 锚（阈值默认/env/非法回退；全包两率 1.0；点名截断 coverage=0.5；幻觉 fp；**minpack 形 coverage 盲区+fraction 点亮**；双闸关闸统计照常；stamp 保字段；治理清零）+ `tests/test_m8_k1_score.py` D3 区 4 锚；verify.sh 5/5。
+  - **真机验收（留窗）**：随下窗任一 minpack/default 双臂跑观测——判据=minpack 卷 `starving=True`（包宽率触发）/ default 卷全 False；**只观察遥测，不改 Exp A/B 预注册闸门**。

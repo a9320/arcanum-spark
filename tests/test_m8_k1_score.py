@@ -92,6 +92,8 @@ def test_aggregate_counts():
         "insufficient_runs": 0,
         # D4 新增两键
         "verdict_flips": 0, "questions_with_flips": 0,
+        # D3 新增两键
+        "starved_verdicts": 0, "flips_with_starved_runs": 0,
     }
 
 
@@ -170,6 +172,62 @@ def test_aggregate_runs_records_tier_flip_and_quiet_when_consistent():
 
     r3 = m8.judge_question(_ENTRY, _report_conf([("H1", "PIT-T-46", "CONFIRMED", 0.9)]), None)
     assert m8._aggregate_runs([r1, r3], 1)["judgment"]["verdict_flips"] == []
+
+
+# ── D3：饥饿卷计数与翻转标注（证据不足与采样方差分开）──
+
+def _report_starved(rows: list[tuple[str, str, str, float, bool]]) -> dict:
+    hyps = [{"id": h, "vuln_type": t, "title": f"t-{h}"} for h, t, _, _, _ in rows]
+    vers = [{"hypothesis_id": h, "hypothesis_title": f"t-{h}", "verdict": v,
+             "confidence": c, "starving": s} for h, _, v, c, s in rows]
+    return {"meta": {"hypothesis_set": {"hypotheses": hyps}, "verifications": vers}}
+
+
+def test_verdict_flips_annotate_starved_runs():
+    r1 = m8.judge_question(
+        _ENTRY, _report_starved([("H1", "PIT-T-46", "CONFIRMED", 0.9, True)]), None)
+    r2 = m8.judge_question(
+        _ENTRY, _report_starved([("H1", "PIT-T-46", "UNCERTAIN", 0.9, False)]), None)
+    agg = m8._aggregate_runs([r1, r2], 1)
+    flips = agg["judgment"]["verdict_flips"]
+    assert len(flips) == 1
+    assert flips[0]["starved_runs"] == [0]  # 翻转涉饥饿卷 → 归"证据状态差异"
+    assert agg["judgment"]["starved_verdicts"] == 1
+    top = m8._aggregate([agg])
+    assert top["starved_verdicts"] == 1 and top["flips_with_starved_runs"] == 1
+
+
+def test_starved_runs_localized_and_counted():
+    # 饥饿在第 3 卷（序号 2）；饥饿计数只计真饥饿卷
+    r1 = m8.judge_question(
+        _ENTRY, _report_starved([("H1", "PIT-T-46", "CONFIRMED", 0.9, False)]), None)
+    r2 = m8.judge_question(
+        _ENTRY, _report_starved([("H1", "PIT-T-46", "UNCERTAIN", 0.9, False)]), None)
+    r3 = m8.judge_question(
+        _ENTRY, _report_starved([("H1", "PIT-T-46", "CONFIRMED", 0.9, True)]), None)
+    agg = m8._aggregate_runs([r1, r2, r3], 1)
+    assert agg["judgment"]["verdict_flips"][0]["starved_runs"] == [2]
+    assert agg["judgment"]["starved_verdicts"] == 1
+    top = m8._aggregate([agg])
+    assert top["flips_with_starved_runs"] == 1 and top["starved_verdicts"] == 1
+
+
+def test_clean_flip_annotated_empty_starved_runs():
+    r1 = m8.judge_question(
+        _ENTRY, _report_starved([("H1", "PIT-T-46", "CONFIRMED", 0.9, False)]), None)
+    r2 = m8.judge_question(
+        _ENTRY, _report_starved([("H1", "PIT-T-46", "UNCERTAIN", 0.9, False)]), None)
+    agg = m8._aggregate_runs([r1, r2], 1)
+    assert agg["judgment"]["verdict_flips"][0]["starved_runs"] == []
+    assert agg["judgment"]["starved_verdicts"] == 0
+    assert m8._aggregate([agg])["flips_with_starved_runs"] == 0
+
+
+def test_old_json_without_starving_key_is_clean():
+    # 旧归档 JSON 无 starving 键 → bool(None)=False，判分零回归
+    r1 = m8.judge_question(_ENTRY, _report_conf([("H1", "PIT-T-46", "CONFIRMED", 0.9)]), None)
+    assert all(row["starving"] is False for row in r1["verdicts"])
+    assert m8._aggregate_runs([r1], 1)["judgment"]["starved_verdicts"] == 0
 
 
 def test_verdict_flips_ignore_single_run_hypotheses():
