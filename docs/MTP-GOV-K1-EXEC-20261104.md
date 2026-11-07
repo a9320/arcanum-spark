@@ -109,9 +109,9 @@ for v in variant-23 variant-27 pandas; do
   else
     REPO=/mnt/workspace/repos/$v; SRC=reports/${v}_gate_laya/e2e_report.json
   fi
-  python eval/run_gate_e2e.py "$REPO" --backend laya --model /mnt/workspace/models/laya-r7 \
+  ARCA_DEPLOYMENT=local python eval/run_gate_e2e.py "$REPO" --backend laya --model /mnt/workspace/models/laya-r7 \
     --hypotheses-from "$SRC" --out "$BASE/$v-arm0-off"
-  python eval/run_gate_e2e.py "$REPO" --backend laya --model /mnt/workspace/models/laya-r7 \
+  ARCA_DEPLOYMENT=local python eval/run_gate_e2e.py "$REPO" --backend laya --model /mnt/workspace/models/laya-r7 \
     --prune structural --hypotheses-from "$SRC" --out "$BASE/$v-arm1-structural"
   python eval/compare_gate_e2e.py --baseline "$SRC" \
     --arm "$BASE/$v-arm0-off" --arm "$BASE/$v-arm1-structural" \
@@ -151,11 +151,13 @@ bash scripts/k1_rescore.sh /mnt/workspace/runs/20261104-k1-gptoss /mnt/workspace
 2. **直推三步**（11-02 四条教训固化）：
    ```bash
    git -c http.version=HTTP/1.1 pull --rebase origin master 2>&1 | tail -3   # 先 rebase，防 non-fast-forward
-   read -rs -p "GHT=" T && export T; echo; echo "len=${#T}"                  # 单独一条贴，len 36–100
-   git -c http.version=HTTP/1.1 push "https://$T@github.com/a9320/arcanum-spark.git" master 2>&1 | tail -2; unset T
+   read -rs -p "GHT=" T && export T && T=$(printf %s "$T" | tr -d '[:space:]'); echo; echo "len=${#T}"   # 单独一条贴+剥空白（11-07：尾随空格 96→93 致 bad format）
+   git -c http.version=HTTP/1.1 push "https://a9320:$T@github.com/a9320/arcanum-spark.git" master 2>&1 | tail -2; unset T
    ```
    失败分型：`Invalid username or token`=认证（重注 token）｜`before pushing again`=先 pull --rebase｜
-   `port 443 timed out`=网络劣化（可重试，但**循环必须带成功即 break**，禁止裸重试循环）。
+   `port 443 timed out`=网络劣化（可重试，但**循环必须带成功即 break**，禁止裸重试循环）｜
+   `URL using bad/illegal format`=token 含空白或为空（用上方剥空白 read）｜
+   **`Password for 'https://github_pat…` 提示=URL 缺 `username:` 前缀（git 把 token 当用户名回落交互，整 URL 明文上屏=token 已泄漏，立即轮换——11-07 与 11-02 两次同型事故；push URL 必须带 `a9320:` 前缀）**。
 3. **持久区归档**：`tar czf /mnt/workspace/runs/20261104-all.tar.gz -C /mnt/workspace/runs 20261104-*`
    （双副本兜底，GitHub push 绿之前不关机）。
 4. push 绿 + tar 在位 → **可关机**。
@@ -175,3 +177,22 @@ bash scripts/k1_rescore.sh /mnt/workspace/runs/20261104-k1-gptoss /mnt/workspace
   `starving=True`（包宽率 `pack_fraction` 触发）/ default 卷全 False；只观察遥测，
   不改 §1 预注册闸门。读数一行（对 report.json）：
   `python3 -c "import json;d=json.load(open('<OUT>/e2e_report.json'));[print(v.get('hypothesis_id'),v.get('starving'),v.get('pack_tokens'),v.get('pack_coverage'),v.get('pack_fraction')) for v in d['verifications']]"`
+
+## §9 追记（2026-11-07 夜窗实跑结果：块 2 定谳结案 + 块 4 首跑 INVALID）
+
+- **块 2 B2 MTP = 定谳"不适用（Muse-Glimmer 无 MTP 头）"，结案出本单**：构建支持（`--spec-type` 枚举含
+  `draft-mtp`）✓ + `srv_muse.log` draft/mtp 零命中 ✓ + GGUF 头部 5MB metadata 探针仅 `Draft/SMTP/drafted`
+  文本假阳性（真 MTP 头应出 mtp/nextn 结构键）✓。按 §2 预注册第二分支结案；判决已回填
+  `HARDEN-AB-EXEC-20261102.md` §5。证据=`reports/20261107-dsw-window/recovery/`。
+- **块 4 首跑 = INVALID（无效运行；非 REJECT 非 ACCEPT）**：①照抄 §4 命令漏
+  `ARCA_DEPLOYMENT=local`（runner 自文档要求，§4 命令已补）→ verify/deepen/arbiter 全走云路由、
+  pod 无 key 文件全降级"规则证实口径"（P2 红是 P2 的设计正确行为）②transformers 5.15.1
+  `ModernBertModel` import 失败 → laya gate fallback 原始顺序，pandas 预测（剪 1）不复现（实测 0）
+  ——**结构剪枝真实行为未被测到**。留证=`reports/20261107-dsw-window/gate-run1-invalid/`
+  （三仓 acceptance 全 FAIL/P2 红）。**重跑条件=READY 三证 + `ARCA_DEPLOYMENT=local` +
+  transformers 钉 5.14.1（本机已知良好版，pod 5.15.1 为回归嫌疑）**。
+- **恢复序惊喜**：平台旧 oneclick 副本疑似引导期自跑播种——`/root/models` 块 0 不存在、oneclick
+  点火时五模型已全"已有…字节+SHA 双闸过"→ READY 仅 30s、VRAM 103.0GiB 正中固化带。
+- **凭据泄漏（与 11-02 同型第二次）**：push URL `https://$T@…` 缺 username 前缀 → git 回落 Password
+  提示整 URL 明文上屏 → **已提醒立即轮换**。§6.2 命令已修（`a9320:` 前缀 + read 剥空白）。
+- **下窗任务**：块 4 重跑（上述三条件）→ 块 3 Exp A/B 整窗（N=5/N=3×2 不砍）→ K1 分段。

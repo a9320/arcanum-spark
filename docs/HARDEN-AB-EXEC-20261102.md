@@ -157,6 +157,12 @@ grep -iE "draft|mtp" /root/srv_muse.log | tail -3
 有 → 对 muse-scout 加 `--spec-type draft-mtp --spec-draft-n-max 2` 重启，A/B 各 2 卷（同 §3 口径），
 重点是**输出 JSON 契约完整性**（Scout 交卷解析失败=0）与判决一致。
 
+> **✅ 定谳（2026-11-07 夜窗，11-07 追记）：不适用（Muse-Glimmer 无 MTP 头）**——
+> 构建支持（`--spec-type` 枚举含 `draft-mtp`）✓；`srv_muse.log` draft/mtp 零命中 ✓；
+> GGUF 头部 5MB metadata 探针仅 `Draft/SMTP/drafted` 文本假阳性（真 MTP 头应出
+> mtp/nextn 结构键或张量名）✓。按本节预注册分支结案，B2 出执行单。证据=
+> `reports/20261107-dsw-window/recovery/`（srv 日志+oneclick 日志）。
+
 ---
 
 ## §6 收尾（无论通过与否）
