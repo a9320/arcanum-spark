@@ -1,0 +1,101 @@
+{
+  "schema": "verify-tiers-microbench/1",
+  "fixture": "reports/20261102-harden/reuse-r1/e2e_report.json",
+  "runs": 5,
+  "evidence_pack": "synthetic_from_snippet",
+  "elapsed_per_run": [
+    25.5,
+    19.3,
+    20.6,
+    20.8,
+    20.6
+  ],
+  "reference_mi300x": {
+    "H1": {
+      "verdict": "UNCERTAIN",
+      "tier": 0.5
+    },
+    "H2": {
+      "verdict": "CONFIRMED",
+      "tier": 0.95
+    },
+    "H3": {
+      "verdict": "CONFIRMED",
+      "tier": 0.95
+    },
+    "H4": {
+      "verdict": "UNCERTAIN",
+      "tier": 0.3
+    }
+  },
+  "stats": {
+    "hypotheses": {
+      "H1": {
+        "verdicts": [
+          "CONFIRMED"
+        ],
+        "verdict_flip": false,
+        "tiers": {
+          "0.95": 5
+        },
+        "modal_tier": 0.95,
+        "agreement": 1.0,
+        "valid_samples": 5,
+        "degraded_samples": 0,
+        "pass": true
+      },
+      "H2": {
+        "verdicts": [
+          "UNCERTAIN"
+        ],
+        "verdict_flip": false,
+        "tiers": {
+          "0.3": 5
+        },
+        "modal_tier": 0.3,
+        "agreement": 1.0,
+        "valid_samples": 5,
+        "degraded_samples": 0,
+        "pass": true
+      },
+      "H3": {
+        "verdicts": [
+          "CONFIRMED",
+          "UNCERTAIN"
+        ],
+        "verdict_flip": true,
+        "tiers": {
+          "0.95": 1,
+          "0.3": 4
+        },
+        "modal_tier": 0.3,
+        "agreement": 0.8,
+        "valid_samples": 5,
+        "degraded_samples": 0,
+        "pass": false
+      },
+      "H4": {
+        "verdicts": [
+          "REFUTED",
+          "UNCERTAIN"
+        ],
+        "verdict_flip": true,
+        "tiers": {
+          "0.95": 4,
+          "0.3": 1
+        },
+        "modal_tier": 0.95,
+        "agreement": 0.8,
+        "valid_samples": 5,
+        "degraded_samples": 0,
+        "pass": false
+      }
+    },
+    "all_pass": false,
+    "verdict_flips": [
+      "H3",
+      "H4"
+    ]
+  },
+  "verdict": "FAIL"
+}
