@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
 import time
 from collections import Counter
@@ -154,7 +155,25 @@ def _self_test() -> int:
     return 0
 
 
+def _align_acceptance_env() -> None:
+    """对齐 run-verify-acceptance.sh 的验收条件（缺一即非同口径）。
+
+    首轮 W7900 实测教训（2026-11-07）：漏 TEMPERATURE=0 时 llama-server 走自身默认
+    0.8 → 3/4 假设跨 run 翻转 = 采样噪声假 FAIL。setdefault：用户显式设过的 env 不覆盖。
+    """
+    os.environ.setdefault("ARCA_VERIFY_TEMPERATURE", "0")
+    os.environ.setdefault("ARCA_VERIFY_EVIDENCE_STRICT", "1")
+    os.environ.setdefault("ARCA_VERIFY_PLAIN_JSON", "1")
+    os.environ.setdefault("ARCA_VERIFY_MAX_CONCURRENCY", "1")
+    os.environ.setdefault("ARCA_VERIFY_MODEL", "gpt-oss-verify")
+    os.environ.setdefault("ARCA_VERIFY_BASE_URL", "http://127.0.0.1:8085/v1")
+
+
 async def _main(args: argparse.Namespace) -> int:
+    _align_acceptance_env()
+    print(f"[tiers] env: VERIFY_TEMPERATURE={os.environ['ARCA_VERIFY_TEMPERATURE']} "
+          f"EVIDENCE_STRICT={os.environ['ARCA_VERIFY_EVIDENCE_STRICT']} "
+          f"PLAIN_JSON={os.environ['ARCA_VERIFY_PLAIN_JSON']}（对齐 run-verify-acceptance）")
     hs, reference = _load_fixture(Path(args.frm))
     files = _synthetic_files(hs)
     print(f"[tiers] hyps={len(hs.hypotheses)} files={len(files)} runs={args.runs} "
