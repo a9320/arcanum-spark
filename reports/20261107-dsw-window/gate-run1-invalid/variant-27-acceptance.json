@@ -1,0 +1,83 @@
+{
+  "schema": "gate-e2e-acceptance/2",
+  "baseline": "reports/variant-27_gate_laya/e2e_report.json",
+  "verdict": "REJECT",
+  "arms": [
+    {
+      "arm": "variant-27-arm0-off",
+      "backend": "laya",
+      "criteria": {
+        "P1_reorder_only": true,
+        "P2_no_fallback": false,
+        "P3_quality_floor": true,
+        "P4_confirmed_coverage": true
+      },
+      "passed": false,
+      "observations": {
+        "hypotheses": 14,
+        "verify_requests": 5,
+        "confirmed_vs_baseline": [
+          5,
+          5
+        ],
+        "final_findings_vs_baseline": [
+          12,
+          12
+        ],
+        "baseline_confirmed_missing_in_arm": [],
+        "semantic_increment_confirmed": 5,
+        "refuted": 0,
+        "uncertain": 0,
+        "protected_ids": null,
+        "prune_mode": "off",
+        "pruned_ids": [],
+        "rule_layer_missing": null,
+        "elapsed_seconds": 4.194,
+        "node_errors": {
+          "verify": "RuntimeError: 所有 Verify 模型初始化均失败",
+          "deepen": "RuntimeError: 所有 Deepen 模型初始化均失败",
+          "arbiter": "RuntimeError: 所有 Arbiter 模型初始化均失败"
+        }
+      },
+      "missing_evidence": []
+    },
+    {
+      "arm": "variant-27-arm1-structural",
+      "backend": "laya",
+      "criteria": {
+        "P1_reorder_only": true,
+        "P2_no_fallback": false,
+        "P3_quality_floor": true,
+        "P4_confirmed_coverage": true
+      },
+      "passed": false,
+      "observations": {
+        "hypotheses": 14,
+        "verify_requests": 5,
+        "confirmed_vs_baseline": [
+          5,
+          5
+        ],
+        "final_findings_vs_baseline": [
+          12,
+          12
+        ],
+        "baseline_confirmed_missing_in_arm": [],
+        "semantic_increment_confirmed": 5,
+        "refuted": 0,
+        "uncertain": 0,
+        "protected_ids": null,
+        "prune_mode": "off",
+        "pruned_ids": [],
+        "rule_layer_missing": null,
+        "elapsed_seconds": 4.258,
+        "node_errors": {
+          "verify": "RuntimeError: 所有 Verify 模型初始化均失败",
+          "deepen": "RuntimeError: 所有 Deepen 模型初始化均失败",
+          "arbiter": "RuntimeError: 所有 Arbiter 模型初始化均失败"
+        }
+      },
+      "missing_evidence": []
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "repo": "/mnt/workspace/repos/variant-23",
+  "backend": "laya",
+  "prune_mode": "structural",
+  "pruned_ids": [],
+  "budget": null,
+  "hypothesis_source": "pinned",
+  "gate": {
+    "enabled": true,
+    "backend": "laya_gate",
+    "fallback": true,
+    "reason": "ModuleNotFoundError: Could not import module 'ModernBertModel'. Are this object's requirements defined correctly?",
+    "ordered_ids": [
+      "H1",
+      "H2",
+      "H3",
+      "H4",
+      "H5",
+      "H6"
+    ],
+    "selected_ids": [
+      "H1",
+      "H2",
+      "H3",
+      "H4",
+      "H5",
+      "H6"
+    ],
+    "pruned_ids": []
+  },
+  "elapsed_seconds": 4.201,
+  "files": 11,
+  "hypotheses": 6,
+  "verify_requests": 6,
+  "verdicts": {
+    "CONFIRMED": 6
+  },
+  "final_findings": 6,
+  "risk_score": 42,
+  "node_errors": {
+    "verify": "RuntimeError: 所有 Verify 模型初始化均失败",
+    "deepen": "RuntimeError: 所有 Deepen 模型初始化均失败",
+    "arbiter": "RuntimeError: 所有 Arbiter 模型初始化均失败"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "repo": "/mnt/workspace/repos/pandas",
+  "backend": "laya",
+  "prune_mode": "off",
+  "pruned_ids": [],
+  "budget": null,
+  "hypothesis_source": "pinned",
+  "gate": {
+    "enabled": true,
+    "backend": "laya_gate",
+    "fallback": true,
+    "reason": "ModuleNotFoundError: Could not import module 'ModernBertModel'. Are this object's requirements defined correctly?",
+    "ordered_ids": [
+      "H1",
+      "H2",
+      "H3"
+    ],
+    "selected_ids": [
+      "H1",
+      "H2",
+      "H3"
+    ],
+    "pruned_ids": []
+  },
+  "elapsed_seconds": 4.367,
+  "files": 345,
+  "hypotheses": 3,
+  "verify_requests": 3,
+  "verdicts": {
+    "CONFIRMED": 3
+  },
+  "final_findings": 3,
+  "risk_score": 9,
+  "node_errors": {
+    "verify": "RuntimeError: 所有 Verify 模型初始化均失败",
+    "deepen": "RuntimeError: 所有 Deepen 模型初始化均失败",
+    "arbiter": "RuntimeError: 所有 Arbiter 模型初始化均失败"
+  }
+}

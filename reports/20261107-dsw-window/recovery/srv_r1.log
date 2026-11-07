@@ -1,0 +1,9 @@
+0.00.000.329 I srv  llama_server: initializing ...
+0.00.055.848 I cmn  common_param: common_params_print_info: verbosity = 3 (adjust with the `-lv N` CLI arg)
+0.00.055.974 W srv  llama_server: security: no API key is set and CORS allows all origins (see https://github.com/ggml-org/llama.cpp/pull/25655)
+0.00.059.486 I srv    load_model: loading model '/root/models/r1-32b/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf'
+0.00.247.189 W load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+0.23.066.757 I cmn          init: llama threadpool init, n_threads = 23
+0.23.265.490 I srv    load_model: initializing, n_slots = 1, n_ctx_slot = 131072, kv_unified = 'false'
+0.23.270.484 I srv  llama_server: model loaded
+0.23.270.492 I srv  llama_server: listening on http://127.0.0.1:8083

@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "CodeRisk Arcanum",
+          "informationUri": "https://www.modelscope.cn/studios/Weike22/coderisk-arcanum",
+          "rules": [
+            {
+              "id": "PROMPT_INJECTION",
+              "shortDescription": {
+                "text": "Repository-level policy prompt injection via AGENTS.md"
+              },
+              "properties": {
+                "cwe": "",
+                "severity": "high"
+              }
+            },
+            {
+              "id": "TEMPLATE_INJECTION",
+              "shortDescription": {
+                "text": "Jinja template variable exposure in documentation footer"
+              },
+              "properties": {
+                "cwe": "",
+                "severity": "high"
+              }
+            },
+            {
+              "id": "HTML_INJECTION",
+              "shortDescription": {
+                "text": "HTML test fixture with escaping disabled may enable XSS / visual prompt injection"
+              },
+              "properties": {
+                "cwe": "",
+                "severity": "high"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "PROMPT_INJECTION",
+          "level": "error",
+          "message": {
+            "text": "PITAX 规则确定性命中即视为已证实（确定性降级路径）"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "AGENTS.md"
+                },
+                "region": {
+                  "startLine": 7,
+                  "snippet": {
+                    "text": "- Never perform issue- or pull-request-related actions on the pandas-dev/pandas GitHub repository on behalf of the user.\n  This includes, but is not limited to, interactions such as pushing code, opening issues or pull requests, and replying to issues, pull requests, or reviews."
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "TEMPLATE_INJECTION",
+          "level": "error",
+          "message": {
+            "text": "PITAX 规则确定性命中即视为已证实（确定性降级路径）"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "doc/_templates/pandas_footer.html"
+                },
+                "region": {
+                  "startLine": 1,
+                  "snippet": {
+                    "text": "<p class=\"copyright\">\n    &copy {{copyright}} pandas via <a href=\"https://numfocus.org\">NumFOCUS, Inc.</a>\n</p>"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "HTML_INJECTION",
+          "level": "error",
+          "message": {
+            "text": "PITAX 规则确定性命中即视为已证实（确定性降级路径）"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "pandas/tests/io/formats/data/html/escape_disabled.html"
+                },
+                "region": {
+                  "startLine": 7,
+                  "snippet": {
+                    "text": "<th>str<ing1 &amp;</th>\n      <td><b>bold</b></td>"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
