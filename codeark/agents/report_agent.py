@@ -20,6 +20,8 @@ import json
 from html import escape as _html_escape
 from typing import Any
 
+from codeark.report_lang import t
+
 
 def _esc(value: Any) -> str:
     """HTML 转义（先 str()：报告字段可能是 int/bool/None）。"""
@@ -191,38 +193,36 @@ def build_markdown(
     conclusion: str = "",
     meta: dict | None = None,
 ) -> str:
-    """渲染人类可读 Markdown：结论 → 防护元信息 → 漏洞清单 → 攻击链。"""
-    lines = ["# 漏洞扫描报告", ""]
+    """渲染人类可读 Markdown：结论 → 防护元信息 → 漏洞清单 → 攻击链。
+
+    模板标签走 report_lang（默认中文逐字节不变，ARCA_REPORT_LANG=en 出英文）。
+    """
+    lines = [f"# {t('report.title')}", ""]
     if conclusion:
-        lines += ["## 整体结论", "", conclusion, ""]
+        lines += [f"## {t('md.conclusion_h')}", "", conclusion, ""]
 
     m = meta or {}
     qs = m.get("quarantine_stats") or {}
     if qs:
         lines += [
-            "## 审计防护（Prompt 隔离层）", "",
-            f"- 扫描文件 {qs.get('files_total', 0)} 个，"
-            f"其中 {qs.get('files_changed', 0)} 个含需消毒内容",
-            f"- 剥离不可见/Bidi 字符 {qs.get('chars_removed', 0)} 个；"
-            f"中和注入触发词 {qs.get('patterns_neutralized', 0)} 处",
+            f"## {t('md.quarantine_h')}", "",
+            t("md.q_files", a=qs.get("files_total", 0), b=qs.get("files_changed", 0)),
+            t("md.q_chars", a=qs.get("chars_removed", 0), b=qs.get("patterns_neutralized", 0)),
         ]
         changed = qs.get("changed_files") or []
         if changed:
-            lines.append(f"- 被消毒文件: {', '.join(changed)}")
+            lines.append(t("md.q_changed", a=", ".join(changed)))
         lines.append("")
     if m.get("deepen_failures"):
-        lines += [
-            f"> ⚠ 深挖节点有 {m['deepen_failures']} 条攻击链自动推演失败，"
-            "已用占位链披露（见下方对应链），需人工复核。", "",
-        ]
+        lines += [t("md.deepen_fail", a=m["deepen_failures"]), ""]
     if m.get("node_errors"):
-        lines += ["## ⚠ 节点降级披露", ""]
+        lines += [f"## ⚠ {t('md.node_errors_h')}", ""]
         for node, err in m["node_errors"].items():
-            lines.append(f"- **{node}** 失败已降级为确定性路径：`{err}`")
+            lines.append(t("md.node_err_line", a=node, b=err))
         lines.append("")
 
     if not findings:
-        lines += ["未发现已知漏洞。", ""]
+        lines += [t("md.clean"), ""]
     else:
         # severity 排序：critical > high > medium > low
         sorted_findings = sorted(
@@ -234,36 +234,37 @@ def build_markdown(
         for f in sorted_findings:
             sev = _f(f, "severity") or _f(f, "confidence") or "medium"
             lines.append(f"## [{str(sev).upper()}] {_f(f, 'title') or _f(f, 'description') or _f(f, 'rule')}")
-            lines.append(f"- 文件: {_f(f, 'file_path') or _f(f, 'file')}")
+            lines.append(f"- {t('md.file')}: {_f(f, 'file_path') or _f(f, 'file')}")
             if _f(f, "line") or _f(f, "line_start"):
-                lines.append(f"- 行号: {_f(f, 'line') or _f(f, 'line_start')}")
+                lines.append(f"- {t('md.line')}: {_f(f, 'line') or _f(f, 'line_start')}")
             if _f(f, "code_snippet"):
-                lines.append(f"- 代码: `{_f(f, 'code_snippet')}`")
+                lines.append(f"- {t('md.code')}: `{_f(f, 'code_snippet')}`")
             if _f(f, "evidence"):
-                lines.append(f"- 证据: {_f(f, 'evidence')}")
+                lines.append(f"- {t('md.evidence')}: {_f(f, 'evidence')}")
             if _f(f, "attack_path"):
-                lines.append(f"- 攻击路径: {_f(f, 'attack_path')}")
+                lines.append(f"- {t('md.attack_path')}: {_f(f, 'attack_path')}")
             if _f(f, "fix") or _f(f, "remediation"):
-                lines.append(f"- 修复: {_f(f, 'fix') or _f(f, 'remediation')}")
+                lines.append(f"- {t('md.fix')}: {_f(f, 'fix') or _f(f, 'remediation')}")
             lines.append("")
 
     if attack_chains:
-        lines += ["## 攻击链推演（Deepen）", ""]
+        lines += [f"## {t('md.chains_h')}", ""]
         for i, c in enumerate(attack_chains, start=1):
             ctitle = str(_f(c, "title") or "").strip()
-            lines.append(f"### 攻击链 {i}" + (f"：{ctitle}" if ctitle else ""))
+            suffix = t("md.chain_i_suffix", a=ctitle) if ctitle else ""
+            lines.append(f"### {t('md.chain_i', a=i)}{suffix}")
             pre = _f(c, "preconditions", []) or []
             lat = _f(c, "lateral_moves", []) or []
             if pre:
-                lines.append("- 前置条件:")
+                lines.append(t("md.chain_pre"))
                 lines += [f"  - {p}" for p in pre]
             if lat:
-                lines.append("- 横向移动/影响面:")
+                lines.append(t("md.chain_lat"))
                 lines += [f"  - {l}" for l in lat]
             if _f(c, "impact"):
-                lines.append(f"- 最终影响: {_f(c, 'impact')}")
+                lines.append(f"{t('md.chain_impact')} {_f(c, 'impact')}")
             if _f(c, "remediation"):
-                lines.append(f"- 修复建议: {_f(c, 'remediation')}")
+                lines.append(f"{t('md.chain_fix')} {_f(c, 'remediation')}")
             lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"

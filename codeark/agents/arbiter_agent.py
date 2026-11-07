@@ -28,6 +28,7 @@ from codeark.models.schemas import (
     VerificationResult,
 )
 from codeark.graph.quarantine import render_sections
+from codeark import report_lang as _report_lang
 
 __all__ = ["ARBITER_SYSTEM_PROMPT", "build_arbiter_agent", "run_arbiter"]
 
@@ -95,10 +96,7 @@ def _deterministic_fallback_report(
             attack_path=str(getattr(chain, "impact", "") or getattr(h, "attack_path", ""))[:500],
             remediation=str(getattr(chain, "remediation", "") or "")[:1500],
         ))
-    conclusion = (
-        f"[确定性兜底定稿] 合议模型输出不可用（{reason}），"
-        f"按 CONFIRMED 裁决机械汇总 {len(findings)} 条（severity 保守取 high，请人工复核）。"
-    )
+    conclusion = _report_lang.t("fallback.conclusion", a=reason, b=len(findings))
     return FinalReport(findings=findings, conclusion=conclusion)
 
 

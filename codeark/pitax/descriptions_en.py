@@ -2,8 +2,11 @@
 
 规则原文（rules.py）保持中文不动；本模块只提供 code → 英文描述 的映射，
 `Finding.to_report_dict` 在 `ARCA_REPORT_LANG=en` 时取用。默认（未设）一切不变。
+语言闸单一数据源 = codeark.report_lang.is_en()（2026-11-07 收口，原两处重复 env 判断退役）。
 """
 from __future__ import annotations
+
+from ..report_lang import is_en
 
 RULE_DESCRIPTIONS_EN: dict[str, str] = {
     "PIT-E-23": (
@@ -46,17 +49,9 @@ SUGGESTION_EN = (
 
 
 def description_for(code: str, fallback: str) -> str:
-    """按 env 决定输出语言：ARCA_REPORT_LANG=en → 英文；默认中文原文。"""
-    import os
-
-    if (os.environ.get("ARCA_REPORT_LANG") or "").strip().lower() == "en":
-        return RULE_DESCRIPTIONS_EN.get(code, fallback)
-    return fallback
+    """ARCA_REPORT_LANG=en → 英文；默认中文原文。"""
+    return RULE_DESCRIPTIONS_EN.get(code, fallback) if is_en() else fallback
 
 
 def suggestion_for(fallback: str) -> str:
-    import os
-
-    if (os.environ.get("ARCA_REPORT_LANG") or "").strip().lower() == "en":
-        return SUGGESTION_EN
-    return fallback
+    return SUGGESTION_EN if is_en() else fallback

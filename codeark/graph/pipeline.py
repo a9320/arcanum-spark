@@ -26,6 +26,7 @@ from codeark.agents.report_agent import render_report, apply_severity_floor, mer
 from codeark.graph.quarantine import quarantine_files
 from codeark.models.factory import make_stage_tuning_from_env
 from codeark.models.routing import StageModels, StageTuning, redact_error
+from codeark.report_lang import t as _t
 
 __all__ = [
     "GraphResult",
@@ -174,11 +175,11 @@ class CodeRiskGraph:
                 line_start=int(f.get("line", 0)),
                 line_end=int(f.get("line", 0)),
                 code_snippet=f.get("code_snippet", ""),
-                attack_path="PITAX 规则确定性命中（dry-run 占位）",
+                attack_path=_t("dry.attack_path"),
                 confidence="high",
-                suggested_verification="static_scan / taint_flow 交叉验证",
+                suggested_verification=_t("dry.suggested_verification"),
             ))
-        return HypothesisSet(hypotheses=hyps, coverage_notes="dry-run：仅 agent0 PITAX 基线，未做模型补充扫描")
+        return HypothesisSet(hypotheses=hyps, coverage_notes=_t("dry.coverage_notes"))
 
     # ── dry/降级共用：规则基线验证（CONFIRMED=规则命中即证实，dry 语义）──
     @staticmethod
@@ -191,7 +192,7 @@ class CodeRiskGraph:
                 hypothesis_title=h.title,
                 verdict="CONFIRMED",
                 confidence=0.9,
-                evidence="PITAX 规则确定性命中即视为已证实（确定性降级路径）",
+                evidence=_t("dry.verify_evidence"),
                 verification_method="pitax_scan(deterministic)",
             ))
         return out
@@ -200,10 +201,10 @@ class CodeRiskGraph:
     def _dry_chains(confirmed: list) -> list:
         from codeark.models.schemas import AttackChain
         return [AttackChain(
-            preconditions=["攻击者可接触被扫描的提示注入内容（确定性降级占位）"],
+            preconditions=[_t("dry.chain_pre")],
             lateral_moves=[],
-            impact="PITAX 命中可能导致 AI 助手被劫持执行非授权指令",
-            remediation="修复对应 PITAX 规则命中的代码/配置",
+            impact=_t("dry.chain_impact"),
+            remediation=_t("dry.chain_fix"),
         ) for _ in confirmed]
 
     # ── gate v2 不变量防御：I1 子集性 / I2 保护优先（违反即抛错，由调用点收口 fallback）──
@@ -384,7 +385,7 @@ class CodeRiskGraph:
         if self.dry:
             res.final_report = {
                 "findings": res.agent0_findings,
-                "conclusion": "dry-run：基线扫描完成，待真实模型合议",
+                "conclusion": _t("dry.conclusion"),
             }
         else:
             try:

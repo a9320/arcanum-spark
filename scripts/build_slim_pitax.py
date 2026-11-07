@@ -35,13 +35,26 @@ VERSION = "0.2.0"
 
 # 复制映射：源 → 生成文件名；rewrites 逐条替换导入
 COPY_PLAN: list[tuple[Path, str, list[tuple[str, str]]]] = [
-    *[(f, f.name, []) for f in sorted((ROOT / "codeark" / "pitax").glob("*.py"))],
+    # pitax 规则层逐字携带；descriptions_en 单列（report_lang 相对导入需改写为平铺单点）
+    *[(f, f.name, []) for f in sorted((ROOT / "codeark" / "pitax").glob("*.py"))
+      if f.name != "descriptions_en.py"],
+    (
+        ROOT / "codeark" / "pitax" / "descriptions_en.py",
+        "descriptions_en.py",
+        [("from ..report_lang import is_en", "from .report_lang import is_en")],
+    ),
     (
         ROOT / "codeark" / "tools" / "pitax_scan.py",
         "scan_engine.py",
         [("from ..pitax.detectors import", "from .detectors import")],
     ),
-    (ROOT / "codeark" / "agents" / "report_agent.py", "reporting.py", []),
+    (
+        ROOT / "codeark" / "agents" / "report_agent.py",
+        "reporting.py",
+        [("from codeark.report_lang import t", "from .report_lang import t")],
+    ),
+    # 报告语言开关（ARCA_REPORT_LANG）：纯标准库，逐字携带——slim CLI 同样获得 en 模式
+    (ROOT / "codeark" / "report_lang.py", "report_lang.py", []),
     # office 文档投毒体检 + 依赖漏洞比对（MCP C1/C3 承重资产，纯标准库）
     (ROOT / "codeark" / "office_text.py", "office_text.py", []),
     (
