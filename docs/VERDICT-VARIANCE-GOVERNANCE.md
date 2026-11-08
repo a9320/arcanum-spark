@@ -87,6 +87,7 @@
   - **判分器**：verdict 行透传 `starving`（旧 JSON 无键→False 零回归）；flips 逐条附 `starved_runs`（该假设饥饿卷序号）——翻转涉饥饿卷归"证据状态差异"，与纯采样方差分开判读；`_aggregate_runs`/`_aggregate` 增 `starved_verdicts` 与 `flips_with_starved_runs`（4c 根因定性从混合拆开的机读入口）。
   - **测试**：`codeark/tests/test_verify_starving.py` 13 锚（阈值默认/env/非法回退；全包两率 1.0；点名截断 coverage=0.5；幻觉 fp；**minpack 形 coverage 盲区+fraction 点亮**；双闸关闸统计照常；stamp 保字段；治理清零）+ `tests/test_m8_k1_score.py` D3 区 4 锚；verify.sh 5/5。
   - **真机验收（留窗）**：随下窗任一 minpack/default 双臂跑观测——判据=minpack 卷 `starving=True`（包宽率触发）/ default 卷全 False；**只观察遥测，不改 Exp A/B 预注册闸门**。
+    **✅ 已达标（2026-11-08 DSW 窗，b425fdd）**：minpack H1 三卷亮（**coverage 触发器**——点名 README 被 budget 截；包宽率 0.5543 贴 0.5 阈上未触发=边界样本）/default 全灭。**阈值拍板（11-08）：保持 0.5**（验收已过不动，边界样本记档等 K1 数据）；**边界发现记档**：verify 输入被 scout 上游截 ~60k→pack_fraction 测不到上游饥饿（该层=degraded_reason=context，D5 接住）。
 
 ## 八、实施记录（P2 之 D5 + D2 缺口修复，2026-11-08）——P2 整批清账
 
