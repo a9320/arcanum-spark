@@ -217,4 +217,5 @@ bash scripts/k1_rescore.sh /mnt/workspace/runs/20261104-k1-gptoss /mnt/workspace
 - **D5 真机**：degraded_reason=context fire（pandas×5）；方法字段 27 条零档位字面量；
   refuted_on_intended 契约被模型服从（null→拒→[] 重试一次，已加 validator 退役）。
 - **K1 全量重判**：本窗时间不足，顺延（幂等，`K1_BASE=` 参数化不变）。
+- **🆕🚨K1 数据源铁律（2026-11-08 W7900 预检发现）**：manifest 20 题顶层分布=development×1+**removed×14**+test×5——**19/20 题已被上游从 bench HEAD 删除**，10-03 基线用的是当时旧克隆。⇒ **K1 数据源=DSW `/mnt/workspace/NYU_CTF_Bench` 旧克隆（孤本），铁律=该目录不许 `git pull`/不许重 clone/不许任何更新**（重 clone HEAD=19/20 题消失=K1 报废）；下窗顺带做 bundle 异地备份（`git bundle create /mnt/workspace/nyu-ctf-bench-backup.bundle --all`→平台下载本地，双副本后孤本风险解除）。W7900 预检实锤="重 clone HEAD"路线天然不可行。
 - **🆕K1 配方拍板（11-08，用户）**：**保持默认 `ARCA_VERIFY_EVIDENCE_MAX_TOKENS=60000`**——与 10-03 qwen 基线同配方（对照最纯）；大仓题 context 溢出（11-08 pandas 形态：60k 包贴 65536 窗）由 `degraded_reason=context` 如实标记，**判分按降级口径处理（degraded UNCERTAIN 不计入真判决），不现场改判据**。另：D3 包宽率阈值拍板=保持 0.5（边界样本 0.5543 记档，详见设计稿 §七）。
