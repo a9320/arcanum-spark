@@ -20,6 +20,10 @@ httpx>=0.28       # Nutrient DWS PDF + LLM client（llama.cpp OpenAI 兼容接�
 # numpy 2.0 与 ROCm torch wheel 组合报错，官方安装矩阵钉 1.26.4）。范围表达沿用本文
 # 件"范围约束"策略；DSW 上若已装 2.x，下次 pip install -r 会回落到 <2（预期行为）。
 numpy>=1.26,<2
+# scipy 上界：2026-11-08 DSW 实锤——未钉 scipy 漂移到 2026 新版后要求 numpy>=2.0，
+# 与上面 numpy<2 组合下 scipy 导入崩在 np.long（transformers ModernBert 懒加载被
+# 连带打死=laya gate fallback）。1.13.1 = 最后兼容 numpy 1.26 的版本线。
+scipy>=1.11,<1.14
 
 # ── 测试 ──
 pytest>=8.3
