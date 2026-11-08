@@ -1,0 +1,70 @@
+{
+  "repo": "/mnt/workspace/repos/pandas",
+  "backend": "laya",
+  "prune_mode": "structural",
+  "pruned_ids": [
+    "H1"
+  ],
+  "budget": {
+    "candidates": 3,
+    "kept": 2,
+    "pruned": 1,
+    "saving_ratio": 0.333333
+  },
+  "hypothesis_source": "pinned",
+  "gate": {
+    "enabled": true,
+    "backend": "laya",
+    "fallback": false,
+    "triage_healthy": false,
+    "prune_mode": "structural",
+    "tau": null,
+    "max_keep": null,
+    "min_keep": 1,
+    "ordered_ids": [
+      "H2",
+      "H3"
+    ],
+    "selected_ids": [
+      "H2",
+      "H3"
+    ],
+    "kept_ids": [
+      "H2",
+      "H3"
+    ],
+    "pruned_ids": [
+      "H1"
+    ],
+    "prune_reasons": {
+      "H1": "degenerate"
+    },
+    "budget": {
+      "candidates": 3,
+      "kept": 2,
+      "pruned": 1,
+      "saving_ratio": 0.333333
+    },
+    "scores": {
+      "H1": -749.0,
+      "H2": 1.0,
+      "H3": 1.0
+    },
+    "protected_ids": [],
+    "echo_ids": [],
+    "duplicate_ids": [],
+    "degenerate_ids": [
+      "H1"
+    ]
+  },
+  "elapsed_seconds": 55.062,
+  "files": 345,
+  "hypotheses": 3,
+  "verify_requests": 2,
+  "verdicts": {
+    "UNCERTAIN": 2
+  },
+  "final_findings": 0,
+  "risk_score": 0,
+  "node_errors": {}
+}

@@ -1,0 +1,74 @@
+{
+  "repo": "/mnt/workspace/repos/variant-27",
+  "backend": "laya",
+  "prune_mode": "structural",
+  "pruned_ids": [],
+  "budget": {
+    "candidates": 5,
+    "kept": 5,
+    "pruned": 0,
+    "saving_ratio": 0.0
+  },
+  "hypothesis_source": "pinned",
+  "gate": {
+    "enabled": true,
+    "backend": "laya",
+    "fallback": false,
+    "triage_healthy": true,
+    "prune_mode": "structural",
+    "tau": null,
+    "max_keep": null,
+    "min_keep": 1,
+    "ordered_ids": [
+      "H1",
+      "H2",
+      "H4",
+      "H5",
+      "H3"
+    ],
+    "selected_ids": [
+      "H1",
+      "H2",
+      "H4",
+      "H5",
+      "H3"
+    ],
+    "kept_ids": [
+      "H1",
+      "H2",
+      "H4",
+      "H5",
+      "H3"
+    ],
+    "pruned_ids": [],
+    "prune_reasons": {},
+    "budget": {
+      "candidates": 5,
+      "kept": 5,
+      "pruned": 0,
+      "saving_ratio": 0.0
+    },
+    "scores": {
+      "H1": 1.0,
+      "H2": 1.0,
+      "H3": 0.9294,
+      "H4": 1.0,
+      "H5": 1.0
+    },
+    "protected_ids": [],
+    "echo_ids": [],
+    "duplicate_ids": [],
+    "degenerate_ids": []
+  },
+  "elapsed_seconds": 210.447,
+  "files": 11,
+  "hypotheses": 5,
+  "verify_requests": 5,
+  "verdicts": {
+    "CONFIRMED": 4,
+    "UNCERTAIN": 1
+  },
+  "final_findings": 4,
+  "risk_score": 36,
+  "node_errors": {}
+}

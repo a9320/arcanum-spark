@@ -1,0 +1,67 @@
+{
+  "repo": "/mnt/workspace/repos/pandas",
+  "backend": "laya",
+  "prune_mode": "off",
+  "pruned_ids": [],
+  "budget": {
+    "candidates": 3,
+    "kept": 3,
+    "pruned": 0,
+    "saving_ratio": 0.0
+  },
+  "hypothesis_source": "pinned",
+  "gate": {
+    "enabled": true,
+    "backend": "laya",
+    "fallback": false,
+    "triage_healthy": false,
+    "prune_mode": "off",
+    "tau": null,
+    "max_keep": null,
+    "min_keep": 1,
+    "ordered_ids": [
+      "H2",
+      "H3",
+      "H1"
+    ],
+    "selected_ids": [
+      "H2",
+      "H3",
+      "H1"
+    ],
+    "kept_ids": [
+      "H2",
+      "H3",
+      "H1"
+    ],
+    "pruned_ids": [],
+    "prune_reasons": {},
+    "budget": {
+      "candidates": 3,
+      "kept": 3,
+      "pruned": 0,
+      "saving_ratio": 0.0
+    },
+    "scores": {
+      "H1": -749.0,
+      "H2": 1.0,
+      "H3": 1.0
+    },
+    "protected_ids": [],
+    "echo_ids": [],
+    "duplicate_ids": [],
+    "degenerate_ids": [
+      "H1"
+    ]
+  },
+  "elapsed_seconds": 57.429,
+  "files": 345,
+  "hypotheses": 3,
+  "verify_requests": 3,
+  "verdicts": {
+    "UNCERTAIN": 3
+  },
+  "final_findings": 0,
+  "risk_score": 0,
+  "node_errors": {}
+}

@@ -1,0 +1,80 @@
+{
+  "repo": "/mnt/workspace/repos/variant-23",
+  "backend": "laya",
+  "prune_mode": "off",
+  "pruned_ids": [],
+  "budget": {
+    "candidates": 6,
+    "kept": 6,
+    "pruned": 0,
+    "saving_ratio": 0.0
+  },
+  "hypothesis_source": "pinned",
+  "gate": {
+    "enabled": true,
+    "backend": "laya",
+    "fallback": false,
+    "triage_healthy": true,
+    "prune_mode": "off",
+    "tau": null,
+    "max_keep": null,
+    "min_keep": 1,
+    "ordered_ids": [
+      "H5",
+      "H1",
+      "H2",
+      "H3",
+      "H4",
+      "H6"
+    ],
+    "selected_ids": [
+      "H5",
+      "H1",
+      "H2",
+      "H3",
+      "H4",
+      "H6"
+    ],
+    "kept_ids": [
+      "H5",
+      "H1",
+      "H2",
+      "H3",
+      "H4",
+      "H6"
+    ],
+    "pruned_ids": [],
+    "prune_reasons": {},
+    "budget": {
+      "candidates": 6,
+      "kept": 6,
+      "pruned": 0,
+      "saving_ratio": 0.0
+    },
+    "scores": {
+      "H1": 1.0,
+      "H2": 1.0,
+      "H3": 1.0,
+      "H4": 1.0,
+      "H5": 1001.0,
+      "H6": 1.0
+    },
+    "protected_ids": [
+      "H5"
+    ],
+    "echo_ids": [],
+    "duplicate_ids": [],
+    "degenerate_ids": []
+  },
+  "elapsed_seconds": 199.21,
+  "files": 11,
+  "hypotheses": 6,
+  "verify_requests": 6,
+  "verdicts": {
+    "CONFIRMED": 5,
+    "UNCERTAIN": 1
+  },
+  "final_findings": 5,
+  "risk_score": 39,
+  "node_errors": {}
+}
