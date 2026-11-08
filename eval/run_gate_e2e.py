@@ -164,6 +164,12 @@ def load_pinned_hypotheses(path: str) -> dict:
 
 
 def main() -> int:
+    # 验收环境钉（2026-11-08 DSW 实锤归因：本 runner 原先不钉 ARCA_VERIFY_*，verify
+    # 走 llama-server 默认 temperature 0.8 采样——v23/v27 两臂同因判决漂移（H6/H5
+    # 基线 CONFIRMED→UNCERTAIN）记负结果；W7900 教训（run-verify-tiers 2bcdd1f）
+    # 同款。setdefault 只钉温度单变量：不显式下发→server 默认 0.8；其余验收条件
+    # （EVIDENCE_STRICT/PLAIN_JSON）保持生产默认口径不动，防与历史基线引入新变量。
+    os.environ.setdefault("ARCA_VERIFY_TEMPERATURE", "0")
     parser = argparse.ArgumentParser(description="Gate e2e acceptance runner (off/structural pruning)")
     parser.add_argument("repo", help="repository directory to scan")
     parser.add_argument("--backend", default=None, choices=["laya", "deterministic"],

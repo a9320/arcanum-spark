@@ -76,6 +76,7 @@
 - **D2**：`VerificationResult` 增 `evidence_source`（自由字符串入库防 junk 炸校验，归一化层清洗为四值）+ `partial_grounding`（派生字段，模型不得产出：CONFIRMED ∧ library_knowledge）；prompt 三块加四选一指引。
 - **测试**：`codeark/tests/test_verdict_governance.py` 9 锚（snap 锚值/平手/夹取/env 关闸/清洗/派生/双收口贯通/prompt 契约）；410 collected 全绿零回归。
 - **待 DSW 验收**（预注册 §四）：①gatekeeping 固定假设集 N=5 档位一致率 ≥4/5；②t4c minpack 臂重跑 H1 grounding 分布随臂漂移（H2 零效应对照）；③confident_refutations 保持 0。
+  **✅ 三判据全达标（2026-11-08 DSW 窗，spark `b425fdd`，单次观察口径）**：①4/4=100%（H1 C0.95×5/H2 C0.95×5/H3 C0.95×5/H4 U0.3×5）②H1 default 主 repo_file×3 → minpack 主 library_knowledge×2+repo_file×1（漂移直证），H2 两臂 repo_file×3（零效应）③0——**"治理有效"记入，D1/D2 真机验收关闭**。观察项：H1 今 C0.95 vs 11-02 参照 U0.5（跨窗漂移，本窗含 D5 prompt 变更，不归因）。
 
 ## 七、实施记录（P2：D4 2026-11-07 上半天 + D3 2026-11-07 晚）
 
@@ -98,3 +99,4 @@
 - **D2 缺口修复**（D3 期间两次记档）：严格降级重建（quote-check-failed 分支）透传 `evidence_source`。
 - **测试**：新 `codeark/tests/test_final_report_contract.py` 20 锚（收敛参数化 8/降级分类 6/字面量清洗 4/透传 2/兜底 1/按类计数/prompt 契约/deepen 分工/D2 源码断言）；**612 passed 全绿零回归 + verify.sh 5/5**。
 - **待 DSW 验收**：真机 FinalReport 出 refuted_on_intended 实体（下窗任一含 REFUTED 的卷）、降级分类真值分布（对照 10-23 硬骨卷的降级样本）。
+  **部分达标（2026-11-08 DSW 窗）**：①`degraded_reason=context` 真机 fire（pandas 五条，与 exceed_context 根因一致）②verification_method 零档位字面量（27 条全真实手段）③refuted_on_intended 契约被模型服从（块 4 实测：首调 null→schema 拒→重传 []——已加 None→[] validator 退役该重试）；REFUTED 实体样本仍缺（本窗三仓无 REFUTED 判决），顺延下窗。

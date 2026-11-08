@@ -66,6 +66,19 @@ def test_confidence_default_and_old_archive_roundtrip():
     assert FinalReportFinding.model_validate(old).confidence == 0.9
 
 
+def test_none_list_fields_coerced_to_empty():
+    # D5 打磨（块 4 实测）：模型首调传 null → 就地收敛空列表，schema 重试退役
+    r = FinalReport.model_validate({"findings": None, "refuted_on_intended": None})
+    assert r.findings == [] and r.refuted_on_intended == []
+
+
+def test_gate_runner_pins_temperature():
+    # 块 4 负结果闭环：run_gate_e2e 钉 ARCA_VERIFY_TEMPERATURE=0（源码级断言）
+    import inspect
+    from eval import run_gate_e2e
+    assert 'os.environ.setdefault("ARCA_VERIFY_TEMPERATURE", "0")' in inspect.getsource(run_gate_e2e)
+
+
 # ── degraded_reason 分类学（台账契约类 #4 设计输入）──
 
 def test_degraded_reason_sniffing():

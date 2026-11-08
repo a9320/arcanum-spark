@@ -196,3 +196,24 @@ bash scripts/k1_rescore.sh /mnt/workspace/runs/20261104-k1-gptoss /mnt/workspace
 - **凭据泄漏（与 11-02 同型第二次）**：push URL `https://$T@…` 缺 username 前缀 → git 回落 Password
   提示整 URL 明文上屏 → **已提醒立即轮换**。§6.2 命令已修（`a9320:` 前缀 + read 剥空白）。
 - **下窗任务**：块 4 重跑（上述三条件）→ 块 3 Exp A/B 整窗（N=5/N=3×2 不砍）→ K1 分段。
+
+## §10 追记（2026-11-08 窗实跑：块 4 重跑负结果闭环 + 块 3 三判据 PASS + D3/D5 真机）
+
+- **环境修复双绿**：①scipy 未钉依赖漂移实锤（2026 新版要求 numpy≥2.0，与 ROCm 矩阵钉的
+  numpy 1.26.4 组合下 scipy 导入崩在 np.long→ModernBert 连带）→ requirements 钉 `scipy<1.14`
+  （`8ea3388`）+ pod 手动降 1.13.1 → **MB_OK**；②`ARCA_DEPLOYMENT=local` 生效（云路由零报错）。
+- **块 4 重跑**：pandas 两臂 **PASS**+pruned=1 预测命中；v23/v27 pruned 预测命中但 **P3/P4 红
+  （REJECT 记负结果）**——两臂同因（H6/H5 基线 CONFIRMED→今 UNCERTAIN），归因=本 runner 未钉
+  `ARCA_VERIFY_TEMPERATURE` 走 server 默认 0.8（W7900 教训同款）→ 修法已落（`main()` setdefault
+  单变量钉 0，不改 strict/plain-json 防引入新变量）；**钉温度重跑对照留下窗**。
+- **块 3 Exp A/B 三判据全绿 PASS（单次观察）**：①4/4=100% ②grounding 随臂漂移直证
+  （H1 repo_file×3→library_knowledge×2+repo_file×1；H2 零效应）③conf_ref=0——**D1/D2 真机验收
+  关闭**，"治理有效"入设计稿 §六。观察项：H1 C0.95 vs 11-02 参照 U0.5（跨窗漂移不归因）。
+- **D3 遥测验收 PASS**：minpack 臂 H1 三卷 starving=True（**coverage 触发器**：点名 README 被
+  budget 截；包宽率 0.5543 贴 0.5 阈上未触发=边界样本，待拍板是否调 0.6）/ default 臂全灭；
+  **边界发现**：verify 输入已被 scout 上游截 ~60k（pandas 1349 文件在 verify 前被丢）→
+  pack_fraction 测不到上游饥饿，该层饥饿形态=degraded_reason=context（D5 接住）；minpack H2
+  三卷 verdict 翻转（U0.3/C0.95/U0.3）+H1 降档=4c 饥饿签名在 D3/D4/D5 遥测下完整复现。
+- **D5 真机**：degraded_reason=context fire（pandas×5）；方法字段 27 条零档位字面量；
+  refuted_on_intended 契约被模型服从（null→拒→[] 重试一次，已加 validator 退役）。
+- **K1 全量重判**：本窗时间不足，顺延（幂等，`K1_BASE=` 参数化不变）。

@@ -242,6 +242,13 @@ class FinalReport(BaseModel):
         default="", description="整体结论：风险概况、主要威胁、建议"
     )
 
+    @field_validator("findings", "refuted_on_intended", mode="before")
+    @classmethod
+    def _none_to_empty_list(cls, v: object) -> object:
+        # D5 打磨（2026-11-08 DSW 块 4 实测）：模型首调传 null 被 schema 拒→
+        # 多花一次重试；None 就地收敛空列表，该重试路径退役
+        return [] if v is None else v
+
 
 # ────────────────────────── Agent 间交接契约（预留）────────────────────
 class AgentHandoff(BaseModel):
