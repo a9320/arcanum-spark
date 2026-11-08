@@ -24,6 +24,11 @@ numpy>=1.26,<2
 # 与上面 numpy<2 组合下 scipy 导入崩在 np.long（transformers ModernBert 懒加载被
 # 连带打死=laya gate fallback）。1.13.1 = 最后兼容 numpy 1.26 的版本线。
 scipy>=1.11,<1.14
+# huggingface-hub 上界：2026-11-08 W7900 实锤（scipy 姊妹篇）——镜像自带 hub 2.4.0，
+# transformers 5.14.x 要求 <1.0，越界即 ModernBert/laya 全灭。transformers 由管线
+# 依赖传递安装（laya 重排），此钉保住其依赖面（DSW 5.14.1/5.15.1 实测工作带）。
+huggingface-hub>=0.34,<1.0
+transformers>=5.14,<5.16
 
 # ── 测试 ──
 pytest>=8.3
