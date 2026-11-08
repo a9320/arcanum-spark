@@ -31,7 +31,7 @@ from codeark.pitax.rules import PITAX_VERSION  # noqa: E402
 
 DEFAULT_OUT = ROOT.parent / "slim-build"
 PKG = "codeark_pitax"
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 # 复制映射：源 → 生成文件名；rewrites 逐条替换导入
 COPY_PLAN: list[tuple[Path, str, list[tuple[str, str]]]] = [
