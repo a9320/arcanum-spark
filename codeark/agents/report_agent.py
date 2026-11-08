@@ -101,11 +101,30 @@ def dedup_findings(findings: list[dict]) -> list[dict]:
         if old is None:
             best[key] = f
             continue
-        new_rank = _SEV_ORDER.get(str(_f(f, "severity") or _f(f, "confidence") or "medium").lower(), 9)
-        old_rank = _SEV_ORDER.get(str(_f(old, "severity") or _f(old, "confidence") or "medium").lower(), 9)
+        new_rank = _SEV_ORDER.get(_sev_word(f).lower(), 9)
+        old_rank = _SEV_ORDER.get(_sev_word(old).lower(), 9)
         if new_rank < old_rank:
             best[key] = f
     return list(best.values())
+
+
+def _conf_as_sev(value: object) -> str:
+    """D5（台账契约类 #2 连带）：confidence 兼职 severity 兜底点的数字适配——
+    float 置信（FinalReport D5 数字型）映射档位词（≥0.75 high / ≥0.5 medium /
+    其余 low）；字符串口径原样返回（agent0 的 confidence=severity 词不变）。"""
+    if isinstance(value, bool) or value is None:
+        return ""
+    if isinstance(value, (int, float)):
+        return "high" if value >= 0.75 else ("medium" if value >= 0.5 else "low")
+    return str(value).strip()
+
+
+def _sev_word(f: dict) -> str:
+    """severity 缺席时以 confidence 兜底（float 走档位映射，字符串原样）。"""
+    sev = str(_f(f, "severity") or "").strip()
+    if sev:
+        return sev
+    return _conf_as_sev(_f(f, "confidence")) or "medium"
 
 
 def merge_agent0_baseline(
@@ -147,7 +166,7 @@ def build_sarif(findings: list[dict]) -> dict:
                 "shortDescription": {"text": f.get("title") or f.get("description") or rule_id},
                 "properties": {
                     "cwe": f.get("cwe", ""),
-                    "severity": f.get("severity", f.get("confidence", "medium")),
+                    "severity": f.get("severity") or _sev_word(f),
                 },
             }
         loc = {}
@@ -166,7 +185,7 @@ def build_sarif(findings: list[dict]) -> dict:
         # warning——_SEV_ORDER 中 critical 是最高级）。最小单变量修复：仅补
         # critical→error，其余口径（confidence=high 兼容、低级=warning）不变。
         sev = str(f.get("severity") or "").lower()
-        conf = str(f.get("confidence") or "").lower()
+        conf = _conf_as_sev(f.get("confidence")).lower()
         level = (
             "error" if sev in ("critical", "high") or conf == "high"
             else "warning"
@@ -227,12 +246,10 @@ def build_markdown(
         # severity 排序：critical > high > medium > low
         sorted_findings = sorted(
             findings,
-            key=lambda f: _SEV_ORDER.get(
-                str(_f(f, "severity") or _f(f, "confidence") or "medium").lower(), 9
-            ),
+            key=lambda f: _SEV_ORDER.get(_sev_word(f).lower(), 9),
         )
         for f in sorted_findings:
-            sev = _f(f, "severity") or _f(f, "confidence") or "medium"
+            sev = _sev_word(f)
             lines.append(f"## [{str(sev).upper()}] {_f(f, 'title') or _f(f, 'description') or _f(f, 'rule')}")
             lines.append(f"- {t('md.file')}: {_f(f, 'file_path') or _f(f, 'file')}")
             if _f(f, "line") or _f(f, "line_start"):

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 __all__ = [
     "VulnHypothesis",
@@ -130,6 +130,13 @@ class VerificationResult(BaseModel):
         description="D3 统计：包宽率=pack_tokens/全仓 tokens——minpack 类极小包"
         "（4c 饥饿机理）下点名文件被 force 进包、点名覆盖率恒 1.0 的盲区补刀",
     )
+    degraded_reason: str = Field(
+        default="",
+        description="方差治理 D5 降级分类学（台账契约类 #4 设计输入）："
+        "contract（id 契约失败）/ parse（PEG/JSON 解析拒绝）/ tool-fail（invoke "
+        "异常、超时）/ context（上下文溢出）；非降级记录为空串；判分器按类计数"
+        "（契约/解析类可重跑，tool-fail 看基建，context 查证据包）",
+    )
 
 
 # ── id 对齐（确定性，替代 title 字符串匹配）──
@@ -163,6 +170,25 @@ class AttackChain(BaseModel):
 
 
 # ────────────────────────── 裁判官输出（FinalReport）──────────────────────
+def _coerce_confidence_number(value: object) -> float:
+    """D5（台账契约类 #2）：FinalReport confidence 强制数字型——历史双形态
+    （0.9 vs "0.9" vs "high"）在解析口一次性收敛，schema 重试自愈路径退役。
+    映射 high→0.9 / medium→0.6 / low→0.3（与 D1 三档兜底枚举同表）；数字串直转；
+    非法值保守落 0.5（不炸校验，同 D2 junk 容忍口径）；越界夹取 [0,1]。"""
+    try:
+        if isinstance(value, bool):
+            return 0.5
+        if isinstance(value, (int, float)):
+            return max(0.0, min(1.0, float(value)))
+        s = str(value).strip().lower()
+        tiers = {"high": 0.9, "medium": 0.6, "low": 0.3}
+        if s in tiers:
+            return tiers[s]
+        return max(0.0, min(1.0, float(s)))
+    except (TypeError, ValueError):
+        return 0.5
+
+
 class FinalReportFinding(BaseModel):
     """裁判官定稿里的单条漏洞条目（CONFIRMED 且攻击链完整）。"""
 
@@ -173,10 +199,33 @@ class FinalReportFinding(BaseModel):
     line_end: int = 0
     code_snippet: str = ""
     severity: str = "high"
-    confidence: str = "high"
+    confidence: float = Field(
+        default=0.9,
+        description="D5 强制数字型（0~1；历史 'high'/'0.9' 双形态在解析口收敛）",
+    )
     evidence: str = ""
     attack_path: str = ""
     remediation: str = ""
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _conf_number(cls, v: object) -> float:
+        return _coerce_confidence_number(v)
+
+
+class FinalReportRefuted(BaseModel):
+    """D5（台账语义类 #6）：已证伪假设的透传条目——驳判理由进最终报告，
+    arbiter 禁把已证伪假设定性当事实写进 conclusion。"""
+
+    hypothesis_id: str = ""
+    title: str = ""
+    reason: str = Field(default="", description="驳判理由（=verify evidence 原文）")
+    confidence: float = Field(default=0.9, description="驳判置信（0~1）")
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _conf_number(cls, v: object) -> float:
+        return _coerce_confidence_number(v)
 
 
 class FinalReport(BaseModel):
@@ -184,6 +233,10 @@ class FinalReport(BaseModel):
 
     findings: list[FinalReportFinding] = Field(
         default_factory=list, description="CONFIRMED 且攻击链完整的漏洞条目"
+    )
+    refuted_on_intended: list[FinalReportRefuted] = Field(
+        default_factory=list,
+        description="D5 透传：REFUTED 裁决及其理由（理由不透传=报告层盲区，台账 #6）",
     )
     conclusion: str = Field(
         default="", description="整体结论：风险概况、主要威胁、建议"

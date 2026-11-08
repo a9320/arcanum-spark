@@ -86,3 +86,15 @@
   - **判分器**：verdict 行透传 `starving`（旧 JSON 无键→False 零回归）；flips 逐条附 `starved_runs`（该假设饥饿卷序号）——翻转涉饥饿卷归"证据状态差异"，与纯采样方差分开判读；`_aggregate_runs`/`_aggregate` 增 `starved_verdicts` 与 `flips_with_starved_runs`（4c 根因定性从混合拆开的机读入口）。
   - **测试**：`codeark/tests/test_verify_starving.py` 13 锚（阈值默认/env/非法回退；全包两率 1.0；点名截断 coverage=0.5；幻觉 fp；**minpack 形 coverage 盲区+fraction 点亮**；双闸关闸统计照常；stamp 保字段；治理清零）+ `tests/test_m8_k1_score.py` D3 区 4 锚；verify.sh 5/5。
   - **真机验收（留窗）**：随下窗任一 minpack/default 双臂跑观测——判据=minpack 卷 `starving=True`（包宽率触发）/ default 卷全 False；**只观察遥测，不改 Exp A/B 预注册闸门**。
+
+## 八、实施记录（P2 之 D5 + D2 缺口修复，2026-11-08）——P2 整批清账
+
+- **D5 五件（台账 T5 清单⑤，契约类 #1/#2 + 语义类 #6/#7）**：
+  1. **confidence 强制数字型**：`FinalReportFinding/FinalReportRefuted.confidence: float`（0~1），`_coerce_confidence_number` before-validator 收敛历史双形态（"high"→0.9/"0.9"→0.9/越界夹取/junk 保守 0.5，同 D2 junk 容忍口径）——旧归档 JSON 重放兼容，schema 重试自愈路径退役；report 层 confidence 兼职 severity 的兜底点同步适配（`_conf_as_sev`/`_sev_word`，float≥0.75 high / ≥0.5 medium / 其余 low，字符串口径不变）。
+  2. **verification_method 裸档位字面量清洗**：治理层 `_BARE_TIER_LABEL_RE`（`^e[123]$`）命中→按 evidence_source 映射（repo_file→repo_quote/tool_result→tool_scan/library_knowledge→library_basis/reasoning_only→reasoning/无→unspecified）；三处 prompt 去 E1/E2/E3 标签（模型照抄源头=五档定义文本）+ 方法纪律行（写实际手段，禁档位标签）。
+  3. **degraded.reason 分类学**：`VerificationResult.degraded_reason`（contract/parse/tool-fail/context），`_degraded_verification` 单收口点显式参数+detail 嗅探（peg-native→parse/exceed_context→context/含"契约"→contract/默认 tool-fail）；`_coerce_verification` 归一化失败=parse；判分器 `verify_degraded_by_reason` 按类计数（旧 JSON 无键→计 0）。
+  4. **驳判理由透传**：`FinalReport.refuted_on_intended[]`（新 `FinalReportRefuted`：id/title/reason=verify evidence 原文/置信）+ arbiter prompt 改造（原"REFUTED 一律排除"=台账 #6 根因——已证伪定性被抄进 conclusion；改"REFUTED 逐条透传 + conclusion 禁把已证伪定性当事实"）；确定性兜底路径同口径填充。
+  5. **lateral 与 remediation 分离**：deepen prompt 钉字段视角分工（lateral_moves=攻击者视角移动；remediation=修复视角；修复步骤绝不准进 lateral_moves）——schema 本就分列（台账 #7 为模型行为层）。
+- **D2 缺口修复**（D3 期间两次记档）：严格降级重建（quote-check-failed 分支）透传 `evidence_source`。
+- **测试**：新 `codeark/tests/test_final_report_contract.py` 20 锚（收敛参数化 8/降级分类 6/字面量清洗 4/透传 2/兜底 1/按类计数/prompt 契约/deepen 分工/D2 源码断言）；**612 passed 全绿零回归 + verify.sh 5/5**。
+- **待 DSW 验收**：真机 FinalReport 出 refuted_on_intended 实体（下窗任一含 REFUTED 的卷）、降级分类真值分布（对照 10-23 硬骨卷的降级样本）。

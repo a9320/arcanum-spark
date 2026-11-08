@@ -177,6 +177,10 @@ DEEPEN_SYSTEM_PROMPT = """\
 - JSON 字段严格为：
   {"preconditions": ["..."], "lateral_moves": ["..."], "impact": "...", "remediation": "..."}
 - preconditions/lateral_moves 是字符串数组（可为空数组），impact/remediation 是字符串；
+- **字段视角分工（方差治理 D5，台账语义类 #7）**：lateral_moves 只写**攻击者视角**
+  的进一步移动/扩展动作（拿到该漏洞后能去哪、还能打什么）；remediation 只写
+  **修复视角**措施（怎么修、换成什么）；修复步骤/加固建议**绝不准写进
+  lateral_moves**；
 
 铁律：
 - 所有推演必须锚定给定证据（findings/flows/污点流），不得编造不存在的攻击路径；

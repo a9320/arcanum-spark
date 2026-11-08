@@ -24,6 +24,7 @@ from codeark.models.schemas import (
     AttackChain,
     FinalReport,
     FinalReportFinding,
+    FinalReportRefuted,
     HypothesisSet,
     VerificationResult,
 )
@@ -97,7 +98,19 @@ def _deterministic_fallback_report(
             remediation=str(getattr(chain, "remediation", "") or "")[:1500],
         ))
     conclusion = _report_lang.t("fallback.conclusion", a=reason, b=len(findings))
-    return FinalReport(findings=findings, conclusion=conclusion)
+    # D5（台账语义类 #6）：驳判理由透传——REFUTED 裁决逐条进 refuted_on_intended，
+    # 兜底路径与模型路径同口径
+    refuted = [
+        FinalReportRefuted(
+            hypothesis_id=str(getattr(v, "hypothesis_id", "") or ""),
+            title=str(getattr(v, "hypothesis_title", "") or ""),
+            reason=str(getattr(v, "evidence", "") or "")[:400],
+            confidence=float(getattr(v, "confidence", 0.9) or 0.9),
+        )
+        for v in verifications
+        if getattr(v, "verdict", "") == "REFUTED"
+    ]
+    return FinalReport(findings=findings, refuted_on_intended=refuted, conclusion=conclusion)
 
 
 # ── 系统提示词（裁判官）──
@@ -110,7 +123,11 @@ ARBITER_SYSTEM_PROMPT = """\
 - <attack-chains.json> 对 CONFIRMED 的攻击链推演
 
 铁律：
-- 只有 CONFIRMED 的漏洞才进入最终报告；REFUTED/UNCERTAIN 一律排除；
+- CONFIRMED 的漏洞才进入 findings；针对计划内漏洞类型的 REFUTED 裁决必须
+  **逐条透传**进 refuted_on_intended 字段（hypothesis_id/标题/驳判理由=验证
+  裁决的 evidence 原文/置信），**conclusion 禁止把已证伪假设定性当作事实
+  陈述**，只能引用透传条目（方差治理 D5，台账语义类 #6）；UNCERTAIN 一律
+  排除出 findings，可在 conclusion 以"待复核"提示提及；
 - 多源冲突时以验证裁决为准，并明确标注冲突来源；
 - 同一文件同一漏洞类型的多条条目必须合并为一条，证据取最强的（去重口径：
   file_path + vuln_type 相同即视为同一条）；

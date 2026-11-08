@@ -353,6 +353,16 @@ def judge_question(entry: dict, report: dict | None, upstream_root: Path | None)
         "verify_degraded": sum(
             1 for v in verifications if isinstance(v, dict) and v.get("degraded")
         ),
+        # D5 降级分类学（台账契约类 #4 设计输入）：按类计数——契约/解析类可重跑、
+        # tool-fail 看基建、context 查证据包；旧 JSON 无 degraded_reason 键 → 计 0
+        "verify_degraded_by_reason": {
+            r: sum(
+                1 for v in verifications
+                if isinstance(v, dict) and v.get("degraded")
+                and v.get("degraded_reason") == r
+            )
+            for r in ("contract", "parse", "tool-fail", "context")
+        },
     }
     out["judgment"] = {
         "tp": tp,
