@@ -13,6 +13,8 @@
 from __future__ import annotations
 
 import json
+import os
+import stat
 import sys
 from pathlib import Path
 from typing import Any
@@ -35,13 +37,30 @@ MAX_FILES = 500
 MAX_TOTAL_BYTES = 512 * 1024 * 1024
 MAX_DEPTH = 16
 MAX_ENTRIES = 200_000
+_FILE_ATTRIBUTE_REPARSE_POINT = 0x400
+
+
+def _is_reparse(path: Path) -> bool:
+    """symlink 或 Windows junction/reparse point（目录边界不可穿越）。
+
+    2026-11-08 外部评审 P0-2：`is_symlink()` 对 junction 返回 False、
+    对文件符号链接跳过的是"目录分支"——两者都会让遍历越出扫描根。
+    统一用 os.lstat 判 reparse（读链接本身，不追目标）。
+    """
+    try:
+        st = os.lstat(path)
+    except OSError:
+        return True
+    if stat.S_ISLNK(st.st_mode):
+        return True
+    return bool(getattr(st, "st_file_attributes", 0) & _FILE_ATTRIBUTE_REPARSE_POINT)
 
 
 def collect_office_files(target: Path) -> tuple[list[Path], int, dict[str, Any]]:
     """收集待扫 Office 文件：文件直通；目录走带上限的确定性遍历。
 
     返回 (files, skipped, walk_meta)；walk_meta 披露遍历量与被哪道上限截断。
-    不跟随符号链接目录（防环）。
+    不跟随 symlink/junction/reparse point（防环且防越界）。
     """
     if target.is_file():
         return [target], 0, {"entries": 0, "stopped_by": None}
@@ -70,7 +89,7 @@ def collect_office_files(target: Path) -> tuple[list[Path], int, dict[str, Any]]
                 stack.clear()
                 break
             try:
-                if child.is_symlink() and child.is_dir():
+                if _is_reparse(child):
                     skipped += 1
                     continue
                 if child.is_dir():

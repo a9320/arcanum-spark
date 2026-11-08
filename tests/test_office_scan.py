@@ -174,3 +174,35 @@ def test_report_is_selfcontained_and_counts_findings(tmp_path):
     assert "<!doctype html>" in report["html"]
     assert "src=" not in report["html"]            # 自包含：无外部资源
     assert json.dumps(payload["meta"]["office_scan"]["parts"]) == "1"
+
+def test_walk_never_crosses_junction(tmp_path):
+    """2026-11-08 外部评审 P0-2：目录遍历不得经 junction/symlink 读扫描根外文件。"""
+    import subprocess
+    import sys
+
+    from codeark.office_scan import collect_office_files
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    with zipfile.ZipFile(outside / "poisoned.docx", "w") as zf:
+        zf.writestr("word/document.xml", _docx_xml(INJECTION))
+    if sys.platform.startswith("win"):
+        r = subprocess.run(
+            ["cmd", "/c", "mklink", "/J", str(repo / "ext"), str(outside)],
+            capture_output=True, text=True, encoding="gbk", errors="replace",
+        )
+        if r.returncode != 0 or not (repo / "ext").exists():
+            import pytest
+            pytest.skip("junction creation not available")
+    else:
+        try:
+            (repo / "ext").symlink_to(outside, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            import pytest
+            pytest.skip("symlink creation not permitted")
+
+    files, skipped, caps = collect_office_files(repo)
+    assert all("poisoned" not in str(f) for f in files)
+    assert skipped >= 1
