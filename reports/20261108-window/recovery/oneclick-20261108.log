@@ -1,0 +1,23 @@
+== llama-server 就位:  ==
+== python 验收: torch=2.12.0+git6bbd260 hip=7.2.53211 cuda_available=True
+== gpu_add: 2.0
+== 母带命中 gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf，播种（cp 约 2-3 分钟）==
+已有 gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf，校验通过，跳过
+== 母带命中 Qwen3.8-27B-UD-Q4_K_XL.gguf，播种（cp 约 2-3 分钟）==
+已有 Qwen3.8-27B-UD-Q4_K_XL.gguf，校验通过，跳过
+== 母带命中 DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf，播种（cp 约 2-3 分钟）==
+已有 DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf，校验通过，跳过
+== 母带命中 Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf，播种（cp 约 2-3 分钟）==
+已有 Muse-Glimmer-30B-KQuant-Dynamic-Q4_K_XL.gguf，校验通过，跳过
+== 母带命中 gpt-oss-20b-MXFP4.gguf，播种（cp 约 2-3 分钟）==
+已有 gpt-oss-20b-MXFP4.gguf，校验通过，跳过
+qwen 校验 OK
+== 加固参数: --cache-ram 0 --no-cache-idle-slots --fit off --ctx-checkpoints 2
+5 servers launching
+== 等待模型加载（根盘每模型约 1 分钟，五路并行）==
+[10s] 1/5 就绪
+[20s] 4/5 就绪
+[30s] 5/5 就绪
+=== 全部就绪 ===
+GPU[0]		: VRAM Total Memory (B): 205822885888
+GPU[0]		: VRAM Total Used Memory (B): 110582988800

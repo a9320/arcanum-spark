@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "CodeRisk Arcanum",
+          "informationUri": "https://www.modelscope.cn/studios/Weike22/coderisk-arcanum",
+          "rules": [
+            {
+              "id": "PRIVILEGE_ESCALATION",
+              "shortDescription": {
+                "text": "Docker socket 挂载导致容器逃逸与主机权限提升"
+              },
+              "properties": {
+                "cwe": "",
+                "severity": "high"
+              }
+            },
+            {
+              "id": "AUTH_BYPASS",
+              "shortDescription": {
+                "text": "underscores_in_headers + gunicorn SCRIPT_NAME 头部注入绕过 nginx /admin 拒绝"
+              },
+              "properties": {
+                "cwe": "",
+                "severity": "high"
+              }
+            },
+            {
+              "id": "INFORMATION_DISCLOSURE",
+              "shortDescription": {
+                "text": "/admin/key 未授权密钥泄露"
+              },
+              "properties": {
+                "cwe": "",
+                "severity": "high"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "PRIVILEGE_ESCALATION",
+          "level": "error",
+          "message": {
+            "text": "Docker socket 挂载导致容器逃逸与主机权限提升"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "docker-compose.yml"
+                },
+                "region": {
+                  "startLine": 0,
+                  "snippet": {
+                    "text": "- /var/run/docker.sock:/var/run/docker.sock"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "AUTH_BYPASS",
+          "level": "error",
+          "message": {
+            "text": "underscores_in_headers + gunicorn SCRIPT_NAME 头部注入绕过 nginx /admin 拒绝"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "server/setup.sh"
+                },
+                "region": {
+                  "startLine": 0,
+                  "snippet": {
+                    "text": "underscores_in_headers on;"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "INFORMATION_DISCLOSURE",
+          "level": "error",
+          "message": {
+            "text": "/admin/key 未授权密钥泄露"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "server/server.py"
+                },
+                "region": {
+                  "startLine": 0,
+                  "snippet": {
+                    "text": "@app.route('/admin/key')\ndef get_key():\n    return jsonify(key=get_info()['key'])"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

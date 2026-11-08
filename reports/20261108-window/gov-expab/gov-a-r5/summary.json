@@ -1,0 +1,70 @@
+{
+  "repo": "/mnt/workspace/NYU_CTF_Bench/test/2021/CSAW-Quals/web/gatekeeping",
+  "backend": "deterministic",
+  "prune_mode": "off",
+  "pruned_ids": [],
+  "budget": {
+    "candidates": 4,
+    "kept": 4,
+    "pruned": 0,
+    "saving_ratio": 0.0
+  },
+  "hypothesis_source": "pinned",
+  "gate": {
+    "enabled": true,
+    "backend": "deterministic",
+    "fallback": false,
+    "triage_healthy": true,
+    "prune_mode": "off",
+    "tau": null,
+    "max_keep": null,
+    "min_keep": 1,
+    "ordered_ids": [
+      "H1",
+      "H2",
+      "H3",
+      "H4"
+    ],
+    "selected_ids": [
+      "H1",
+      "H2",
+      "H3",
+      "H4"
+    ],
+    "kept_ids": [
+      "H1",
+      "H2",
+      "H3",
+      "H4"
+    ],
+    "pruned_ids": [],
+    "prune_reasons": {},
+    "budget": {
+      "candidates": 4,
+      "kept": 4,
+      "pruned": 0,
+      "saving_ratio": 0.0
+    },
+    "scores": {
+      "H1": 12.0,
+      "H2": 12.0,
+      "H3": 12.0,
+      "H4": 12.0
+    },
+    "protected_ids": [],
+    "echo_ids": [],
+    "duplicate_ids": [],
+    "degenerate_ids": []
+  },
+  "elapsed_seconds": 470.871,
+  "files": 14,
+  "hypotheses": 4,
+  "verify_requests": 4,
+  "verdicts": {
+    "CONFIRMED": 3,
+    "UNCERTAIN": 1
+  },
+  "final_findings": 3,
+  "risk_score": 9,
+  "node_errors": {}
+}

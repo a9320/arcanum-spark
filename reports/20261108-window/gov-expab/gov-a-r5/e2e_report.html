@@ -1,0 +1,103 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="codeark">
+<title>CodeRisk Arcanum — Scan Report</title>
+<style>
+:root{--ink:#111;--muted:#5b6470;--line:#d8dee6;--bg:#fff;--panel:#f6f8fa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif}
+main{max-width:960px;margin:0 auto;padding:32px 20px 56px}
+h1{font-size:26px;margin:0 0 4px}
+h2{font-size:19px;margin:32px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.sub{color:var(--muted);margin:0 0 20px}
+.cards{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0}
+.card{flex:1 1 140px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.card b{display:block;font-size:22px;line-height:1.2}
+.card span{color:var(--muted);font-size:12px}
+.finding{border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:12px 0}
+.finding h3{margin:0 0 6px;font-size:16px}
+.chip{display:inline-block;border-radius:999px;padding:1px 9px;font-size:11px;font-weight:700;
+ letter-spacing:.04em;margin-right:8px;vertical-align:2px;color:#fff}
+.sev-critical{background:#8b1a1a}.sev-high{background:#b4341f}.sev-medium{background:#9a6b00}.sev-low{background:#3b6b3b}
+.meta-line{color:var(--muted);font-size:13px;margin:0 0 8px}
+dl{margin:8px 0 0}dt{font-weight:600;font-size:13px;margin-top:8px}dd{margin:2px 0 0;color:#222}
+pre.code{background:#0f1720;color:#e6edf3;border-radius:6px;padding:10px 12px;overflow:auto;
+ font:12.5px/1.5 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;white-space:pre-wrap}
+.note{background:#fff8e1;border:1px solid #ecd9a0;border-radius:6px;padding:10px 12px;font-size:13px}
+ul.tight{margin:6px 0;padding-left:22px}
+footer{margin-top:40px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);padding-top:12px}
+@media print{body{font-size:12px}main{padding:0}.finding{break-inside:avoid}}
+</style></head><body><main>
+<h1>CodeRisk Arcanum — Scan Report</h1>
+<p class="sub">Deterministic rules + AI judge. Generated locally; nothing was sent to any external channel.</p>
+<div class="cards">
+<div class="card"><b>3</b><span>findings</span></div>
+<div class="card"><b>0</b><span>PITAX rule hits</span></div>
+<div class="card"><b>4</b><span>hypotheses</span></div>
+<div class="card"><b>4</b><span>verdicts</span></div>
+<div class="card"><b>0</b><span>degraded verdicts</span></div>
+</div>
+<h2>Conclusion</h2>
+<p>本次审计发现严重安全风险，主要威胁包括：1. 容器逃逸风险：通过挂载 Docker socket，攻击者可实现从容器到宿主机的权限提升，接管整个主机；2. 权限绕过与敏感信息泄露：利用 Nginx 配置与 Gunicorn 对 SCRIPT_NAME 头部处理不当的逻辑缺陷，攻击者可以绕过路径访问控制，直接获取敏感的加密密钥，进而解密受害者文件。
+
+建议：
+1. 移除 docker-compose.yml 中对 /var/run/docker.sock 的挂载，并使用非 root 用户运行容器。
+2. 在 Nginx 中关闭 underscores_in_headers 或在 Gunicorn 中严格校验 SCRIPT_NAME 头部。
+3. 在 /admin/key 接口中增加身份验证及付费状态（paid）的强制校验。
+
+注：关于 README.md 中疑似 ANSI 逃逸及潜在指令注入的信号（H4），目前验证结果为 UNCERTAIN，建议进一步进行人工审计以排除文档投毒风险。</p>
+<h2>Audit trail</h2>
+<ul class="tight">
+<li>Prompt quarantine: 0/14 files sanitized, 0 injection trigger phrases neutralized, 0 invisible characters stripped.</li>
+</ul>
+<h2>Azure gate</h2>
+<p class="note">Azure gate: <strong>disabled</strong> (explicitly recorded — local door only, no cloud call was made).</p>
+<h2>Findings (3)</h2>
+<article class="finding">
+<h3><span class="chip sev-high">HIGH</span>Docker socket 挂载导致容器逃逸与主机权限提升</h3>
+<p class="meta-line">docker-compose.yml · PRIVILEGE_ESCALATION</p>
+<dl>
+<dt>Code</dt><dd><pre class="code">- /var/run/docker.sock:/var/run/docker.sock</pre></dd>
+<dt>Attack path</dt><dd>容器启动时挂载了宿主机的 Docker socket，攻击者可以在容器内通过 Docker API 创建、启动或修改容器，从而实现容器逃逸并获取宿主机的 root 权限，导致宿主机完全被接管。</dd>
+<dt>Confidence</dt><dd>0.95</dd>
+</dl></article>
+<article class="finding">
+<h3><span class="chip sev-high">HIGH</span>underscores_in_headers + gunicorn SCRIPT_NAME 头部注入绕过 nginx /admin 拒绝</h3>
+<p class="meta-line">server/setup.sh · AUTH_BYPASS</p>
+<dl>
+<dt>Code</dt><dd><pre class="code">underscores_in_headers on;</pre></dd>
+<dt>Attack path</dt><dd>Nginx 配置开启了 underscores_in_headers 且透传了请求头，结合 Gunicorn 会将 SCRIPT_NAME 写入 WSGI 环境变量的特性，攻击者可以通过设置 SCRIPT_NAME 请求头来重写 URL 路径（例如访问 /asdf/admin/key 实际指向 /admin/key），从而绕过 Nginx 对 /admin/ 路径的 deny all 限制。</dd>
+<dt>Confidence</dt><dd>0.95</dd>
+</dl></article>
+<article class="finding">
+<h3><span class="chip sev-high">HIGH</span>/admin/key 未授权密钥泄露</h3>
+<p class="meta-line">server/server.py · INFORMATION_DISCLOSURE</p>
+<dl>
+<dt>Code</dt><dd><pre class="code">@app.route(&#x27;/admin/key&#x27;)
+def get_key():
+    return jsonify(key=get_info()[&#x27;key&#x27;])</pre></dd>
+<dt>Attack path</dt><dd>利用上述 SCRIPT_NAME 路径重写漏洞绕过 Nginx 限制后，攻击者可访问 /admin/key 路由。由于该路由仅检查 key_id 格式而未校验用户是否已付费（paid），攻击者可直接获取敏感加密密钥，进而解密受害者的加密文件。</dd>
+<dt>Confidence</dt><dd>0.95</dd>
+</dl></article>
+<h2>Attack chains (3)</h2>
+<h3>1. Attack chain</h3><ul class="tight">
+<li><strong>Preconditions:</strong> Docker socket is mounted into the container; Container runs with root privileges</li>
+<li><strong>Lateral moves:</strong> Attackers can create new containers or modify existing ones via Docker API; Escalate privileges by exploiting container breakout techniques; Gain access to host filesystem and services through Docker operations</li>
+<li><strong>Impact:</strong> Complete compromise of host system through container escape and privilege escalation</li>
+<li><strong>Remediation:</strong> Remove Docker socket volume mount and run containers with non-root user through docker-compose.yml modification</li>
+</ul>
+<h3>2. Attack chain</h3><ul class="tight">
+<li><strong>Preconditions:</strong> Nginx allows underscores_in_headers; Gunicorn processes SCRIPT_NAME header; Flask route /admin/key exists</li>
+<li><strong>Lateral moves:</strong> Inject SCRIPT_NAME header to rewrite request path; Bypass Nginx deny rule for /admin/; Retrieve encryption key via /admin/key endpoint</li>
+<li><strong>Impact:</strong> Unauthenticated attacker can decrypt encrypted files and obtain sensitive information</li>
+<li><strong>Remediation:</strong> Disable processing of SCRIPT_NAME header in Gunicorn and remove /admin/key endpoint</li>
+</ul>
+<h3>3. Attack chain</h3><ul class="tight">
+<li><strong>Preconditions:</strong> 攻击者能够向服务器发送请求并控制请求头中的SCRIPT_NAME字段; Nginx配置中未正确限制/admin路径的访问; gunicorn未正确处理WSGI环境变量</li>
+<li><strong>Lateral moves:</strong> 攻击者可以通过设置SCRIPT_NAME请求头绕过Nginx的/admin路径限制; 攻击者可以构造请求如&#x27;/asdf/admin/key&#x27;并设置SCRIPT_NAME为&#x27;asdf/&#x27;以访问实际路径&#x27;/admin/key&#x27;; 攻击者可以利用获得的密钥解密加密的flag.txt.enc文件; 攻击者可以利用获得的密钥解密其他加密的敏感数据</li>
+<li><strong>Impact:</strong> 未经授权的密钥泄露可能导致敏感数据被解密, 影响系统的机密性和完整性</li>
+<li><strong>Remediation:</strong> 在server/server.py的get_key函数中添加对info[&#x27;paid&#x27;]字段的检查, 只有当已付费时才返回密钥</li>
+</ul>
+<footer>Generated locally by CodeRisk Arcanum. Unknown values are reported as unknown, never as clean. Publication of this report requires human authorization.</footer>
+</main></body></html>

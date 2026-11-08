@@ -1,0 +1,76 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="codeark">
+<title>CodeRisk Arcanum — Scan Report</title>
+<style>
+:root{--ink:#111;--muted:#5b6470;--line:#d8dee6;--bg:#fff;--panel:#f6f8fa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif}
+main{max-width:960px;margin:0 auto;padding:32px 20px 56px}
+h1{font-size:26px;margin:0 0 4px}
+h2{font-size:19px;margin:32px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.sub{color:var(--muted);margin:0 0 20px}
+.cards{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0}
+.card{flex:1 1 140px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.card b{display:block;font-size:22px;line-height:1.2}
+.card span{color:var(--muted);font-size:12px}
+.finding{border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:12px 0}
+.finding h3{margin:0 0 6px;font-size:16px}
+.chip{display:inline-block;border-radius:999px;padding:1px 9px;font-size:11px;font-weight:700;
+ letter-spacing:.04em;margin-right:8px;vertical-align:2px;color:#fff}
+.sev-critical{background:#8b1a1a}.sev-high{background:#b4341f}.sev-medium{background:#9a6b00}.sev-low{background:#3b6b3b}
+.meta-line{color:var(--muted);font-size:13px;margin:0 0 8px}
+dl{margin:8px 0 0}dt{font-weight:600;font-size:13px;margin-top:8px}dd{margin:2px 0 0;color:#222}
+pre.code{background:#0f1720;color:#e6edf3;border-radius:6px;padding:10px 12px;overflow:auto;
+ font:12.5px/1.5 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;white-space:pre-wrap}
+.note{background:#fff8e1;border:1px solid #ecd9a0;border-radius:6px;padding:10px 12px;font-size:13px}
+ul.tight{margin:6px 0;padding-left:22px}
+footer{margin-top:40px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);padding-top:12px}
+@media print{body{font-size:12px}main{padding:0}.finding{break-inside:avoid}}
+</style></head><body><main>
+<h1>CodeRisk Arcanum — Scan Report</h1>
+<p class="sub">Deterministic rules + AI judge. Generated locally; nothing was sent to any external channel.</p>
+<div class="cards">
+<div class="card"><b>1</b><span>findings</span></div>
+<div class="card"><b>0</b><span>PITAX rule hits</span></div>
+<div class="card"><b>2</b><span>hypotheses</span></div>
+<div class="card"><b>2</b><span>verdicts</span></div>
+<div class="card"><b>0</b><span>degraded verdicts</span></div>
+</div>
+<h2>Conclusion</h2>
+<p>本审计发现高危的远程代码执行（RCE）漏洞。攻击者可以通过笔记接口（`app.py`）对 `title` 字段进行控制，利用缺乏过滤的缺陷实现对 Redis 缓存键的任意覆盖（缓存投毒）。结合 Flask-Caching 使用 pickle 进行序列化且仅反序列化以 `!` 开头的数据这一特性，攻击者可以注入恶意的 pickle 对象，从而实现远程代码执行。建议：1. 在 `app.py` 中对 `title` 输入进行严格过滤，禁止包含敏感缓存前缀；2. 将 Flask-Caching 的序列化机制从 pickle 更改为更安全的格式（如 JSON）。</p>
+<h2>Audit trail</h2>
+<ul class="tight">
+<li>Prompt quarantine: 0/11 files sanitized, 0 injection trigger phrases neutralized, 0 invisible characters stripped.</li>
+</ul>
+<h2>Azure gate</h2>
+<p class="note">Azure gate: <strong>disabled</strong> (explicitly recorded — local door only, no cloud call was made).</p>
+<h2>Findings (1)</h2>
+<article class="finding">
+<h3><span class="chip sev-high">HIGH</span>Redis 缓存投毒导致 Flask-Caching 反序列化 RCE</h3>
+<p class="meta-line">app.py · line 24 · DESERIALIZATION</p>
+<dl>
+<dt>Code</dt><dd><pre class="code">title = request.form.get(&#x27;title&#x27;, default=None)
+content = request.files.get(&#x27;content&#x27;, default=None)
+...
+redis.setex(name=title, value=content, time=3)</pre></dd>
+<dt>Evidence</dt><dd>app.py:32-43 证实了接口未对 `title` 进行任何过滤逻辑；README.md:22, 25, 28, 30 证实了 Flask-Caching 使用 pickle 存储数据且仅对以 &#x27;!&#x27; 开头的缓存值进行反序列化。</dd>
+<dt>Attack path</dt><dd>由于 `app.py` 中的笔记接口未对用户提供的 `title` 进行任何过滤（例如未检查是否包含 `flask_cache_view//` 前缀），攻击者可以直接构造特定的键名来覆盖 Redis 中的缓存数据。结合 Flask-Caching 库使用 pickle 序列化数据且仅反序列化以 `!` 开头的缓存值的特性（见 README.md），攻击者可以通过提交 `title=flask_cache_view//test1` 且 `content=b&#x27;!&#x27; + pickle.dumps(payload)` 的请求实现缓存投毒，随后在访问对应页面时触发远程代码执行（RCE）。</dd>
+<dt>Confidence</dt><dd>0.9</dd>
+</dl></article>
+<h2>Attack chains (2)</h2>
+<h3>1. Attack chain</h3><ul class="tight">
+<li><strong>Preconditions:</strong> 攻击者能够构造并上传恶意的pickle对象; Redis缓存未对序列化数据进行充分验证</li>
+<li><strong>Lateral moves:</strong> 通过构造恶意的pickle对象覆盖Redis缓存键; 触发Flask-Caching的反序列化机制执行恶意代码</li>
+<li><strong>Impact:</strong> 攻击者能够执行任意系统命令，获取敏感文件内容（如flag.txt）</li>
+<li><strong>Remediation:</strong> 升级Flask-Caching到2.0.0及以上版本，并修改app.py中的缓存配置，设置CACHE_serializer=&#x27;json&#x27;</li>
+</ul>
+<h3>2. Attack chain</h3><ul class="tight">
+<li><strong>Preconditions:</strong> 攻击者能够构造特定的标题以覆盖 Redis 键</li>
+<li><strong>Lateral moves:</strong> 攻击者可以构造恶意 pickle 对象并通过 Redis 缓存注入到 Flask 应用中; 攻击者可以利用 Flask-Caching 的缓存机制实现远程代码执行</li>
+<li><strong>Impact:</strong> 攻击者能够通过控制 Redis 键值对 Flask 应用进行任意代码执行，进而窃取敏感信息如 flag.txt</li>
+<li><strong>Remediation:</strong> 在 app.py 中对标题进行严格的过滤，避免包含 &#x27;flask_cache_view&#x27; 等特殊前缀；将 Redis 键限制在特定命名空间内，防止被覆盖</li>
+</ul>
+<footer>Generated locally by CodeRisk Arcanum. Unknown values are reported as unknown, never as clean. Publication of this report requires human authorization.</footer>
+</main></body></html>
