@@ -15,6 +15,7 @@
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 from codeark.agents.agent0_pitax import run_agent0
@@ -26,6 +27,7 @@ from codeark.agents.report_agent import render_report, apply_severity_floor, mer
 from codeark.graph.quarantine import quarantine_files
 from codeark.models.factory import make_stage_tuning_from_env
 from codeark.models.routing import StageModels, StageTuning, redact_error
+from codeark.provenance import collect_provenance
 from codeark.report_lang import t as _t
 
 __all__ = [
@@ -230,6 +232,7 @@ class CodeRiskGraph:
         self, files: dict[str, str], *, pinned_hypothesis_set: Any = None
     ) -> GraphResult:
         res = GraphResult()
+        started_at = datetime.now(timezone.utc)
 
         # 1. Agent0：PITAX 规则层（无 LLM，确定性基线）——永远跑**原始**文件
         res.agent0_findings = run_agent0(files)
@@ -435,6 +438,8 @@ class CodeRiskGraph:
                 ),
                 # Azure 基线 gate 的覆盖率与降级（默认关时显式记 enabled=false）
                 "azure": res.azure,
+                # 11-09 provenance：模型/端点（脱敏）/tuning/commit，观测用不参与判分
+                "provenance": collect_provenance(started_at=started_at),
             },
         )
 
