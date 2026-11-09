@@ -206,3 +206,31 @@ def test_walk_never_crosses_junction(tmp_path):
     files, skipped, caps = collect_office_files(repo)
     assert all("poisoned" not in str(f) for f in files)
     assert skipped >= 1
+
+
+def test_extract_rejects_identity_swap_between_walk_and_open(tmp_path, monkeypatch):
+    """2026-11-09 评审 P2：walk 判过之后被换成另一对象，读取必须失败。
+
+    不依赖 symlink 创建权限（Windows 普通用户建不了文件链接）：直接让 open
+    解析到另一个文件，复现 walk→open 之间身份变化的后果。
+    """
+    import os
+
+    from codeark import office_text
+
+    real_doc = tmp_path / "real.docx"
+    with zipfile.ZipFile(real_doc, "w") as zf:
+        zf.writestr("word/document.xml", _docx_xml("clean text"))
+    other = tmp_path / "other.docx"
+    with zipfile.ZipFile(other, "w") as zf:
+        zf.writestr("word/document.xml", _docx_xml(INJECTION))
+
+    real_open = os.open
+
+    def fake_open(path, flags, *args, **kwargs):
+        target = other if str(path) == str(real_doc) else path
+        return real_open(target, flags, *args, **kwargs)
+
+    monkeypatch.setattr(office_text.os, "open", fake_open)
+    with pytest.raises(OSError):
+        extract_office_text(real_doc)
