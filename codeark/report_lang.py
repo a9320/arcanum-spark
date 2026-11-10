@@ -99,6 +99,49 @@ _STRINGS: dict[str, tuple[str, str]] = {
         "aggregated {b} finding(s) from CONFIRMED verdicts (severity conservatively high; "
         "manual review required).",
     ),
+    # ── 人话摘要 + 名词小抄（2026-11-10 用户测试反馈：非开发读者看不懂报告）──
+    "md.summary_h": ("一句话摘要", "At a glance"),
+    "md.summary_counts": (
+        "发现 {a} 处问题：严重 {c} 处、高危 {h} 处、中危 {m} 处、低危 {l} 处。",
+        "Found {a} issue(s): {c} critical, {h} high, {m} medium, {l} low.",
+    ),
+    "md.summary_top": (
+        "最需要先看：{a} 第 {b} 行（{c}）。",
+        "Look first at: {a} line {b} ({c}).",
+    ),
+    "md.summary_clean": (
+        "未发现已覆盖规则命中；这不等于“没有漏洞”，范围见文末名词小抄。",
+        "No hits from the covered rules; this is not proof of zero vulnerabilities "
+        "(scope: glossary below).",
+    ),
+    "md.summary_dry": (
+        "本次为干跑（dry-run）：命中来自确定性规则基线，未经模型裁决，适合复现流水线，不代表完整检测结果。",
+        "This was a dry run: hits come from the deterministic rule baseline only, with no "
+        "model adjudication; useful for reproducing the pipeline, not a full scan result.",
+    ),
+    "md.glossary_h": ("名词小抄（给第一次看报告的人）", "Glossary (for first-time readers)"),
+    "md.glossary.rule": (
+        "- 规则编号（PIT-*）：命中的确定性规则；PIT-T-46 指“Agent 指令文件注入”。",
+        "- Rule id (PIT-*): the deterministic rule that fired; PIT-T-46 means "
+        "\"agent instruction-file injection\".",
+    ),
+    "md.glossary.sev": (
+        "- 严重级：CRITICAL 需立即处理，HIGH 尽快修，MEDIUM/LOW 按计划修。",
+        "- Severity: CRITICAL needs immediate action, HIGH soon, MEDIUM/LOW on schedule.",
+    ),
+    "md.glossary.line": (
+        "- 文件/行号：问题出现的位置，可直接跳转核对。",
+        "- File/line: where the issue is; jump there to verify.",
+    ),
+    "md.glossary.score": (
+        "- 风险分（0-100）：由代码按严重级累加，不由模型给出。",
+        "- Risk score (0-100): summed by code from severities, never produced by the model.",
+    ),
+    "md.glossary.verdict": (
+        "- UNCERTAIN：证据不足时不硬判；确认必须有工具输出（E1）或仓内原文+行号（E2）。",
+        "- UNCERTAIN: no forced verdict without evidence; CONFIRMED requires tool output (E1) "
+        "or verbatim repo text with line numbers (E2).",
+    ),
 }
 
 

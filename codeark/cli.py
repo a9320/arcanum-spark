@@ -223,6 +223,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", default="./reports", help="report output directory (default ./reports)")
     parser.add_argument("--formats", default="json,sarif,markdown", help="output formats, comma-separated (json,sarif,markdown,html)")
     args = parser.parse_args(args_list)
+    # 11-10 用户测试：非法格式此前只打一行 ⚠️ 且退出码 0，用户不知道合法值是什么。
+    # 改为启动前显式报错并列出可选值（exit 2），避免"看起来成功了其实没输出"。
+    _valid = {"json", "sarif", "markdown", "html"}
+    _requested = [f.strip() for f in args.formats.split(",") if f.strip()]
+    _unknown = [f for f in _requested if f not in _valid]
+    if _unknown or not _requested:
+        print(f"❌ 未知输出格式: {', '.join(_unknown) or '(空)'}")
+        print(f"   可选: {', '.join(sorted(_valid))}（逗号分隔，例如 --formats json,markdown）")
+        return 2
     return asyncio.run(_main(args))
 
 

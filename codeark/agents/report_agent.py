@@ -217,10 +217,39 @@ def build_markdown(
     模板标签走 report_lang（默认中文逐字节不变，ARCA_REPORT_LANG=en 出英文）。
     """
     lines = [f"# {t('report.title')}", ""]
+    m = meta or {}
+
+    # 人话摘要（2026-11-10 用户测试反馈：非开发读者读不懂报告）——放在最顶部，
+    # 让第一次看的人先知道"有几处、最该先看哪一处"，再进入细节。
+    lines += [f"## {t('md.summary_h')}", ""]
+    if findings:
+        sev_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+        for f in findings:
+            key = _sev_word(f).lower()
+            sev_counts[key if key in sev_counts else "low"] += 1
+        lines.append(
+            t(
+                "md.summary_counts",
+                a=len(findings),
+                c=sev_counts["critical"],
+                h=sev_counts["high"],
+                m=sev_counts["medium"],
+                l=sev_counts["low"],
+            )
+        )
+        top = sorted(findings, key=lambda f: _SEV_ORDER.get(_sev_word(f).lower(), 9))[0]
+        top_file = _f(top, "file_path") or _f(top, "file") or "?"
+        top_line = _f(top, "line") or _f(top, "line_start") or "?"
+        top_title = _f(top, "title") or _f(top, "rule") or ""
+        lines.append(t("md.summary_top", a=top_file, b=top_line, c=top_title))
+    else:
+        lines.append(t("md.summary_clean"))
+    if m.get("dry_run"):
+        lines.append(t("md.summary_dry"))
+    lines.append("")
+
     if conclusion:
         lines += [f"## {t('md.conclusion_h')}", "", conclusion, ""]
-
-    m = meta or {}
     qs = m.get("quarantine_stats") or {}
     if qs:
         lines += [
@@ -283,6 +312,17 @@ def build_markdown(
             if _f(c, "remediation"):
                 lines.append(f"{t('md.chain_fix')} {_f(c, 'remediation')}")
             lines.append("")
+
+    # 名词小抄（同上，给第一次看报告的人）
+    lines += ["", f"## {t('md.glossary_h')}", ""]
+    for key in (
+        "md.glossary.rule",
+        "md.glossary.sev",
+        "md.glossary.line",
+        "md.glossary.score",
+        "md.glossary.verdict",
+    ):
+        lines.append(t(key))
 
     return "\n".join(lines).rstrip() + "\n"
 

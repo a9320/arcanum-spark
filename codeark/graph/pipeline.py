@@ -440,6 +440,8 @@ class CodeRiskGraph:
                 "azure": res.azure,
                 # 11-09 provenance：模型/端点（脱敏）/tuning/commit，观测用不参与判分
                 "provenance": collect_provenance(started_at=started_at),
+                # 11-10 用户测试：报告顶部摘要需要区分干跑与真实跑批
+                "dry_run": bool(self.dry),
             },
         )
 
