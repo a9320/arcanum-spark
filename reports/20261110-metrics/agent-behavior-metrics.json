@@ -1,0 +1,31 @@
+{
+  "reports": 73,
+  "verifications": 309,
+  "methods": {
+    "unset": 309
+  },
+  "verdicts": {
+    "CONFIRMED": 212,
+    "UNCERTAIN": 78,
+    "REFUTED": 19
+  },
+  "evidence_sources": {
+    "unset": 231,
+    "repo_file": 72,
+    "tool_result": 4,
+    "library_knowledge": 2
+  },
+  "evidence_bound_rate": 1.0,
+  "degraded_rate": 0.0162,
+  "refuted": 19,
+  "refuted_reason_rate": 1.0,
+  "node_errors": {
+    "verify": 6,
+    "deepen": 6,
+    "arbiter": 6
+  },
+  "flip_groups": {
+    "CONFIRMED|UNCERTAIN": 1,
+    "CONFIRMED|REFUTED": 1
+  }
+}
