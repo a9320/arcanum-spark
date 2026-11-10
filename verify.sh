@@ -5,7 +5,21 @@ set -uo pipefail
 cd "$(dirname "$0")"
 
 PY=".venv-win/Scripts/python.exe"
-[ -x "$PY" ] || PY="$(command -v python3 || command -v python)"
+# 无 .venv-win（评委解压 ZIP 的常态）时自动挑可用解释器：优先 python，再 python3。
+# 注意：Git Bash 里的 python3 可能是 Windows 商店桩（静默零输出）——所以逐个试
+# import sys 探测版本，桩会被跳过；两者都不可用则显式报错退出（不再静默 0/5）。
+if [ ! -x "$PY" ]; then
+  for cand in python python3; do
+    probe="$(command -v "$cand" 2>/dev/null || true)"
+    if [ -n "$probe" ] && "$probe" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)' >/dev/null 2>&1; then
+      PY="$probe"; break
+    fi
+  done
+fi
+if [ ! -x "$PY" ]; then
+  echo "❌ 未找到可用的 Python 3.11+（Windows 请安装 Python 或确认 python 命令可用）"
+  exit 2
+fi
 
 pass=0; fail=0
 step() { echo; echo "==== $1 ===="; }
