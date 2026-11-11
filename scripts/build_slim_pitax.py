@@ -223,8 +223,37 @@ Source / issues: https://github.com/a9320/arcanum-spark
 ## Usage
 
 ```bash
-codeark-pitax scan ./your-repo --formats html --out ./pitax-report
+# scan a repository (or a single file) — reports land in ./pitax-report
+codeark-pitax ./your-repo --formats html,json --out ./pitax-report
+
+# CI gate: exit 3 when anything at or above `high` is found
+codeark-pitax ./your-repo --fail-on high
 ```
+
+## Exit codes (CI gating)
+
+| Code | Meaning |
+|---:|---|
+| 0 | scan finished, nothing at/above the threshold |
+| 1 | bad arguments, or the target path does not exist |
+| 3 | findings at/above the threshold (`--fail-on` / `--fail-on-findings`) |
+
+`--formats json,sarif,markdown,html` writes report artifacts; `sarif` is accepted by
+GitHub code scanning. Nothing is uploaded and no model is called.
+
+```yaml
+# .github/workflows/pitax.yml
+- run: pip install "codeark-pitax>=0.2.2"
+- run: codeark-pitax . --fail-on high --formats sarif,json
+- uses: github/codeql-action/upload-sarif@v3
+  if: always()
+  with: { sarif_file: pitax-report/report.sarif }
+```
+
+Boundary: a rule match is a **report**, not a confirmed attack. Output is advisory and
+the tool never modifies or deletes files. Directory scans never follow symlinks or
+junctions and are bounded (file count / depth / total bytes), and a partial scan
+declares what stopped it.
 
 ## Attribution
 
