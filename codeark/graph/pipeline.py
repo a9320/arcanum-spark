@@ -442,6 +442,8 @@ class CodeRiskGraph:
                 "provenance": collect_provenance(started_at=started_at),
                 # 11-10 用户测试：报告顶部摘要需要区分干跑与真实跑批
                 "dry_run": bool(self.dry),
+                # 11-11 摘要补"查了什么"：扫描文件数
+                "files_scanned": len(files),
             },
         )
 

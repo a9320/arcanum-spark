@@ -51,7 +51,7 @@ COPY_PLAN: list[tuple[Path, str, list[tuple[str, str]]]] = [
     (
         ROOT / "codeark" / "agents" / "report_agent.py",
         "reporting.py",
-        [("from codeark.report_lang import t", "from .report_lang import t")],
+        [("from codeark.report_lang import is_en, t", "from .report_lang import is_en, t")],
     ),
     # 报告语言开关（ARCA_REPORT_LANG）：纯标准库，逐字携带——slim CLI 同样获得 en 模式
     (ROOT / "codeark" / "report_lang.py", "report_lang.py", []),

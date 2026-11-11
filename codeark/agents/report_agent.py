@@ -16,11 +16,13 @@
 """
 from __future__ import annotations
 
+import re
+
 import json
 from html import escape as _html_escape
 from typing import Any
 
-from codeark.report_lang import t
+from codeark.report_lang import is_en, t
 
 
 def _esc(value: Any) -> str:
@@ -41,6 +43,32 @@ __all__ = [
 SARIF_VERSION = "2.1.0"
 
 _SEV_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+# 2026-11-11 用户测试第二轮：中文读者先看到"这是什么问题"，编号退到括号里（GPT 评审建议）。
+_SEV_CN = {"critical": "严重", "high": "高危", "medium": "中危", "low": "低危"}
+_RULE_CN = {
+    "PIT-E-23": "不可见字符",
+    "PIT-E-54": "双向文本（Trojan Source）",
+    "PIT-E-07": "Base64 编码载荷",
+    "PIT-E-14": "ROT13 编码载荷",
+    "PIT-E-36": "反转编码载荷",
+    "PIT-E-57": "分层编码载荷",
+    "PIT-T-46": "AI 代理指令文件注入",
+    "PIT-T-51": "指令覆盖",
+    "PIT-N-06": "文档/文件投毒",
+}
+
+
+_RULE_RE = re.compile(r"\[(PIT-[A-Z]+-\d+)\]")
+
+
+def _rule_of(f: Any) -> str:
+    """取规则编号：优先 rule 字段，其次从标题的 [PIT-...] 前缀抽取。"""
+    rule = str(_f(f, "rule") or "").strip()
+    if rule:
+        return rule
+    m = _RULE_RE.search(str(_f(f, "title") or ""))
+    return m.group(1) if m else ""
 
 
 def _f(f: Any, key: str, default: Any = "") -> Any:
@@ -222,6 +250,8 @@ def build_markdown(
     # 人话摘要（2026-11-10 用户测试反馈：非开发读者读不懂报告）——放在最顶部，
     # 让第一次看的人先知道"有几处、最该先看哪一处"，再进入细节。
     lines += [f"## {t('md.summary_h')}", ""]
+    if m.get("files_scanned"):
+        lines.append(t("md.summary_scope", a=m["files_scanned"]))
     if findings:
         sev_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
         for f in findings:
@@ -240,12 +270,17 @@ def build_markdown(
         top = sorted(findings, key=lambda f: _SEV_ORDER.get(_sev_word(f).lower(), 9))[0]
         top_file = _f(top, "file_path") or _f(top, "file") or "?"
         top_line = _f(top, "line") or _f(top, "line_start") or "?"
+        top_rule = _rule_of(top)
         top_title = _f(top, "title") or _f(top, "rule") or ""
-        lines.append(t("md.summary_top", a=top_file, b=top_line, c=top_title))
+        if not is_en() and top_rule and top_rule in _RULE_CN:
+            top_title = f"{_RULE_CN[top_rule]}，{top_rule}"
+        lines.append(t("md.summary_top_ranked", a=top_file, b=top_line, c=top_title))
     else:
         lines.append(t("md.summary_clean"))
     if m.get("dry_run"):
-        lines.append(t("md.summary_dry"))
+        lines += [t("md.summary_mode_dry"), t("md.summary_note_dry"), t("md.summary_next_dry")]
+    else:
+        lines += [t("md.summary_mode_full"), t("md.summary_note_full"), t("md.summary_next_full")]
     lines.append("")
 
     if conclusion:
@@ -279,10 +314,24 @@ def build_markdown(
         )
         for f in sorted_findings:
             sev = _sev_word(f)
-            lines.append(f"## [{str(sev).upper()}] {_f(f, 'title') or _f(f, 'description') or _f(f, 'rule')}")
+            title = _f(f, "title") or _f(f, "description") or _f(f, "rule")
+            rule = _rule_of(f)
+            if is_en():
+                head = f"[{str(sev).upper()}] {title}"
+            else:
+                # 中文读者先读"这是什么问题"，规则编号退到括号里（编号仍保留，便于复现）
+                label = _RULE_CN.get(rule) or title
+                head = f"[{_SEV_CN.get(str(sev).lower(), sev)}] {label}"
+                if rule:
+                    head += f"（{rule}）"
+            lines.append(f"## {head}")
             lines.append(f"- {t('md.file')}: {_f(f, 'file_path') or _f(f, 'file')}")
             if _f(f, "line") or _f(f, "line_start"):
                 lines.append(f"- {t('md.line')}: {_f(f, 'line') or _f(f, 'line_start')}")
+            if m.get("dry_run"):
+                lines.append(t("md.source_dry"))
+            elif _f(f, "evidence_source"):
+                lines.append(t("md.source_evidence", a=_f(f, "evidence_source")))
             if _f(f, "code_snippet"):
                 lines.append(f"- {t('md.code')}: `{_f(f, 'code_snippet')}`")
             if _f(f, "evidence"):

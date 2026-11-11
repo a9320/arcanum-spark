@@ -119,6 +119,46 @@ _STRINGS: dict[str, tuple[str, str]] = {
         "This was a dry run: hits come from the deterministic rule baseline only, with no "
         "model adjudication; useful for reproducing the pipeline, not a full scan result.",
     ),
+    "md.summary_scope": (
+        "扫描范围：{a} 个文件；按 9 条确定性规则初筛。",
+        "Scope: {a} file(s); screened by 9 deterministic rules.",
+    ),
+    "md.summary_top_ranked": (
+        "按规则严重级排序，建议优先核查：{a} 第 {b} 行（{c}）。",
+        "Ranked by rule severity, review first: {a} line {b} ({c}).",
+    ),
+    "md.summary_mode_dry": (
+        "检测模式：Dry-run（仅运行确定性规则，尚未执行模型合议）。",
+        "Mode: Dry-run (deterministic rules only; no model adjudication).",
+    ),
+    "md.summary_mode_full": (
+        "检测模式：Full Pipeline（6-Agent 模型合议已执行）。",
+        "Mode: Full pipeline (6-agent model adjudication executed).",
+    ),
+    "md.summary_note_dry": (
+        "结果说明：当前结果为规则初筛，不代表完整检测结论。",
+        "Note: preliminary rule screening, not a full validated conclusion.",
+    ),
+    "md.summary_note_full": (
+        "结果说明：确认状态以 E1/E2 证据与合议结果为准。",
+        "Note: confirmation status follows E1/E2 evidence and adjudication.",
+    ),
+    "md.summary_next_dry": (
+        "建议下一步：核查上述规则命中项，并运行完整 Agent 流水线获取进一步证据。",
+        "Next: review the rule hits above, then run the full agent pipeline for further evidence.",
+    ),
+    "md.summary_next_full": (
+        "建议下一步：优先核查严重问题，修复后重新执行完整检测。",
+        "Next: review critical findings first, then re-run the full scan after fixes.",
+    ),
+    "md.source_dry": (
+        "- 检测来源: 确定性规则 PITAX；模型裁决: 未执行；状态: 待验证",
+        "- Source: deterministic PITAX rules; model verdict: not run; status: unverified",
+    ),
+    "md.source_evidence": (
+        "- 证据来源: {a}",
+        "- Evidence source: {a}",
+    ),
     "md.glossary_h": ("名词小抄（给第一次看报告的人）", "Glossary (for first-time readers)"),
     "md.glossary.rule": (
         "- 规则编号（PIT-*）：命中的确定性规则；PIT-T-46 指“Agent 指令文件注入”。",
