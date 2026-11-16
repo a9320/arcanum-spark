@@ -217,7 +217,12 @@ def main(argv: list[str] | None = None) -> int:
     # 子命令别名：`codeark scan <repo>` 与 `codeark <repo>` 同义（旧脚本零改动）
     if args_list and args_list[0] == "scan":
         args_list = args_list[1:]
-    parser = argparse.ArgumentParser(description="CodeRisk Arcanum — 6-agent AI vulnerability scan pipeline")
+    parser = argparse.ArgumentParser(
+        description="CodeRisk Arcanum — 6-agent AI vulnerability scan pipeline",
+        epilog="examples:  python -m codeark.cli demo/vuln-demo-repo --dry --formats json,html --out reports/quickstart\n"
+               "            python -m codeark.cli docs-scan ./my-docs --formats json,html\n"
+               "            note: 'scan' is a compatibility alias — `codeark scan <repo>` is the same as `codeark <repo>`",
+        formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("repo", help="repository directory to scan")
     parser.add_argument("--dry", action="store_true", help="offline dry-run (no LLM calls)")
     parser.add_argument("--out", default="./reports", help="report output directory (default ./reports)")

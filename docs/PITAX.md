@@ -1,7 +1,7 @@
 # CodeRisk Cloud × Arcanum PITAX 集成
 
 > 检测 AI 时代的新型代码漏洞：提示注入、不可见字符走私、AI 配置后门、Trojan Source、文档投毒、多层编码载荷。
-> 基于 [Arcanum Prompt Injection Taxonomy](https://arcanum-sec.com/pitax) v1.6.1（Jason Haddix, Arcanum Information Security）。CC BY 4.0。
+> 基于 [Arcanum Prompt Injection Taxonomy](https://github.com/Arcanum-Sec/arc_pi_taxonomy) v1.6.1（Jason Haddix, Arcanum Information Security）。CC BY 4.0。
 
 ## 为什么做这个
 
@@ -110,7 +110,7 @@ python -m pytest -c codeark/pyproject.toml codeark/tests tests -q   # 全仓 310
 
 ## 参考资源
 
-- Arcanum PITAX：https://arcanum-sec.com/pitax
+- Arcanum PITAX：https://github.com/Arcanum-Sec/arc_pi_taxonomy
 - PITAX 仓库：https://github.com/Arcanum-Sec/arc_pi_taxonomy
 - 七支柱方法论：https://arcanum-sec.com/services/ai-pentesting-and-red-teaming/
 - OWASP LLM Top 10：https://genai.owasp.org

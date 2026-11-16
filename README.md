@@ -7,7 +7,7 @@ deployspec:
 [![CI](https://github.com/a9320/arcanum-spark/actions/workflows/ci.yml/badge.svg)](https://github.com/a9320/arcanum-spark/actions/workflows/ci.yml)
 ![demo](docs/demo.gif)
 
-**Catch the first spark before it becomes a wildfire.** Code security audit for AI-era vulnerabilities — built on the [Arcanum Prompt Injection Taxonomy](https://arcanum-sec.com/pitax) (Jason Haddix, Arcanum Information Security), packaged as an Agent Skill plus a 6-agent LLM pipeline. It runs fully local and deterministic (zero LLM), or self-hosted on **five llama-servers on AMD MI300X** (`ARCA_DEPLOYMENT=local`) — the operative deployment — with the original per-stage **cloud API council** still available through environment routing.
+**Catch the first spark before it becomes a wildfire.** Code security audit for AI-era vulnerabilities — built on the [Arcanum Prompt Injection Taxonomy](https://github.com/Arcanum-Sec/arc_pi_taxonomy) (Jason Haddix, Arcanum Information Security), packaged as an Agent Skill plus a 6-agent LLM pipeline. It runs fully local and deterministic (zero LLM), or self-hosted on **five llama-servers on AMD MI300X** (`ARCA_DEPLOYMENT=local`) — the operative deployment — with the original per-stage **cloud API council** still available through environment routing.
 
 > **Provenance:** independent repository reworked on top of upstream [a9320/code-risk-arcanum](https://github.com/a9320/code-risk-arcanum) (MIT, `upstream` remote, import anchored at `fcfc6f7`).
 
@@ -48,9 +48,11 @@ flowchart LR
 
 ```bash
 git clone https://github.com/a9320/arcanum-spark && cd arcanum-spark
-pip install -r requirements.txt
+pip install -r requirements-verify.txt
 python -m codeark.cli scan demo/vuln-demo-repo --dry --formats json,html --out reports/quickstart
 # → reports/quickstart/report.{json,html} — 12 expected PITAX hits, no model calls
+#   scope note: the demo repo is a single planted fixture (n=1); the 12-hit figure is
+#   demo-scope, not a general effectiveness claim — full numbers live in docs/EVAL-LEDGER.md.
 #   report.html is a self-contained single page (no CDN/fonts/scripts; safe to open offline)
 bash verify.sh   # 5-step deterministic regression (tests + demo scan + eval + clean-repo FP control)
 ```
@@ -69,7 +71,7 @@ then `ARCA_DEPLOYMENT=local python test_e2e.py`. CI/CD usage: [`docs/CI-CD.md`](
 
 ## One-click verification (zero LLM API calls)
 
-> Prerequisites: Python 3.10+ with the pipeline dependencies — `pip install -r requirements.txt` (strands-agents, openai, pydantic, pytest). The script prefers a local `.venv-win` if present (create it with `python -m venv .venv-win` on Windows) and falls back to your system Python otherwise.
+> Prerequisites: Python 3.11+ (verify.sh gates on it) — install the verification-only set from the quickstart above (`pip install -r requirements-verify.txt`: strands-agents, openai, pydantic, pytest, fastapi, uvicorn, rich, httpx, numpy, scipy, celery, redis, python-multipart). The script prefers a local `.venv-win` if present (create it with `python -m venv .venv-win` on Windows) and falls back to your system Python otherwise. The full `requirements.txt` is the deployment manifest (model stack); note that as of 2026-11 its transformers 5.14+ pin requires huggingface-hub≥1.5, which conflicts with the in-file `<1.0` pin on current PyPI metadata — the verification path does not need those model-stack deps.
 
 ```bash
 bash verify.sh
@@ -117,7 +119,7 @@ Key engineering mechanisms:
 
 ## Decision gate (Laya — optional, offline-tuned)
 
-The pipeline accepts an optional **decision gate** in front of Verify: a compact KEEP/PRUNE classifier (GRPO-style fine-tuned head; model lineage `laya-r0…r8`) that re-orders and protects hypotheses so verification lands on the most probable real threats first. In the default mounted posture the gate is strictly **order-only** — every hypothesis is still verified (`pruned_ids` empty), so mounting it cannot drop findings relative to the gate-free baseline.
+The pipeline accepts an optional **decision gate** in front of Verify: a compact KEEP/PRUNE classifier (GRPO-style fine-tuned head — Group Relative Policy Optimization, an RL-tuned ranking head; model lineage `laya-r0…r8`, the generation codenames of the Laya decision model) that re-orders and protects hypotheses so verification lands on the most probable real threats first. In the default mounted posture the gate is strictly **order-only** — every hypothesis is still verified (`pruned_ids` empty), so mounting it cannot drop findings relative to the gate-free baseline.
 
 Tooling in `eval/`: `run_gate_e2e.py` (gate-integrated e2e) · `compare_gate_e2e.py` (P1 reorder-only / P2 no-fallback / P3 quality-floor acceptance) · `time_laya.py` (per-item latency + accuracy) · `build_r*_hardneg.py` + `finetune_*.py` (the fine-tuning loop). Acceptance artifacts live under `reports/gate11/` and `reports/gate-e2e/`; every referenced number is traceable in [`docs/EVAL-LEDGER.md`](docs/EVAL-LEDGER.md).
 

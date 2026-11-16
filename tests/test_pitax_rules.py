@@ -42,7 +42,8 @@ def test_registry_metadata_complete():
     for code in ALL_RULES:
         rule = PITAX_RULES[code]
         assert rule["references"][0].endswith(code)
-        assert "arcanum-sec.com" in rule["references"][0]
+        # 2026-11-15：原 arcanum-sec.com/pitax 深链 404，归属源改指 GitHub 归属仓
+        assert "github.com/Arcanum-Sec/arc_pi_taxonomy" in rule["references"][0]
         assert rule["severity"] in ("critical", "high", "medium", "low")
 
 

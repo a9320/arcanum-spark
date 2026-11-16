@@ -20,8 +20,10 @@ replay.py 与 codeark/graph/gate_factory.py 均转发到这里）。
 依赖口径：本文件顶层**纯标准库**——torch/transformers 只在 vendor
 rl_agent_api.py（随模型目录自带）exec 时引入。Windows CPU safetensors mmap
 已知坑：特定环境段错误（EVAL-LEDGER 2026-10-07 laya-r6 Windows 行记录，
-绕法=fp32 物化副本，该补丁当时未入仓）；本层不做未验证的加载补丁，
-遇到崩溃按 LAYA_RUNTIME_NOTE 提示处置。
+绕法=fp32 物化副本，该补丁当时未入仓）。**2026-11-14 复验**：torch 2.15.0+cpu /
+transformers 5.14.1 / safetensors 0.8.0 下原样加载 LOAD_OK（26.1s），24/24 逐位
+对齐基线，mmap 段错误不复现——fp32 物化补丁退役。遇到崩溃仍按
+LAYA_RUNTIME_NOTE 提示处置。
 
 checkpoint 分发：GitHub Release `laya-checkpoints`（三资产，sha256 见
 EVAL-LEDGER）；MCP 侧用户手动下载 + ARCA_LAYA_PATH 指路（零网络红线）。
@@ -35,10 +37,11 @@ __all__ = ["score_laya", "LAYA_RUNTIME_NOTE"]
 # Windows CPU 用户提示（MCP 工具输出与文档共用同一段文字，避免两处口径漂移）
 LAYA_RUNTIME_NOTE = (
     "Laya ranks hypotheses offline (a ~421M decision model, ~0.4s/item on CPU). "
-    "Known caveat: on some Windows CPU environments safetensors mmap crashes at "
-    "load (observed 2026-10-07, EVAL-LEDGER); workaround there was a materialized "
-    "fp32 copy of the checkpoint. If loading crashes on Windows, re-run on "
-    "Linux/WSL or a GPU host."
+    "Re-verified 2026-11-14 on Windows CPU (torch 2.15.0+cpu / transformers 5.14.1 / "
+    "safetensors 0.8.0): checkpoint loads as-is, 24/24 bit-exact vs baseline — the "
+    "earlier mmap crash (2026-10-07, EVAL-LEDGER) no longer reproduces and the fp32 "
+    "materialization workaround is retired. If loading still crashes on an older "
+    "stack, re-run on Linux/WSL or a GPU host."
 )
 
 

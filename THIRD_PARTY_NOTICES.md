@@ -3,7 +3,7 @@
 ## Arcanum Prompt Injection Taxonomy (PITAX) v1.6.1
 - Copyright (c) Jason Haddix, Arcanum Information Security
 - License: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
-- Reference: https://arcanum-sec.com/pitax
+- Reference: https://github.com/Arcanum-Sec/arc_pi_taxonomy
 - Used by: rule IDs aligned with the public taxonomy in `app/pitax/` and `codeark/`
 
 ## Bundled dependencies (pip)

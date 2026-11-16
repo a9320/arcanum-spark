@@ -37,7 +37,7 @@ Citation: Haddix, J. (2026). Arcanum Prompt Injection Taxonomy (v1.6.1).
 """
 
 PITAX_VERSION = "1.6.1"
-PITAX_SOURCE = "https://arcanum-sec.com/pitax"
+PITAX_SOURCE = "https://github.com/Arcanum-Sec/arc_pi_taxonomy"
 PITAX_REPO = "https://github.com/Arcanum-Sec/arc_pi_taxonomy"
 
 PITAX_RULES: dict[str, dict] = {

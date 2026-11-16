@@ -6,7 +6,7 @@ license: MIT
 compatibility: Python ≥3.10 标准库；无网络、无 GPU；需可导入 arcanum-spark 仓库的 codeark.pitax（技能随仓库分发）。
 metadata:
   author: Arcanum-Spark Team (a9320)
-  taxonomy: "PITAX v1.6.1 (https://arcanum-sec.com/pitax)"
+  taxonomy: "PITAX v1.6.1 (https://github.com/Arcanum-Sec/arc_pi_taxonomy)"
   attribution: "规则编号基于 Arcanum Prompt Injection Taxonomy, Jason Haddix, CC BY 4.0"
   tags:
     - security

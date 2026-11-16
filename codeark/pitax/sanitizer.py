@@ -61,7 +61,7 @@ class InputSanitizer:
 
 
 def scan_directory(work_dir: str) -> tuple[list[dict], dict]:
-    """Agent 0 入口：扫描目录，返回 (findings, stats)。永不抛异常。"""
+    """Agent 0 入口：扫描目录，返回 (findings, stats)。best-effort：path 不存在时返回 error 字段；单个文件的读取/解析异常可能向上抛，调用方自行容错。"""
     sanitizer = InputSanitizer()
     all_findings: list[dict] = []
     stats = {

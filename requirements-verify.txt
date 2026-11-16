@@ -1,0 +1,23 @@
+# 验证五步最小依赖集（零 LLM，2026-11-15 干净 venv 实测 verify.sh 5/5）
+#
+# 用途：仅覆盖 README「5 分钟复现」的验证五步（pytest + 确定性扫描 + 回归核对）。
+# 说明：包内 requirements.txt 是完整部署清单（含 transformers 模型栈）；因上游
+# PyPI 元数据变更（transformers 5.14+ 要求 huggingface-hub>=1.5，与清单钉版冲突），
+# 完整清单在部分环境会 ResolutionImpossible——**验证不需要安装它**。
+#
+# 用法：pip install -r requirements-verify.txt
+
+fastapi>=0.115.2,<1.0
+pydantic>=2.9,<3
+uvicorn[standard]>=0.32
+python-multipart>=0.0.18
+redis>=5.2
+celery>=5.4
+rich>=13.0
+httpx>=0.28
+numpy>=1.26,<2
+scipy>=1.11,<1.14
+pytest>=8.3
+pytest-asyncio>=0.24
+strands-agents==1.56.0
+openai>=3.0

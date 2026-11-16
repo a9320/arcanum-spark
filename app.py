@@ -132,7 +132,7 @@ def build_app():
         with gr.Tab("About"):
             gr.Markdown(
                 "**CodeRisk Arcanum** is built on the [Arcanum Prompt Injection Taxonomy]"
-                "(https://arcanum-sec.com/pitax) (Jason Haddix, Arcanum Information Security).\n\n"
+                "(https://github.com/Arcanum-Sec/arc_pi_taxonomy) (Jason Haddix, Arcanum Information Security).\n\n"
                 "- Deterministic rules + multi-source AI cross-verification\n"
                 "- Every finding carries its full evidence chain\n"
                 "- SARIF 2.1 standard reports\n"
