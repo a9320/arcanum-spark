@@ -1,210 +1,274 @@
 """IC27 达标核对：逐项确认 10 项 Azure 服务各自已产生 >= $1.00 用量。
 
-为什么存在：规则判据不在"资源已创建"，而在"账户上每项服务可见 $1.00 用量"。
-本脚本用 `az consumption usage list` 的明细按服务聚合，输出一张可贴进证据文档的表。
+为什么不用 `az consumption usage list`：学生订阅（Azure for Students）上它只返回
+一行占位记录（pretaxCost/usageQuantity/meterDetails 全是 None），拿不到可用明细。
+
+改用 **Cost Management 查询 API，按 ResourceId 分组**：
+  * 账单的 ServiceName 维度把 5 项 AI 服务合并成一项 "Foundry Tools"，无法区分；
+    ResourceId 粒度能保留"一项服务一个资源"的事实。
+  * 学生订阅按 CNY 记账，所以用 --cny-per-usd（默认 7.2）换算成美元再对 $1 门槛判定。
 
 用法：
-  # 1) 本机已 az login：脚本自己去拉最近 30 天明细
-  python scripts/azure/check_usage.py --run-az
-
-  # 2) 在 Cloud Shell 里先导出明细，再离线核对（推荐：证据可存档复跑）
-  az consumption usage list --start-date 2026-11-17 --end-date 2026-12-17 -o json > usage.json
-  python scripts/azure/check_usage.py --input usage.json
-
-  # 3) 只看某一项 / 调整门槛
-  python scripts/azure/check_usage.py --input usage.json --only speech --min-usd 1.0
+  python scripts/azure/check_usage.py                 # 本月至今（MonthToDate）
+  python scripts/azure/check_usage.py --days 3        # 最近 3 天（Custom 窗口）
+  python scripts/azure/check_usage.py --json          # 只输出 JSON（存档用）
+  python scripts/azure/check_usage.py --input out.json  # 离线核对已保存的查询结果
 
 判据与口径：
-  * 明细字段因订阅类型而异，本脚本按 product -> meterName -> consumedService 逐级匹配。
-  * 金额优先取 pretaxCost，缺失时退 cost；只统计 <= 当天（未来日期行忽略）。
-  * 退出码：0=十项全达标；1=有未达标；2=拿不到明细/参数错误。
+  * 明细有 4–24 小时延迟：当天跑量当天查大概率还是 0，属正常。
+  * 金额取 Cost Management 的 Cost 列；币种取 Currency 列。
+  * 退出码：0=十项全达标；1=有未达标；2=拿不到数据/参数错误。
 """
 from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
+import tempfile
+import time
 from datetime import date, timedelta
 from pathlib import Path
 
-# 十项服务与匹配规则（顺序=选型文档 §3 的表序）。
-# keys: 规范名；products/meters 为小写子串，命中任一即归入该服务。
-SERVICES: list[dict[str, object]] = [
-    {"key": "content_safety", "label": "Azure AI Content Safety",
-     "product": ["content safety"], "meter": ["text records", "images"]},
-    {"key": "language", "label": "Azure AI Language",
-     "product": ["language"], "meter": ["text records", "doc-pii"]},
-    {"key": "docintel", "label": "Azure AI Document Intelligence",
-     "product": ["document intelligence", "form recognizer"], "meter": ["pages"]},
-    {"key": "vision", "label": "Azure AI Vision",
-     "product": ["vision", "computer vision"], "meter": ["ocr", "read"]},
-    {"key": "speech", "label": "Azure AI Speech",
-     "product": ["speech"], "meter": ["speech to text", "stt"]},
-    {"key": "acr", "label": "Azure Container Registry",
-     "product": ["container registry"], "meter": ["registry unit", "registry"]},
-    {"key": "aca", "label": "Azure Container Apps",
-     "product": ["container apps"], "meter": ["vcpu", "memory", "environment"]},
-    {"key": "log_analytics", "label": "Azure Log Analytics",
-     "product": ["log analytics"], "meter": ["data ingestion", "data analyzed"]},
-    {"key": "service_bus", "label": "Azure Service Bus",
-     "product": ["service bus"], "meter": ["base unit", "messaging operations"]},
-    {"key": "event_hubs", "label": "Azure Event Hubs",
-     "product": ["event hubs"], "meter": ["throughput unit", "ingress events"]},
+# 资源名前缀 -> (规范 key, 展示名)。顺序=选型文档 §3 的表序。
+RESOURCE_MAP: list[tuple[tuple[str, ...], str, str]] = [
+    (("arca-cs-",), "content_safety", "Azure AI Content Safety"),
+    (("arca-ai-",), "language", "Azure AI Language"),
+    (("arca-di-",), "docintel", "Azure AI Document Intelligence"),
+    (("arca-cv-",), "vision", "Azure AI Vision"),
+    (("arca-sp-",), "speech", "Azure AI Speech"),
+    (("arcaacr",), "acr", "Azure Container Registry"),
+    (("arca-aca-",), "aca", "Azure Container Apps"),
+    (("arca-law-",), "log_analytics", "Azure Log Analytics"),
+    (("arca-sb-",), "service_bus", "Azure Service Bus"),
+    (("arca-eh-",), "event_hubs", "Azure Event Hubs"),
 ]
 
-
-def _text(item: dict, *names: str) -> str:
-    for name in names:
-        value = item.get(name)
-        if value:
-            return str(value)
-    return ""
+DEFAULT_CNY_PER_USD = 7.2
 
 
-def classify(item: dict) -> str | None:
-    """把一条用量明细归到十项之一；归不进去返回 None。"""
-    product = _text(item, "product", "productName").lower()
-    meter = _text(item, "meterName", "meter").lower()
-    consumed = _text(item, "consumedService", "serviceName").lower()
-    for spec in SERVICES:
-        products = [p.lower() for p in spec["product"]]  # type: ignore[index]
-        meters = [m.lower() for m in spec["meter"]]  # type: ignore[index]
-        hit_product = any(p in product for p in products) or any(
-            p in consumed for p in products
-        )
-        if not hit_product:
-            continue
-        if not meters or any(m in meter for m in meters):
-            return str(spec["key"])
+def service_for_resource(resource_id: str) -> tuple[str, str] | None:
+    """把 ResourceId 归到十项之一（按资源名匹配前缀）。"""
+    name = resource_id.rstrip("/").rsplit("/", 1)[-1].lower()
+    if not name:
+        return None
+    for prefixes, key, label in RESOURCE_MAP:
+        if any(name.startswith(p) for p in prefixes):
+            return key, label
     return None
 
 
-def _cost(item: dict) -> float:
-    for name in ("pretaxCost", "cost", "costInBillingCurrency"):
-        value = item.get(name)
-        if value is None:
-            continue
-        try:
-            return float(value)
-        except (TypeError, ValueError):
-            continue
-    return 0.0
+def az_command(override: str | None = None) -> list[str]:
+    """解析 az；Windows 的 az.cmd 必须经 cmd /c 启动（否则 WinError 2）。"""
+    exe = override or shutil.which("az") or shutil.which("az.cmd") or shutil.which("az.bat")
+    if not exe:
+        return []
+    if exe.lower().endswith((".cmd", ".bat")):
+        return ["cmd", "/c", exe]
+    return [exe]
 
 
-def aggregate(items: list[dict]) -> dict[str, dict[str, object]]:
-    out: dict[str, dict[str, object]] = {
-        str(spec["key"]): {
-            "label": spec["label"],
-            "cost_usd": 0.0,
-            "meters": {},
-            "rows": 0,
-        }
-        for spec in SERVICES
+def build_query(days: int | None) -> dict:
+    dataset = {
+        "granularity": "None",
+        "aggregation": {"totalCost": {"name": "Cost", "function": "Sum"}},
+        "grouping": [{"type": "Dimension", "name": "ResourceId"}],
     }
-    for item in items:
-        key = classify(item)
-        if key is None:
-            continue
-        entry = out[key]
-        entry["cost_usd"] = round(float(entry["cost_usd"]) + _cost(item), 6)  # type: ignore[arg-type]
-        meters: dict[str, float] = entry["meters"]  # type: ignore[assignment]
-        meter = _text(item, "meterName", "meter") or "(unknown)"
-        meters[meter] = round(meters.get(meter, 0.0) + _cost(item), 6)
-        entry["rows"] = int(entry["rows"]) + 1  # type: ignore[arg-type]
-    return out
+    if days is None:
+        return {"type": "ActualCost", "timeframe": "MonthToDate", "dataset": dataset}
+    end = date.today()
+    start = end - timedelta(days=max(1, days))
+    return {
+        "type": "ActualCost",
+        "timeframe": "Custom",
+        "timePeriod": {"from": f"{start.isoformat()}T00:00:00Z", "to": f"{end.isoformat()}T23:59:59Z"},
+        "dataset": dataset,
+    }
 
 
-def _load(args: argparse.Namespace) -> list[dict] | None:
-    if args.input:
-        path = Path(args.input)
-        if not path.exists():
-            print(f"明细文件不存在：{path}", file=sys.stderr)
+def _curl_query(az: list[str], subscription: str, body: dict) -> dict | None:
+    """az rest 失败时的兜底：curl + bearer token（本机到 management.azure.com 会间歇性重置）。"""
+    curl = shutil.which("curl")
+    if not curl:
+        return None
+    token = subprocess.run(
+        az + ["account", "get-access-token", "--query", "accessToken", "-o", "tsv"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+    )
+    if token.returncode != 0 or not (token.stdout or "").strip():
+        return None
+    url = (
+        f"https://management.azure.com/subscriptions/{subscription}"
+        f"/providers/Microsoft.CostManagement/query?api-version=2023-11-01"
+    )
+    handle = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8")
+    try:
+        json.dump(body, handle)
+        handle.close()
+        done = subprocess.run(
+            [curl, "-sk", "--max-time", "180", "-X", "POST", url,
+             "-H", f"Authorization: Bearer {token.stdout.strip()}",
+             "-H", "Content-Type: application/json",
+             "--data", f"@{handle.name}"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300,
+        )
+        if done.returncode == 0 and (done.stdout or "").strip().startswith("{"):
+            data = json.loads(done.stdout)
+            if "properties" in data:
+                return data
+            print(f"  curl 返回异常：{str(data)[:200]}", file=sys.stderr)
             return None
-        return json.loads(path.read_text(encoding="utf-8"))
-    start = (date.today() - timedelta(days=args.days)).isoformat()
-    end = date.today().isoformat()
-    command = [
-        "az", "consumption", "usage", "list",
-        "--start-date", start, "--end-date", end, "-o", "json",
-    ]
-    try:
-        done = subprocess.run(command, capture_output=True, text=True, timeout=300)
-    except Exception as exc:  # az 未装/超时
-        print(f"调用 az 失败：{type(exc).__name__}: {exc}", file=sys.stderr)
+        print(f"  curl 失败：{(done.stderr or done.stdout or '').strip()[:200]}", file=sys.stderr)
         return None
-    if done.returncode != 0:
-        print(f"az 退出码 {done.returncode}：{(done.stderr or '').strip()[:400]}", file=sys.stderr)
-        return None
-    try:
-        return json.loads(done.stdout or "[]")
     except Exception:
-        print("az 输出不是合法 JSON", file=sys.stderr)
         return None
+    finally:
+        Path(handle.name).unlink(missing_ok=True)
+
+
+def run_query(az: list[str], subscription: str, body: dict, retries: int = 3) -> dict | None:
+    url = (
+        f"https://management.azure.com/subscriptions/{subscription}"
+        f"/providers/Microsoft.CostManagement/query?api-version=2023-11-01"
+    )
+    handle = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8")
+    try:
+        json.dump(body, handle)
+        handle.close()
+        for attempt in range(retries):
+            done = subprocess.run(
+                az + ["rest", "--method", "post", "--url", url, "--body", f"@{handle.name}", "-o", "json"],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300,
+            )
+            if done.returncode == 0:
+                try:
+                    return json.loads(done.stdout or "{}")
+                except json.JSONDecodeError:
+                    print("az rest 输出不是合法 JSON", file=sys.stderr)
+                    return None
+            stderr = (done.stderr or "").strip()
+            throttled = "429" in stderr or "Too many requests" in stderr
+            wait = 30 * (attempt + 1) if throttled else 10 * (attempt + 1)
+            print(f"  查询失败（{'限流' if throttled else '连接'}），{wait}s 后重试（{attempt + 1}/{retries}）",
+                  file=sys.stderr)
+            time.sleep(wait)
+        print("  az rest 连续失败，改用 curl 兜底", file=sys.stderr)
+        return _curl_query(az, subscription, body)
+    finally:
+        Path(handle.name).unlink(missing_ok=True)
+
+
+def aggregate(payload: dict, cny_per_usd: float) -> dict[str, dict[str, object]]:
+    """把 Cost Management 的 rows 按服务汇总；同时返回币种与美元估算。"""
+    table: dict[str, dict[str, object]] = {
+        key: {"label": label, "cost": 0.0, "currency": "", "cost_usd": 0.0, "resources": {}}
+        for _, key, label in RESOURCE_MAP
+    }
+    props = payload.get("properties") or {}
+    columns = [str(col.get("name", "")) for col in props.get("columns", [])]
+    try:
+        i_cost, i_res, i_cur = columns.index("Cost"), columns.index("ResourceId"), columns.index("Currency")
+    except ValueError:
+        return table
+    for row in props.get("rows", []):
+        try:
+            cost = float(row[i_cost] or 0)
+            resource = str(row[i_res] or "")
+            currency = str(row[i_cur] or "")
+        except (TypeError, ValueError, IndexError):
+            continue
+        mapped = service_for_resource(resource)
+        if mapped is None:
+            continue
+        key, _label = mapped
+        entry = table[key]
+        entry["cost"] = round(float(entry["cost"]) + cost, 6)  # type: ignore[arg-type]
+        entry["currency"] = currency or entry["currency"]
+        resources: dict[str, float] = entry["resources"]  # type: ignore[assignment]
+        name = resource.rstrip("/").rsplit("/", 1)[-1]
+        resources[name] = round(resources.get(name, 0.0) + cost, 6)
+    for entry in table.values():
+        currency = str(entry["currency"] or "USD").upper()
+        cost = float(entry["cost"])  # type: ignore[arg-type]
+        entry["cost_usd"] = round(cost / cny_per_usd, 4) if currency == "CNY" else round(cost, 4)
+    return table
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="IC27：10 项 Azure 服务 $1 用量核对")
-    ap.add_argument("--input", help="az consumption usage list 导出的 JSON 路径")
-    ap.add_argument("--run-az", action="store_true", help="直接调用 az 拉取最近 N 天明细")
-    ap.add_argument("--days", type=int, default=30, help="--run-az 时的回看天数（默认 30）")
+    ap = argparse.ArgumentParser(description="IC27：10 项 Azure 服务 $1 用量核对（Cost Management/ResourceId）")
+    ap.add_argument("--input", help="已保存的 Cost Management 查询结果 JSON（离线核对）")
+    ap.add_argument("--days", type=int, help="自定义窗口天数（默认 MonthToDate）")
     ap.add_argument("--min-usd", type=float, default=1.0, help="每项门槛（默认 1.00）")
-    ap.add_argument("--only", action="append", default=[], help="只看某些 key（可重复）")
+    ap.add_argument("--cny-per-usd", type=float, default=DEFAULT_CNY_PER_USD,
+                    help=f"CNY→USD 换算（默认 {DEFAULT_CNY_PER_USD}；学生订阅按 CNY 记账）")
+    ap.add_argument("--az", help="az 可执行文件路径（默认自动解析）")
     ap.add_argument("--json", action="store_true", help="只输出 JSON")
     args = ap.parse_args(argv)
 
-    if not args.input and not args.run_az:
-        print("需要 --input 或 --run-az 之一", file=sys.stderr)
-        return 2
-    items = _load(args)
-    if items is None:
-        return 2
-
-    table = aggregate(items)
-    keys = [str(s["key"]) for s in SERVICES]
-    if args.only:
-        keys = [k for k in keys if k in set(args.only)]
-        if not keys:
-            print(f"--only 无匹配：{args.only}", file=sys.stderr)
+    if args.input:
+        path = Path(args.input)
+        if not path.exists():
+            print(f"结果文件不存在：{path}", file=sys.stderr)
+            return 2
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    else:
+        az = az_command(args.az)
+        if not az:
+            print("未找到 az：请安装 azure-cli，或用 --input 传已保存的查询结果", file=sys.stderr)
+            return 2
+        sub = subprocess.run(
+            az + ["account", "show", "--query", "id", "-o", "tsv"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+        )
+        subscription = (sub.stdout or "").strip()
+        if sub.returncode != 0 or not subscription:
+            print(f"拿不到订阅 ID（az 未登录？）：{(sub.stderr or '').strip()[:200]}", file=sys.stderr)
+            return 2
+        payload = run_query(az, subscription, build_query(args.days)) or {}
+        if not payload:
             return 2
 
-    reached = 0
+    table = aggregate(payload, args.cny_per_usd)
     rows = []
-    for key in keys:
+    reached = 0
+    for _prefixes, key, label in RESOURCE_MAP:
         entry = table[key]
-        cost = float(entry["cost_usd"])  # type: ignore[arg-type]
-        ok = cost >= args.min_usd
+        usd = float(entry["cost_usd"])  # type: ignore[arg-type]
+        ok = usd >= args.min_usd
         reached += 1 if ok else 0
         rows.append({
             "key": key,
-            "service": entry["label"],
-            "cost_usd": round(cost, 4),
+            "service": label,
+            "cost": float(entry["cost"]),  # type: ignore[arg-type]
+            "currency": entry["currency"] or "-",
+            "cost_usd": round(usd, 4),
             "reached": ok,
-            "meters": entry["meters"],
-            "rows": entry["rows"],
+            "resources": entry["resources"],
         })
 
     if args.json:
         print(json.dumps({
             "min_usd": args.min_usd,
+            "cny_per_usd": args.cny_per_usd,
+            "window": args.input or (f"最近 {args.days} 天" if args.days else "MonthToDate"),
             "reached": reached,
-            "total": len(keys),
-            "all_reached": reached == len(keys),
+            "total": len(rows),
+            "all_reached": reached == len(rows),
             "services": rows,
         }, ensure_ascii=False))
     else:
-        print(f"门槛：每项 >= ${args.min_usd:.2f}    窗口：{args.input or f'最近 {args.days} 天'}")
-        print(f"{'service':<34}{'cost_usd':>10}  {'status':<6} meters")
+        window = args.input or (f"最近 {args.days} 天" if args.days else "MonthToDate")
+        print(f"门槛：每项 >= ${args.min_usd:.2f}（CNY 按 {args.cny_per_usd} 折算）  窗口：{window}")
+        print(f"{'service':<34}{'cost':>10} {'cur':<5}{'usd':>9}  status")
         for row in rows:
-            meters = ", ".join(sorted(row["meters"])) or "-"
-            print(
-                f"{row['service']:<34}{row['cost_usd']:>10.4f}  "
-                f"{'OK' if row['reached'] else 'SHORT':<6} {meters}"
-            )
-        print(f"\n达到 {reached}/{len(keys)} 项")
-        if reached != len(keys):
-            print("未达标项：先跑 generate_usage.py 对应子命令，或继续等时间型服务计费累积。")
-    return 0 if reached == len(keys) else 1
+            print(f"{row['service']:<34}{row['cost']:>10.4f} {row['currency']:<5}"
+                  f"{row['cost_usd']:>9.3f}  {'OK' if row['reached'] else 'SHORT'}")
+        print(f"\n达到 {reached}/{len(rows)} 项")
+        if reached != len(rows):
+            print("未达标：AI 项跑 generate_usage.py 对应子命令；时间型四项等计费累积。")
+            print("注意账单延迟 4–24 小时，当天跑量当天查仍为 0 属正常。")
+    return 0 if reached == len(rows) else 1
 
 
 if __name__ == "__main__":

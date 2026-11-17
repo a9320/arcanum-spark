@@ -17,7 +17,7 @@ Imagine Cup 2027 正式规则 §7 原文（`IC27-rules-extracted.txt:287`）：
 |---|---|
 | `provision_10_services.sh` | 幂等创建 10 项资源（`--dry-run` / `--stage` / `--skip`） |
 | `generate_usage.py` | 按实测单价把每项 $1 换算成调用量并跑量（stdlib、可 `plan` 零联网） |
-| `check_usage.py` | 用 `az consumption usage list` 逐项核对是否已过门槛（可离线吃 JSON） |
+| `check_usage.py` | 用 **Cost Management 查询（按 ResourceId 分组）** 逐项核对是否过门槛（可离线吃 JSON） |
 | `cleanup_10_services.sh` | 按名单删除（默认 dry-run；绝不删整组，保护 gate 用的 F0 资源） |
 | `prices-20261117.json` | 单价与区域可用性快照（Retail Prices API 实测，含被排除项的理由） |
 
@@ -42,8 +42,8 @@ bash scripts/azure/provision_10_services.sh
 python scripts/azure/generate_usage.py all-ai --env-file "$HOME/azure-ic27.env"
 
 # 3) 核对（十项逐条；未达标只补该项）
-python scripts/azure/check_usage.py --run-az
-python scripts/azure/check_usage.py --run-az --json > check-usage.json
+python scripts/azure/check_usage.py
+python scripts/azure/check_usage.py --json > check-usage.json
 
 # 4) 时间型四项等计费累积（见下表），达标后立刻清理
 bash scripts/azure/cleanup_10_services.sh --yes
@@ -82,8 +82,10 @@ bash scripts/azure/cleanup_10_services.sh --yes
    否则 `/subscriptions/...` 会被改写成 `D:/Git/...`。
 4. **Log Analytics 的 $1 依赖 ACA 日志**：`provision` 里的 logflood 容器每 0.1 秒打一行，
    0.25 vCPU 常驻；若容器没起来，LA 摄入上不去——先查 `az containerapp logs show`。
-5. **学生订阅的 `az consumption usage list` 可能受限**：拿不到明细时，用门户
-   「成本管理 → 成本分析 → 按服务」截图留档，`check_usage.py` 支持 `--input` 吃导出 JSON。
+5. **学生订阅用不了 `az consumption usage list`**（只返回一行占位记录，金额/计量全 None）；
+   且账单的 ServiceName 维度把 5 项 AI 服务合并成 "Foundry Tools"。所以 `check_usage.py`
+   改走 **Cost Management 查询 + ResourceId 分组**，并按 **CNY→USD（--cny-per-usd，默认 7.2）**
+   折算后对 $1 判定；防火墙/代理导致 `az rest` 间歇重置时，脚本自动用 curl 兜底。
 6. **计量名以账户实际为准**：`prices-20261117.json` 是 2026-11-17 的 Retail API 快照；
    部署后若某服务计量对不上（如 Vision 的 OCR 档、Language 走 AIServices 载体），
    以 `check_usage.py` 的 meters 列复核。

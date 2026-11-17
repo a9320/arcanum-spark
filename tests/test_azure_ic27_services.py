@@ -89,52 +89,74 @@ def test_wav_header_and_duration(gen):
 
 
 # ------------------------------------------------------------- 归类与判定 ----
-ITEMS_ALL_OK = [
-    {"product": "Content Safety", "meterName": "Standard Text Records", "pretaxCost": 1.3},
-    {"product": "Azure Language", "meterName": "Standard Text Records", "pretaxCost": 1.3},
-    {"product": "Azure Document Intelligence", "meterName": "S0 Read Pages", "pretaxCost": 1.3},
-    {"product": "Azure AI Vision", "meterName": "OCR glbl Pages", "pretaxCost": 1.3},
-    {"product": "Azure Speech", "meterName": "S1 Speech To Text", "pretaxCost": 1.3},
-    {"product": "Container Registry", "meterName": "Standard Registry Unit", "pretaxCost": 1.3},
-    {"product": "Azure Container Apps", "meterName": "Standard vCPU Active Usage", "pretaxCost": 1.3},
-    {"product": "Log Analytics", "meterName": "Analytics Logs Data Ingestion", "pretaxCost": 1.3},
-    {"product": "Service Bus", "meterName": "Standard Base Unit", "pretaxCost": 1.3},
-    {"product": "Event Hubs", "meterName": "Basic Throughput Unit", "pretaxCost": 1.3},
+RES = [
+    ("arca-cs-usage", "content_safety"),
+    ("arca-ai-usage", "language"),
+    ("arca-di-usage", "docintel"),
+    ("arca-cv-usage", "vision"),
+    ("arca-sp-usage", "speech"),
+    ("arcaacric27", "acr"),
+    ("arca-aca-logflood", "aca"),
+    ("arca-law-ic27", "log_analytics"),
+    ("arca-sb-ic27", "service_bus"),
+    ("arca-eh-ic27", "event_hubs"),
 ]
 
 
-def test_classify_ten_services(chk):
-    keys = [chk.classify(item) for item in ITEMS_ALL_OK]
-    assert keys == [
-        "content_safety", "language", "docintel", "vision", "speech",
-        "acr", "aca", "log_analytics", "service_bus", "event_hubs",
-    ]
+def _rid(name: str) -> str:
+    return f"/subscriptions/x/resourceGroups/rg-arcanum-ic27/providers/Microsoft.X/accounts/{name}"
 
 
-def test_classify_unknown_returns_none(chk):
-    assert chk.classify({"product": "Virtual Machines", "meterName": "D2 v3"}) is None
+def _payload(cost_map: dict[str, float], currency: str = "CNY") -> dict:
+    return {"properties": {
+        "columns": [{"name": "Cost"}, {"name": "ResourceId"}, {"name": "Currency"}],
+        "rows": [[cost, _rid(name), currency] for name, cost in cost_map.items()],
+    }}
 
 
-def test_aggregate_sums_meters(chk):
-    table = chk.aggregate(ITEMS_ALL_OK)
-    assert table["content_safety"]["cost_usd"] == 1.3
-    assert table["speech"]["meters"]["S1 Speech To Text"] == 1.3
+def test_service_for_resource_mapping(chk):
+    for name, expected in RES:
+        assert chk.service_for_resource(_rid(name)) == (expected, chk.service_for_resource(_rid(name))[1])
+
+
+def test_service_for_resource_unknown(chk):
+    assert chk.service_for_resource(_rid("some-other-vm")) is None
+
+
+def test_aggregate_by_resource_id(chk):
+    payload = _payload({"arca-cs-usage": 8.0, "arca-acr-other": 0, "arca-ai-usage": 4.0})
+    table = chk.aggregate(payload, 7.2)
+    assert table["content_safety"]["cost"] == 8.0
+    assert table["content_safety"]["cost_usd"] == round(8.0 / 7.2, 4)
+    assert table["language"]["cost"] == 4.0
+    assert table["content_safety"]["resources"] == {"arca-cs-usage": 8.0}
+
+
+def test_aggregate_usd_currency_no_conversion(chk):
+    table = chk.aggregate(_payload({"arca-cs-usage": 2.0}, currency="USD"), 7.2)
+    assert table["content_safety"]["cost_usd"] == 2.0
 
 
 def test_check_usage_all_reached_exit_zero(chk, tmp_path, capsys):
-    path = tmp_path / "usage.json"
-    path.write_text(json.dumps(ITEMS_ALL_OK), encoding="utf-8")
+    path = tmp_path / "cost.json"
+    path.write_text(json.dumps(_payload({name: 8.0 for name, _ in RES})), encoding="utf-8")
     assert chk.main(["--input", str(path), "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["all_reached"] is True and payload["reached"] == 10
 
 
 def test_check_usage_short_fails(chk, tmp_path, capsys):
-    path = tmp_path / "usage.json"
-    path.write_text(json.dumps(ITEMS_ALL_OK[:3]), encoding="utf-8")
+    path = tmp_path / "cost.json"
+    path.write_text(json.dumps(_payload({"arca-cs-usage": 1.0})), encoding="utf-8")
     assert chk.main(["--input", str(path), "--json"]) == 1
     payload = json.loads(capsys.readouterr().out)
-    assert payload["reached"] == 3
+    assert payload["reached"] == 0
+
+
+def test_az_command_wraps_cmd_on_windows(chk):
+    assert chk.az_command("C:/x/az.cmd")[:2] == ["cmd", "/c"]
+    assert chk.az_command("/usr/bin/az") == ["/usr/bin/az"]
+    assert chk.az_command("C:/nonexistent/az.exe") == ["C:/nonexistent/az.exe"]
 
 
 def test_env_file_parser_ignores_comments(gen, tmp_path):

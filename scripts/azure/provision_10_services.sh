@@ -320,7 +320,7 @@ if [ "$DRY" = 0 ]; then
     say "资源清单：$MANIFEST"
     say "凭据文件：$ENV_OUT（chmod 600，勿入库；generate_usage.py --env-file 读它）"
     say "下一步：python scripts/azure/generate_usage.py all-ai --env-file $ENV_OUT"
-    say "达标核对：python scripts/azure/check_usage.py --run-az"
+    say "达标核对：python scripts/azure/check_usage.py（Cost Management/ResourceId）"
     say "注意：ACR/ACA/SB/EH/LA 按时间累积，达标后跑 cleanup_10_services.sh"
   else
     say "没有创建任何资源（可能全部被 --skip 或未达阶段条件）"
