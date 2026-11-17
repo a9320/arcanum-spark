@@ -1,0 +1,168 @@
+{
+  "probe": {
+    "source": "https://prices.azure.com/api/retail/prices",
+    "auth": "none",
+    "date": "2026-11-17",
+    "currency": "USD",
+    "filter_template": "armRegionName eq '<region>' and productName eq '<product>'",
+    "note": "单价为按量付费（Consumption）retail 价；学生订阅用额度抵扣时账面金额相同。"
+  },
+  "whitelist_regions": [
+    "uaenorth",
+    "eastasia",
+    "koreacentral",
+    "malaysiawest",
+    "indiasouthcentral"
+  ],
+  "selected": [
+    {
+      "service": "Azure AI Content Safety",
+      "product": "Content Safety",
+      "sku": "Standard",
+      "meter": "Standard Text Records",
+      "region": "uaenorth",
+      "unit": "1K records",
+      "unit_usd": 0.375,
+      "usd_per_record": 0.000375,
+      "records_for_1_usd": 2667,
+      "available_in_whitelist": ["uaenorth", "koreacentral"],
+      "target_records": 3334
+    },
+    {
+      "service": "Azure AI Language",
+      "product": "Azure Language",
+      "sku": "Standard",
+      "meter": "Standard Text Records",
+      "region": "eastasia",
+      "unit": "1K records",
+      "unit_usd": 0.25,
+      "usd_per_record": 0.00025,
+      "records_for_1_usd": 4000,
+      "available_in_whitelist": ["eastasia", "koreacentral"],
+      "target_records": 5000,
+      "note": "UAENorth 无该付费计量（只有 Free 与 Doc-PII Redaction Pages $10/1K）；付费档必须 eastasia/koreacentral"
+    },
+    {
+      "service": "Azure AI Document Intelligence",
+      "product": "Azure Document Intelligence",
+      "sku": "S0",
+      "meter": "S0 Read Pages",
+      "region": "uaenorth",
+      "unit": "1K pages",
+      "unit_usd": 0.6,
+      "usd_per_page": 0.0006,
+      "pages_for_1_usd": 1667,
+      "available_in_whitelist": ["uaenorth", "eastasia", "koreacentral"],
+      "target_pages": 2090,
+      "note": "另有 S0 Pre-built Pages $10/1K（达到 $1 只需 100 页）；Read 单价更低，脚本按 Read 走"
+    },
+    {
+      "service": "Azure AI Vision",
+      "product": "Azure AI Vision",
+      "sku": "OCR glbl",
+      "meter": "OCR glbl Pages",
+      "region": "uaenorth",
+      "unit": "1K pages",
+      "unit_usd": 1.0,
+      "usd_per_page": 0.001,
+      "pages_for_1_usd": 1000,
+      "available_in_whitelist": ["uaenorth", "eastasia", "koreacentral"],
+      "target_pages": 1250,
+      "note": "Vision 无 S0/S1 的 'Read' 计量名；OCR 计量在 UAENorth 实测存在。部署后用 preflight 复核一次"
+    },
+    {
+      "service": "Azure AI Speech",
+      "product": "Azure Speech",
+      "sku": "S1",
+      "meter": "S1 Speech To Text",
+      "region": "uaenorth",
+      "unit": "audio hour",
+      "unit_usd": 1.0,
+      "usd_per_hour": 1.0,
+      "hours_for_1_usd": 1.0,
+      "available_in_whitelist": ["uaenorth", "eastasia", "koreacentral"],
+      "target_hours": 1.25
+    },
+    {
+      "service": "Azure Container Registry",
+      "product": "Container Registry",
+      "sku": "Standard",
+      "meter": "Standard Registry Unit",
+      "region": "uaenorth",
+      "unit": "day",
+      "unit_usd": 0.6666,
+      "days_for_1_usd": 2,
+      "note": "Basic 为 $0.1666/天（6 天）；用 Standard 把达标时间压到 ~1.5 天，达标即删"
+    },
+    {
+      "service": "Azure Container Apps",
+      "product": "Azure Container Apps",
+      "sku": "Consumption",
+      "meter": "Standard vCPU Active Usage / Environment Management Hour",
+      "region": "uaenorth",
+      "unit": "vCPU-second / environment-hour",
+      "unit_usd": 0.000024,
+      "usd_per_vcpu_hour": 0.0864,
+      "usd_per_env_hour": 0.1,
+      "hours_for_1_usd": 11.6,
+      "note": "0.5 vCPU 持续运行约 23 小时过 $1；Standard 计划环境费 $0.1/时则为 10 小时。达标即删"
+    },
+    {
+      "service": "Azure Log Analytics",
+      "product": "Log Analytics",
+      "sku": "Analytics Logs",
+      "meter": "Analytics Logs Data Ingestion",
+      "region": "uaenorth",
+      "unit": "GB",
+      "unit_usd": 3.29,
+      "gb_for_1_usd": 0.304,
+      "note": "由 Container Apps 的日志洪流喂入（一项工作同时喂 ACA 与 LA）；平台上还需注意每日上限"
+    },
+    {
+      "service": "Azure Service Bus",
+      "product": "Service Bus",
+      "sku": "Standard",
+      "meter": "Standard Base Unit",
+      "region": "uaenorth",
+      "unit": "hour",
+      "unit_usd": 0.013441,
+      "hours_for_1_usd": 74.4,
+      "note": "关键路径 3.1 天；Basic 档无常驻基础费，只按操作计费，凑 $1 需 1500 万次操作，不采用"
+    },
+    {
+      "service": "Azure Event Hubs",
+      "product": "Event Hubs",
+      "sku": "Basic",
+      "meter": "Basic Throughput Unit",
+      "region": "uaenorth",
+      "unit": "hour",
+      "unit_usd": 0.0198,
+      "hours_for_1_usd": 50.5,
+      "note": "2.1 天"
+    }
+  ],
+  "rejected": [
+    {
+      "service": "Azure AI Translator",
+      "reason": "白名单 5 区只有 $0.00 的 Translation Transaction 计量，付费计量仅出现在 westus/eastus 等区；不能作为可验证的付费项，排除"
+    },
+    {
+      "service": "Azure Application Insights",
+      "reason": "计费并入 Log Analytics 摄入（同一计量家族），单列不增加服务数"
+    },
+    {
+      "service": "Azure Blob Storage",
+      "reason": "达到 $1 需 ~20 万次写操作或 ~55GB·月，跑量成本/复杂度高于其价值，排除"
+    },
+    {
+      "service": "Azure Key Vault",
+      "reason": "Operations $0.0396/10K → 需 ~25 万次操作；可用但比时间型服务更费时，列为备选第 11 项"
+    }
+  ],
+  "cost_plan": {
+    "per_service_target_usd": 1.25,
+    "total_estimated_usd": "约 12–14（含少量超额与存储），在学生订阅 $100 额度内",
+    "critical_path_days": 3.1,
+    "note": "时间型四项（ACR/ACA/SB/EH）达标后立即 cleanup；ACR 用 Standard 把 6 天压到 1.5 天"
+  }
+}
