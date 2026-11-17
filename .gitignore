@@ -49,3 +49,6 @@ reports/office-demo/
 reports/office-demo/
 reports/office-demo-en/
 reports/poisoned-doc/
+
+# IC27 Azure 部署产物（本地产物，不入库）
+azure-ic27-resources.json

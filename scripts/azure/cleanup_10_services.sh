@@ -39,7 +39,7 @@ ACR_NAME="arcaacr${SUFFIX}"
 SB_NAME="arca-sb-${SUFFIX}"
 EH_NAME="arca-eh-${SUFFIX}"
 LAW_NAME="arca-law-${SUFFIX}"
-COGS=(arca-cs-usage arca-lang-usage arca-di-usage arca-cv-usage arca-sp-usage)
+COGS=(arca-cs-usage arca-lang-usage arca-di-usage arca-cv-usage arca-sp-usage arca-ai-usage)
 
 say() { printf '%s\n' "$*" >&2; }
 doit() {

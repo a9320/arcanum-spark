@@ -71,12 +71,25 @@ bash scripts/azure/cleanup_10_services.sh --yes
 
 ## 已知限制（如实）
 
-1. **Log Analytics 的 $1 依赖 ACA 日志**：`provision` 里的 logflood 容器每 0.2 秒打一行，
-   0.5 vCPU 常驻；若容器没起来，LA 摄入上不去——先查 `az containerapp logs show`。
-2. **学生订阅的 `az consumption usage list` 可能受限**：拿不到明细时，用门户
+1. **学生订阅禁 Language 付费档**：`TextAnalytics/S0` 在 eastasia 与 koreacentral 均报
+   `SpecialFeatureOrQuotaIdRequired`。脚本自动回退到 **AIServices 多服务资源 S0**
+   （`arca-ai-usage`），同一把 key、同一 `/language/:analyze-text` 路径，用量按 Language
+   计量计费（已实测 PII 调用 200）。
+2. **资源提供程序默认未注册**：首次创建 ACR/ACA 会报 `MissingSubscriptionRegistration`。
+   脚本在建资源前统一 `az provider register --wait`；如仍失败，等几分钟重跑即可。
+3. **CLI 2.93 的 `containerapp create --yaml` 有缺陷**（400，System.Text.Json 布尔解析错）：
+   脚本改用 **ARM REST PUT**（body 走临时文件）。Git Bash 下另需 `MSYS_NO_PATHCONV=1`，
+   否则 `/subscriptions/...` 会被改写成 `D:/Git/...`。
+4. **Log Analytics 的 $1 依赖 ACA 日志**：`provision` 里的 logflood 容器每 0.1 秒打一行，
+   0.25 vCPU 常驻；若容器没起来，LA 摄入上不去——先查 `az containerapp logs show`。
+5. **学生订阅的 `az consumption usage list` 可能受限**：拿不到明细时，用门户
    「成本管理 → 成本分析 → 按服务」截图留档，`check_usage.py` 支持 `--input` 吃导出 JSON。
-3. **计量名以账户实际为准**：`prices-20261117.json` 是 2026-11-17 的 Retail API 快照；
-   部署后若某服务计量对不上（如 Vision 的 OCR 档），以 `check_usage.py` 的 meters 列复核。
-4. **额度线**：学生订阅额度到期 2027-10-28；IC 提交死线 2027-02-28，窗口内不受影响。
-5. **实体订阅归属**：规则要求订阅归 Startup 所有。本目录先在现有学生订阅上演练
+6. **计量名以账户实际为准**：`prices-20261117.json` 是 2026-11-17 的 Retail API 快照；
+   部署后若某服务计量对不上（如 Vision 的 OCR 档、Language 走 AIServices 载体），
+   以 `check_usage.py` 的 meters 列复核。
+7. **额度线**：学生订阅额度到期 2027-10-28；IC 提交死线 2027-02-28，窗口内不受影响。
+8. **实体订阅归属**：规则要求订阅归 Startup 所有。本目录先在现有学生订阅上演练
    （证明 10 项可跑、成本可控）；实体注册完成后，同一脚本在新订阅重放即可。
+9. **密钥不回显**：`run()` 会遮蔽 `--logs-workspace-key/--key/--password`；万一密钥
+   进了终端历史，用 ARM `regenerateSharedKey?keyType=primarySharedKey` 轮换
+   （注意该参数走 query string，走 body 会报 InvalidParameter）。

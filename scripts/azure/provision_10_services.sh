@@ -41,6 +41,7 @@ LANG_NAME="arca-lang-usage"
 DI_NAME="arca-di-usage"
 CV_NAME="arca-cv-usage"
 SP_NAME="arca-sp-usage"
+AI_NAME="arca-ai-usage"   # AIServices 多服务资源：学生订阅禁 TextAnalytics/S0 时的 Language 载体
 ACR_NAME="arcaacr${SUFFIX}"
 LAW_NAME="arca-law-${SUFFIX}"
 ACA_ENV="arca-aca-env"
@@ -69,10 +70,33 @@ while [ $# -gt 0 ]; do
 done
 
 say() { printf '%s\n' "$*" >&2; }
+_masked() { # 回显命令时遮蔽密钥类参数值
+  local -a out=(); local skip=0 arg
+  for arg in "$@"; do
+    if [ "$skip" = 1 ]; then out+=("***"); skip=0; continue; fi
+    case "$arg" in
+      --logs-workspace-key|--key|--password|--connection-string) out+=("$arg"); skip=1 ;;
+      *) out+=("$arg") ;;
+    esac
+  done
+  printf '%s ' "${out[@]}"
+}
 run() {
-  if [ "$DRY" = 1 ]; then say "[dry-run] $*"; return 0; fi
-  say "+ $*"
+  if [ "$DRY" = 1 ]; then say "[dry-run] $(_masked "$@")"; return 0; fi
+  say "+ $(_masked "$@")"
   "$@"
+}
+ensure_provider() { # 资源提供程序未注册就先注册（--wait 避免后续调用偶发失败）
+  local ns="$1"
+  if [ "$DRY" = 1 ]; then say "[dry-run] ensure provider $ns"; return 0; fi
+  local state
+  state="$(az provider show -n "$ns" --query registrationState -o tsv 2>/dev/null)"
+  if [ "$state" = "Registered" ]; then
+    say "= provider $ns 已注册"
+  else
+    say "= provider $ns 当前=$state，注册中（可能数分钟）"
+    run az provider register --namespace "$ns" --wait -o none || say "! provider $ns 注册未完成"
+  fi
 }
 skipped() {
   case ",${SKIP}," in *",$1,"*) return 0 ;; *) return 1 ;; esac
@@ -98,7 +122,18 @@ preflight() {
   [ "$DRY" = 1 ] && { say "[dry-run] 跳过 az login/订阅检查"; return 0; }
   run az account show "${ACCOUNT_ARGS[@]}" --query '{name:name,id:id,user:user.name}' -o table >&2 || {
     echo "az 未登录：Cloud Shell 内直接可用；本机请 az login" >&2; exit 2; }
-  run az group create -n "$RG" -l "$LOC" -o none
+  # 资源组可能早先建在别的区域（本仓 rg-arcanum-ic27 实际在 japaneast）；
+  # 只检查存在性，不强行改位置（资源组位置只是元数据，不影响资源建在别区）。
+  if az group show -n "$RG" "${ACCOUNT_ARGS[@]}" -o none 2>/dev/null; then
+    say "= 资源组 $RG 已存在（位置以实际为准）"
+  else
+    run az group create -n "$RG" -l "$LOC" -o none
+  fi
+  # 学生订阅常见的坑：资源提供程序默认未注册，第一次创建会失败/超时。
+  for ns in Microsoft.CognitiveServices Microsoft.ContainerRegistry Microsoft.App \
+            Microsoft.OperationalInsights Microsoft.ServiceBus Microsoft.EventHub; do
+    ensure_provider "$ns"
+  done
 }
 
 # 取某个认知服务的 endpoint / key（失败返回空串，不打印密钥）
@@ -106,25 +141,36 @@ cog_endpoint() { az cognitiveservices account show -n "$1" -g "$RG" "${ACCOUNT_A
 cog_key() { az cognitiveservices account keys list -n "$1" -g "$RG" "${ACCOUNT_ARGS[@]}" --query key1 -o tsv 2>/dev/null; }
 cog_exists() { az cognitiveservices account show -n "$1" -g "$RG" "${ACCOUNT_ARGS[@]}" -o none 2>/dev/null; }
 
-ensure_cog() { # name kind sku location
+ensure_cog() { # name kind sku location [extra az args...]
   local name="$1" kind="$2" sku="$3" loc="$4"
+  shift 4
   if [ "$DRY" = 1 ]; then
     say "[dry-run] ensure cog $name ($kind/$sku in $loc)"
   elif cog_exists "$name"; then
     say "= $name 已存在，跳过创建"
   else
-    run az cognitiveservices account create -n "$name" -g "$RG" --kind "$kind" --sku "$sku" -l "$loc" --yes -o none || return 1
+    run az cognitiveservices account create -n "$name" -g "$RG" --kind "$kind" --sku "$sku" -l "$loc" "$@" --yes -o none || return 1
   fi
   if [ "$DRY" = 0 ]; then
     printf '%s\n' "$(cog_endpoint "$name")"
   fi
 }
 
-append_env() { # KEY VALUE
+append_env() { # KEY VALUE（写临时文件，收尾时与已有 env 合并：支持分阶段/补跑）
   local key="$1" value="$2"
   [ -z "$value" ] && return 0
   if [ "$DRY" = 1 ]; then say "[dry-run] env $key=<${#value} chars>"; return 0; fi
-  printf '%s=%s\n' "$key" "$value" >> "$ENV_OUT"
+  printf '%s=%s\n' "$key" "$value" >> "$ENV_NEW"
+}
+
+merge_env() {
+  [ -s "$ENV_NEW" ] || return 0
+  touch "$ENV_OUT"
+  while IFS='=' read -r key _; do
+    [ -n "$key" ] || continue
+    sed -i "/^${key}=/d" "$ENV_OUT"
+  done < "$ENV_NEW"
+  cat "$ENV_NEW" >> "$ENV_OUT"
 }
 
 manifest_entry() { # service name sku region role
@@ -134,8 +180,8 @@ manifest_entry() { # service name sku region role
 }
 
 ROWS="$(mktemp)"
-trap 'rm -f "$ROWS"' EXIT
-[ "$DRY" = 0 ] && : > "$ENV_OUT"
+ENV_NEW="$(mktemp)"
+trap 'rm -f "$ROWS" "$ENV_NEW"' EXIT
 
 preflight
 
@@ -148,10 +194,27 @@ if stage_on ai; then
     manifest_entry "Azure AI Content Safety" "$CS_NAME" S0 "$LOC" "输入边界注入闸（承重）"
   fi
   if ! skipped language; then
-    ep="$(ensure_cog "$LANG_NAME" TextAnalytics S0 "$LANG_LOC")" || say "! Language 创建失败（付费计量仅 eastasia/koreacentral）"
+    # 学生订阅常禁 TextAnalytics/S0（SpecialFeatureOrQuotaIdRequired，UAENorth 与
+    # koreacentral 均实测被拒）。回退到 AIServices 多服务资源：同一把 key、同一
+    # Language API 路径，用量按 Azure Language 计量计费。
+    lang_res="$LANG_NAME"
+    if [ "$DRY" = 1 ]; then
+      say "[dry-run] ensure cog $LANG_NAME (TextAnalytics/S0 in $LANG_LOC)，被订阅禁则回退 $AI_NAME(AIServices)"
+      ep=""
+    elif cog_exists "$LANG_NAME"; then
+      ep="$(cog_endpoint "$LANG_NAME")"
+    elif run az cognitiveservices account create -n "$LANG_NAME" -g "$RG" --kind TextAnalytics \
+           --sku S0 -l "$LANG_LOC" --yes -o none; then
+      ep="$(cog_endpoint "$LANG_NAME")"
+    else
+      say "= TextAnalytics/S0 被订阅限制，回退 AIServices 多服务资源（$AI_NAME）"
+      lang_res="$AI_NAME"
+      ep="$(ensure_cog "$AI_NAME" AIServices S0 "$LANG_LOC" --custom-domain "$AI_NAME")" \
+        || say "! Language 与 AIServices 两条路都失败"
+    fi
     append_env ARCA_IC27_LANGUAGE_ENDPOINT "$ep"
-    [ -n "$ep" ] && append_env ARCA_IC27_LANGUAGE_KEY "$(cog_key "$LANG_NAME")"
-    manifest_entry "Azure AI Language" "$LANG_NAME" S0 "$LANG_LOC" "模型面 PII 脱敏（承重）"
+    [ -n "$ep" ] && append_env ARCA_IC27_LANGUAGE_KEY "$(cog_key "$lang_res")"
+    manifest_entry "Azure AI Language" "$lang_res" "S0" "$LANG_LOC" "模型面 PII 脱敏（承重；kind 视订阅配额而定）"
   fi
   if ! skipped docintel; then
     ep="$(ensure_cog "$DI_NAME" FormRecognizer S0 "$LOC")" || say "! Document Intelligence 创建失败"
@@ -211,31 +274,18 @@ if stage_on runtime; then
           || say "! ACA 环境创建失败"
         env_id="$(az containerapp env show -n "$ACA_ENV" -g "$RG" "${ACCOUNT_ARGS[@]}" --query id -o tsv 2>/dev/null)"
         if [ -n "$env_id" ]; then
-          tmp_yaml="$(mktemp)"
-          cat > "$tmp_yaml" <<'YAML'
-location: @@LOC@@
-name: @@APP@@
-properties:
-  environmentId: @@ENV_ID@@
-  configuration:
-    ingress:
-      external: false
-  template:
-    containers:
-      - name: logflood
-        image: mcr.microsoft.com/azurelinux/base/core:3.0
-        command: ["/bin/bash"]
-        args: ["-c", "i=0; while true; do i=$((i+1)); echo \"arcanum-ic27 heartbeat seq=$i payload=0123456789abcdef0123456789abcdef\"; sleep 0.2; done"]
-        resources:
-          cpu: 0.5
-          memory: 1.0Gi
-    minReplicas: 1
-    maxReplicas: 1
-YAML
-          sed -i "s|@@LOC@@|$LOC|; s|@@APP@@|$ACA_APP|; s|@@ENV_ID@@|$env_id|" "$tmp_yaml"
-          run az containerapp create -n "$ACA_APP" -g "$RG" --yaml "$tmp_yaml" -o none \
-            || say "! ACA 应用创建失败（可换镜像重试；环境费仍会累积）"
-          rm -f "$tmp_yaml"
+          # CLI 2.93 的 `containerapp create --yaml` 在该组合下返回 400
+          # （System.Text.Json 把某个布尔字段解成字符串），改用 ARM REST PUT：
+          # body 走临时文件，既绕开 CLI 缺陷也绕开 Git Bash 的引号/路径转换。
+          app_json="$(mktemp)"
+          cat > "$app_json" <<'JSON'
+{"location":"@@LOC@@","properties":{"managedEnvironmentId":"@@ENV@@","template":{"containers":[{"name":"logflood","image":"mcr.microsoft.com/azurelinux/base/core:3.0","command":["/bin/bash"],"args":["-c","i=0; while true; do i=$((i+1)); echo \"arcanum-ic27 heartbeat seq=$i payload=0123456789abcdef0123456789abcdef\"; sleep 0.1; done"],"resources":{"cpu":0.25,"memory":"0.5Gi"}}],"scale":{"minReplicas":1,"maxReplicas":1}}}}
+JSON
+          sed -i "s|@@LOC@@|$LOC|; s|@@ENV@@|$env_id|" "$app_json"
+          app_url="https://management.azure.com/subscriptions/$(az account show --query id -o tsv)/resourceGroups/$RG/providers/Microsoft.App/containerApps/$ACA_APP?api-version=2024-03-01"
+          MSYS_NO_PATHCONV=1 run az rest --method put --url "$app_url" --body @"$app_json" -o none \
+            || say "! ACA 应用创建失败（环境费仍会累积；可 --skip aca 后手工补）"
+          rm -f "$app_json"
           append_env ARCA_IC27_ACA_ENV "$ACA_ENV"
           append_env ARCA_IC27_ACA_APP "$ACA_APP"
           manifest_entry "Azure Container Apps" "$ACA_APP" Consumption "$LOC" "托管扫描入口（并喂 LA 日志）"
@@ -264,6 +314,7 @@ if [ "$DRY" = 0 ]; then
       "$(date -u +%FT%TZ)" "$RG" "$LOC" > "$MANIFEST"
     awk 'NR>1{printf ",\n"} {printf "%s", $0}' "$ROWS" >> "$MANIFEST"
     printf '\n]}\n' >> "$MANIFEST"
+    merge_env
     chmod 600 "$ENV_OUT" 2>/dev/null || true
     say ""
     say "资源清单：$MANIFEST"
