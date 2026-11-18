@@ -161,8 +161,14 @@ def parse_detected(text: str) -> tuple[list[str], bool]:
 
 
 # ------------------------------------------------------------------ 传输层 ----
-def chat_url(base_url: str) -> str:
-    """拼接 chat/completions；base 已含则不重复（收编改动 a）。"""
+def chat_url(base_url: str, override: str = "") -> str:
+    """拼接 chat/completions；支持整段覆盖，且递归幂等。
+
+    有的供应商不走 OpenAI 的 /chat/completions 路径（如 MiniMax 的
+    /v1/text/chatcompletion_v2），用 ARCA_<STAGE>_CHAT_URL 整段覆盖即可。
+    """
+    if override.strip():
+        return override.strip()
     base = base_url.rstrip("/")
     return base if base.endswith("/chat/completions") else base + "/chat/completions"
 
@@ -174,16 +180,27 @@ def stage_cfg(stage: str) -> dict:
         "base_url": os.environ.get(prefix + "BASE_URL", "").strip(),
         "api_key": os.environ.get(prefix + "API_KEY", "").strip(),
         "timeout": os.environ.get(prefix + "TIMEOUT", "180").strip(),
+        "chat_url": os.environ.get(prefix + "CHAT_URL", "").strip(),
     }
-    missing = [k for k in ("model", "base_url", "api_key") if not cfg[k]]
+    missing = [k for k in ("model", "api_key") if not cfg[k]]
+    if not cfg["base_url"] and not cfg["chat_url"]:
+        missing.append("base_url")
     if missing:
         raise RuntimeError(
-            f"stage {stage}: missing env {prefix}{{MODEL,BASE_URL,API_KEY}}: {', '.join(missing)}"
+            f"stage {stage}: missing env {prefix}{{MODEL,BASE_URL|CHAT_URL,API_KEY}}: "
+            f"{', '.join(missing)}"
         )
     try:
         float(cfg["timeout"])
     except ValueError as exc:
         raise RuntimeError(f"stage {stage}: ARCA_{stage.upper()}_TIMEOUT must be a number") from exc
+    # key 要进 HTTP header：非 ASCII 会在 urllib 编码阶段抛 UnicodeEncodeError，
+    # 提前拒绝并给出可操作信息（常见原因=把"标签：key"整段抄进了环境变量）。
+    if any(ord(ch) > 127 for ch in cfg["api_key"]):
+        raise RuntimeError(
+            f"stage {stage}: ARCA_{stage.upper()}_API_KEY contains non-ASCII characters "
+            "（通常是把标签或中文说明一起抄进了环境变量）"
+        )
     return cfg
 
 
@@ -208,7 +225,7 @@ def real_reply(cfg: dict, system: str, user: str) -> tuple[str, int]:
         "temperature": 0,
         "max_tokens": _max_tokens(),  # 收编改动 b：成本上限
     }
-    url = chat_url(cfg["base_url"])
+    url = chat_url(cfg["base_url"], cfg.get("chat_url", ""))
     req = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),

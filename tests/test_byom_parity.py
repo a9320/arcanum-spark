@@ -90,3 +90,29 @@ def test_dry_malformed_counts_as_uncertain(byom, tmp_path):
                       "--out", str(out), "--spark-root", str(REPO)]) == 0
     summary = json.loads(out.read_text(encoding="utf-8"))["summary"]
     assert summary["recall"] == 0.0 and summary["parse_errors"] == 51
+
+
+def test_chat_url_override_wins(byom):
+    """非 OpenAI 路径（如 MiniMax 的 text/chatcompletion_v2）整段覆盖。"""
+    assert byom.chat_url("", "https://api.minimax.chat/v1/text/chatcompletion_v2") == (
+        "https://api.minimax.chat/v1/text/chatcompletion_v2"
+    )
+    assert byom.chat_url("https://x/v1", "") == "https://x/v1/chat/completions"
+
+
+def test_stage_cfg_rejects_non_ascii_key(byom, monkeypatch):
+    monkeypatch.setenv("ARCA_ARBITER_MODEL", "m")
+    monkeypatch.setenv("ARCA_ARBITER_BASE_URL", "https://x/v1")
+    monkeypatch.setenv("ARCA_ARBITER_API_KEY", "sk-abc：def")
+    with pytest.raises(RuntimeError) as excinfo:
+        byom.stage_cfg("arbiter")
+    assert "non-ASCII" in str(excinfo.value)
+
+
+def test_stage_cfg_allows_chat_url_without_base(byom, monkeypatch):
+    monkeypatch.delenv("ARCA_ARBITER_BASE_URL", raising=False)
+    monkeypatch.setenv("ARCA_ARBITER_CHAT_URL", "https://x/v2/chat")
+    monkeypatch.setenv("ARCA_ARBITER_MODEL", "m")
+    monkeypatch.setenv("ARCA_ARBITER_API_KEY", "sk-x")
+    cfg = byom.stage_cfg("arbiter")
+    assert cfg["chat_url"] == "https://x/v2/chat"
