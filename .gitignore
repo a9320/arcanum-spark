@@ -53,3 +53,6 @@ reports/poisoned-doc/
 # IC27 Azure 部署产物（本地产物，不入库）
 azure-ic27-resources.json
 check-usage-*.json
+
+# BYOM 跑批输出（本地产物）
+out/

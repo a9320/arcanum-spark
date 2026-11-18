@@ -133,3 +133,51 @@ def test_stage_cfg_rejects_non_object_extra(byom, monkeypatch):
     monkeypatch.setenv("ARCA_VERIFY_EXTRA_JSON", "[1,2]")
     with pytest.raises(RuntimeError):
         byom.stage_cfg("verify")
+
+
+def test_prompt_includes_rule_descriptions_by_default(byom):
+    cases = byom.load_cases(str(REPO / "eval" / "pitax_bench" / "cases.jsonl"))
+    ids = byom.rule_ids_from_cases(cases)
+    system, _ = byom.build_prompt(cases[0], ids, rule_docs=True)
+    assert "PIT-E-23:" in system and "zero-width" in system.lower()
+    bare, _ = byom.build_prompt(cases[0], ids, rule_docs=False)
+    assert "zero-width" not in bare.lower()
+
+
+def test_real_reply_merges_extra_and_reports_meta(byom, monkeypatch):
+    captured = {}
+
+    class FakeResp:
+        def __init__(self, body):
+            self._body = body
+
+        def getcode(self):
+            return 200
+
+        def read(self):
+            return json.dumps(self._body).encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    def fake_urlopen(req, timeout=None):
+        captured["payload"] = json.loads(req.data.decode())
+        return FakeResp({
+            "choices": [{"message": {"content": '{"detected":["PIT-E-23"]}'}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        })
+
+    monkeypatch.setattr(byom.urllib.request, "urlopen", fake_urlopen)
+    cfg = {"model": "m", "base_url": "https://x/v1", "chat_url": "", "api_key": "sk-x",
+           "timeout": "5", "extra": {"enable_thinking": False, "model": "evil", "max_tokens": 1}}
+    text, status, meta = byom.real_reply(cfg, "s", "u")
+    assert captured["payload"]["enable_thinking"] is False   # 附加参数确实发出去了
+    assert captured["payload"]["model"] == "m"               # 核心键不被覆盖
+    assert captured["payload"]["max_tokens"] != 1
+    assert status == 200
+    assert meta["finish_reason"] == "stop"
+    assert meta["usage"]["total_tokens"] == 15
+    assert meta["content_len"] == len(text)

@@ -102,14 +102,38 @@ def make_detector(spark_root: str) -> Callable[[dict], list[str]]:
 
 
 # ---------------------------------------------------------------- 提示词/解析 ----
-def build_prompt(case: dict, rule_ids: list[str]) -> tuple[str, str]:
+def rules_doc(rule_ids: list[str]) -> str:
+    """把规则英文描述拼进 system prompt。
+
+    没有描述的规则 ID 等于让模型盲猜（首轮 158 次请求实测：模型把几乎所有输入
+    都标成同一个 ID）。公平对拍必须给本体，否则数字只反映"没有定义"而不是能力。
+    """
+    try:
+        from codeark.pitax.descriptions_en import RULE_DESCRIPTIONS_EN  # type: ignore
+    except Exception:
+        return ""
+    lines = []
+    for rid in rule_ids:
+        desc = RULE_DESCRIPTIONS_EN.get(rid)
+        if desc:
+            lines.append(f"- {rid}: {desc}")
+    return "\n".join(lines)
+
+
+def build_prompt(
+    case: dict, rule_ids: list[str], *, rule_docs: bool = True
+) -> tuple[str, str]:
+    catalog = rules_doc(rule_ids) if rule_docs else ""
     system = (
         "You are a deterministic prompt-injection rule classifier. "
         "Given a source file's text, output ONLY a JSON object of the form "
-        '{"detected":["PIT-E-23", ...]}. Choose from this exact rule-id set: '
-        + ", ".join(rule_ids)
-        + ". Return an empty list if the text is benign. No explanation, no markdown."
+        '{"detected":["PIT-E-23", ...]}. '
     )
+    if catalog:
+        system += "Classify against this rule catalog:\n" + catalog + "\n"
+    else:
+        system += "Choose from this exact rule-id set: " + ", ".join(rule_ids) + ". "
+    system += "Return an empty list if the text is benign. No explanation, no markdown."
     user = f"FILE: {case['path']}\n<<<\n{case['text']}\n>>>"
     return system, user
 
@@ -228,8 +252,12 @@ def _max_tokens() -> int:
         return DEFAULT_MAX_TOKENS
 
 
-def real_reply(cfg: dict, system: str, user: str) -> tuple[str, int]:
-    """OpenAI 兼容 /chat/completions；key 只在内存 header。"""
+def real_reply(cfg: dict, system: str, user: str) -> tuple[str, int, dict]:
+    """OpenAI 兼容 /chat/completions；key 只在内存 header。
+
+    返回 (content, status, meta)；meta 含 finish_reason / usage / content_len
+    （对照表要 tokens、parse_errors 要原文长度，丢了就只能靠外部埋点）。
+    """
     payload = {
         "model": cfg["model"],
         "messages": [
@@ -239,6 +267,10 @@ def real_reply(cfg: dict, system: str, user: str) -> tuple[str, int]:
         "temperature": 0,
         "max_tokens": _max_tokens(),  # 收编改动 b：成本上限
     }
+    # 供应商附加参数（EXTRA_JSON）：在核心字段之后合并，禁止覆盖核心键。
+    for key, value in (cfg.get("extra") or {}).items():
+        if key not in ("model", "messages", "max_tokens", "temperature"):
+            payload[key] = value
     url = chat_url(cfg["base_url"], cfg.get("chat_url", ""))
     req = urllib.request.Request(
         url,
@@ -254,7 +286,14 @@ def real_reply(cfg: dict, system: str, user: str) -> tuple[str, int]:
         body = json.loads(resp.read().decode("utf-8"))
     if status != 200 or not isinstance(body.get("choices"), list) or not body["choices"]:
         raise RuntimeError(f"unexpected response shape: status={status}, keys={sorted(body)}")
-    return str(body["choices"][0]["message"]["content"]), status
+    choice = body["choices"][0]
+    content = str((choice.get("message") or {}).get("content") or "")
+    meta = {
+        "finish_reason": choice.get("finish_reason"),
+        "usage": body.get("usage") or {},
+        "content_len": len(content),
+    }
+    return content, status, meta
 
 
 def dry_reply(case: dict, profile: str) -> str:
@@ -311,10 +350,12 @@ def run(args: argparse.Namespace) -> dict:
     cfgs: dict[str, dict] = {}
     if args.transport == "real":
         cfgs = {s: stage_cfg(s) for s in stages}  # 缺 key 直接报错退出
-        probe_sys, probe_user = build_prompt({"path": "smoke.py", "text": "x = 1\n"}, rule_ids)
+        probe_sys, probe_user = build_prompt(
+            {"path": "smoke.py", "text": "x = 1\n"}, rule_ids, rule_docs=args.rule_docs
+        )
         for stage, cfg in cfgs.items():
             try:
-                _, status = real_reply(cfg, probe_sys, probe_user)
+                _, status, _probe_meta = real_reply(cfg, probe_sys, probe_user)
                 print(f"[smoke] stage={stage} HTTP {status} OK", file=sys.stderr)
             except Exception as exc:  # 掩码后报错，失败即停
                 msg = str(exc)
@@ -329,10 +370,13 @@ def run(args: argparse.Namespace) -> dict:
     for case in cases:
         base = detect(case)
         expected = sorted(set(case["expect"]))
-        system, user = build_prompt(case, rule_ids)
+        system, user = build_prompt(case, rule_ids, rule_docs=args.rule_docs)
         all_detected: list[list[str]] = []
         parse_ok = True
         error = ""
+        finish_reasons: list[str] = []
+        usage_totals = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        content_chars = 0
         for _ in range(args.repeat):
             if args.transport == "dry":
                 got, ok = parse_detected(dry_reply(case, args.profile))
@@ -341,11 +385,19 @@ def run(args: argparse.Namespace) -> dict:
                 ok = True
                 for stage in stages:
                     try:
-                        text, _ = real_reply(stage_cfg(stage), system, user)
+                        text, _status, meta = real_reply(stage_cfg(stage), system, user)
                     except Exception as exc:  # 收编改动 c：单例失败不中断整轮
                         error = f"{stage}:{type(exc).__name__}"
                         ok = False
                         continue
+                    finish_reasons.append(str(meta.get("finish_reason")))
+                    content_chars += int(meta.get("content_len") or 0)
+                    usage = meta.get("usage") or {}
+                    for field in usage_totals:
+                        try:
+                            usage_totals[field] += int(usage.get(field) or 0)
+                        except (TypeError, ValueError):
+                            pass
                     got_stage, ok_stage = parse_detected(text)
                     ok = ok and ok_stage
                     union.update(got_stage)
@@ -370,9 +422,16 @@ def run(args: argparse.Namespace) -> dict:
             "only_model": sorted(mset - bset),
             "only_baseline": sorted(bset - mset),
             "unknown_rule_ids": sorted(mset - set(rule_ids)),
+            "finish_reasons": finish_reasons,
+            "content_chars": content_chars,
+            "usage": usage_totals,
         })
 
     summary = score(rows)
+    totals = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    for row in rows:
+        for field in totals:
+            totals[field] += int((row.get("usage") or {}).get(field) or 0)
     summary.update({
         "transport": args.transport,
         "profile": args.profile if args.transport == "dry" else None,
@@ -380,6 +439,8 @@ def run(args: argparse.Namespace) -> dict:
                   if args.transport == "real" else None),
         "rule_ids": rule_ids,
         "limit": args.limit or None,
+        "rule_docs": bool(args.rule_docs),
+        "tokens": totals,
         "note": "dry 模式数字来自假响应，仅验证解析/评分层；非真实模型能力",
     })
     if args.transport == "real" and args.stage == "all":  # 收编改动 e
@@ -400,6 +461,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--spark-root", default=str(Path(__file__).resolve().parents[1]),
                     help="arcanum-spark 仓根（提供 codeark 与 cases）")
     ap.add_argument("--out", default="", help="结果 JSON 路径（不填只打印摘要）")
+    ap.add_argument("--no-rule-docs", dest="rule_docs", action="store_false",
+                    help="不把规则英文描述放进 prompt（复现首轮无本体对照；默认给描述）")
     args = ap.parse_args(argv)
     if not args.cases:
         args.cases = str(Path(args.spark_root) / "eval" / "pitax_bench" / "cases.jsonl")
