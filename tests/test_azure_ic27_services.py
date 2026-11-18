@@ -254,3 +254,10 @@ def test_provision_env_file_permissions_hardened():
     assert "umask 077" in src
     assert 'chmod 600 "$ENV_OUT" 2>/dev/null || true' not in src
     assert "umask 077; touch" in src
+
+
+def test_token_config_safe_rejects_injection_chars(chk):
+    """外审 1c：token 进 curl config 前必须拒绝能闭合引号的字符。"""
+    assert chk.token_config_safe("eyJ0eXAiOiJKV1QifQ.eyJzdWIiOiIxIn0.abc-_123")
+    for bad in ('a"b', "a\nb", "a\rb", "a" + chr(92) + "b"):
+        assert not chk.token_config_safe(bad), repr(bad)

@@ -320,9 +320,18 @@ if [ "$DRY" = 0 ]; then
     if ! chmod 600 "$ENV_OUT" 2>/dev/null; then
       say "! 无法把 $ENV_OUT 权限收紧到 600（文件系统不支持 chmod？请手动检查）"
     fi
-    if [ "$(stat -c '%a' "$ENV_OUT" 2>/dev/null || stat -f '%Lp' "$ENV_OUT" 2>/dev/null)" != "600" ]; then
-      say "! 警告：$ENV_OUT 当前权限不是 600，其中含资源密钥，请勿共享该文件"
-    fi
+    case "$(uname -s 2>/dev/null)" in
+      MINGW*|MSYS*|CYGWIN*)
+        # Windows/Git Bash：POSIX mode bit 不映射真实权限，实际由 NTFS ACL 决定
+        # （外审 2b 在 exFAT 的 E: 盘实测 chmod 不生效）。给可操作的复核命令。
+        say "= Windows 平台：权限由 NTFS ACL 决定，复核用：icacls \"$ENV_OUT\""
+        ;;
+      *)
+        if [ "$(stat -c '%a' "$ENV_OUT" 2>/dev/null)" != "600" ]; then
+          say "! 警告：$ENV_OUT 当前权限不是 600，其中含资源密钥，请勿共享该文件"
+        fi
+        ;;
+    esac
     say ""
     say "资源清单：$MANIFEST"
     say "凭据文件：$ENV_OUT（chmod 600，勿入库；generate_usage.py --env-file 读它）"

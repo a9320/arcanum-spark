@@ -232,7 +232,8 @@ class LanguageClient:
                 )
                 degraded = True
                 # 汇总 reason 会进报告：只留"超长"事实 + doc_id 短哈希，不回显调用方键名
-                # （键名常是文件路径，可能含用户名/内部目录；与 MCP 的 sha256/len 口径一致）。
+                # （键名常是文件路径，可能含用户名/内部目录；与 MCP 短哈希口径同源，
+                #  字面格式不同：MCP 为 sha256:<10hex> len=<n>，此处为 8hex）。
                 reasons.append(f"超长文档 {_short_doc_id(doc_id)}")
             else:
                 pending.append((doc_id, text))

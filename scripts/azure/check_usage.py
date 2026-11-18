@@ -59,6 +59,16 @@ def service_for_resource(resource_id: str) -> tuple[str, str] | None:
     return None
 
 
+def token_config_safe(token: str) -> bool:
+    """token 进 curl config 前的前置校验。
+
+    config 用双引号包裹 header：token 若含引号/反斜杠/换行就能闭合引号并注入
+    任意 curl 选项（外审 1c 已实测 url 注入）。Azure JWT 字符集不含这些字符，
+    这里防御性拒绝——拒绝跑比转义拼错更安全。
+    """
+    return not any(ch in token for ch in ('"', "\\", "\n", "\r"))
+
+
 def az_command(override: str | None = None) -> list[str]:
     """解析 az；Windows 的 az.cmd 必须经 cmd /c 启动（否则 WinError 2）。"""
     exe = override or shutil.which("az") or shutil.which("az.cmd") or shutil.which("az.bat")
@@ -105,6 +115,10 @@ def _curl_query(az: list[str], subscription: str, body: dict) -> dict | None:
     )
     token_text = (token.stdout or "").strip()
     if token.returncode != 0 or not token_text:
+        return None
+    # curl config 用双引号包裹 header；含引号/换行/反斜杠就能注入（外审 1c 实测）。
+    if not token_config_safe(token_text):
+        print("  token 含 curl config 元字符，拒绝走兜底（疑似异常凭据）", file=sys.stderr)
         return None
     url = (
         f"https://management.azure.com/subscriptions/{subscription}"
