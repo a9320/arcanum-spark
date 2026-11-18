@@ -181,6 +181,7 @@ def stage_cfg(stage: str) -> dict:
         "api_key": os.environ.get(prefix + "API_KEY", "").strip(),
         "timeout": os.environ.get(prefix + "TIMEOUT", "180").strip(),
         "chat_url": os.environ.get(prefix + "CHAT_URL", "").strip(),
+        "extra": os.environ.get(prefix + "EXTRA_JSON", "").strip(),
     }
     missing = [k for k in ("model", "api_key") if not cfg[k]]
     if not cfg["base_url"] and not cfg["chat_url"]:
@@ -201,6 +202,19 @@ def stage_cfg(stage: str) -> dict:
             f"stage {stage}: ARCA_{stage.upper()}_API_KEY contains non-ASCII characters "
             "（通常是把标签或中文说明一起抄进了环境变量）"
         )
+    # 供应商附加参数（如 {"enable_thinking": false}）：只允许 JSON 对象，合并进请求体。
+    if cfg["extra"]:
+        try:
+            extra = json.loads(cfg["extra"])
+        except ValueError as exc:
+            raise RuntimeError(
+                f"stage {stage}: ARCA_{stage.upper()}_EXTRA_JSON must be a JSON object"
+            ) from exc
+        if not isinstance(extra, dict):
+            raise RuntimeError(f"stage {stage}: ARCA_{stage.upper()}_EXTRA_JSON must be a JSON object")
+        cfg["extra"] = extra
+    else:
+        cfg["extra"] = {}
     return cfg
 
 

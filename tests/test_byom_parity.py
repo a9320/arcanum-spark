@@ -116,3 +116,20 @@ def test_stage_cfg_allows_chat_url_without_base(byom, monkeypatch):
     monkeypatch.setenv("ARCA_ARBITER_API_KEY", "sk-x")
     cfg = byom.stage_cfg("arbiter")
     assert cfg["chat_url"] == "https://x/v2/chat"
+
+
+def test_stage_cfg_extra_json_merged(byom, monkeypatch):
+    monkeypatch.setenv("ARCA_VERIFY_MODEL", "m")
+    monkeypatch.setenv("ARCA_VERIFY_BASE_URL", "https://x/v1")
+    monkeypatch.setenv("ARCA_VERIFY_API_KEY", "sk-x")
+    monkeypatch.setenv("ARCA_VERIFY_EXTRA_JSON", '{"enable_thinking": false}')
+    assert byom.stage_cfg("verify")["extra"] == {"enable_thinking": False}
+
+
+def test_stage_cfg_rejects_non_object_extra(byom, monkeypatch):
+    monkeypatch.setenv("ARCA_VERIFY_MODEL", "m")
+    monkeypatch.setenv("ARCA_VERIFY_BASE_URL", "https://x/v1")
+    monkeypatch.setenv("ARCA_VERIFY_API_KEY", "sk-x")
+    monkeypatch.setenv("ARCA_VERIFY_EXTRA_JSON", "[1,2]")
+    with pytest.raises(RuntimeError):
+        byom.stage_cfg("verify")
