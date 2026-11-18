@@ -73,7 +73,10 @@ def build_query(days: int | None) -> dict:
     dataset = {
         "granularity": "None",
         "aggregation": {"totalCost": {"name": "Cost", "function": "Sum"}},
-        "grouping": [{"type": "Dimension", "name": "ResourceId"}],
+        "grouping": [
+            {"type": "Dimension", "name": "ResourceId"},
+            {"type": "Dimension", "name": "Meter"},
+        ],
     }
     if days is None:
         return {"type": "ActualCost", "timeframe": "MonthToDate", "dataset": dataset}
@@ -88,7 +91,11 @@ def build_query(days: int | None) -> dict:
 
 
 def _curl_query(az: list[str], subscription: str, body: dict) -> dict | None:
-    """az rest 失败时的兜底：curl + bearer token（本机到 management.azure.com 会间歇性重置）。"""
+    """az rest 失败时的兜底：curl + bearer token（本机到 management.azure.com 会间歇性重置）。
+
+    安全：token **不进 argv**（同机进程可读命令行）。认证头经 `curl -K -` 从 stdin 读入，
+    既不落 argv 也不落磁盘。
+    """
     curl = shutil.which("curl")
     if not curl:
         return None
@@ -96,32 +103,53 @@ def _curl_query(az: list[str], subscription: str, body: dict) -> dict | None:
         az + ["account", "get-access-token", "--query", "accessToken", "-o", "tsv"],
         capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
     )
-    if token.returncode != 0 or not (token.stdout or "").strip():
+    token_text = (token.stdout or "").strip()
+    if token.returncode != 0 or not token_text:
         return None
     url = (
         f"https://management.azure.com/subscriptions/{subscription}"
         f"/providers/Microsoft.CostManagement/query?api-version=2023-11-01"
     )
+    # curl 配置走 stdin：header 只在内存里，进程列表看不到。
+    config = (
+        f'header = "Authorization: Bearer {token_text}"\n'
+        'header = "Content-Type: application/json"\n'
+    )
     handle = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8")
     try:
         json.dump(body, handle)
         handle.close()
-        done = subprocess.run(
-            [curl, "-sk", "--max-time", "180", "-X", "POST", url,
-             "-H", f"Authorization: Bearer {token.stdout.strip()}",
-             "-H", "Content-Type: application/json",
-             "--data", f"@{handle.name}"],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300,
-        )
-        if done.returncode == 0 and (done.stdout or "").strip().startswith("{"):
-            data = json.loads(done.stdout)
-            if "properties" in data:
-                return data
-            print(f"  curl 返回异常：{str(data)[:200]}", file=sys.stderr)
-            return None
-        print(f"  curl 失败：{(done.stderr or done.stdout or '').strip()[:200]}", file=sys.stderr)
+        for attempt in range(3):
+            done = subprocess.run(
+                # --http1.1：本机到 management.azure.com 的 HTTP/2 会被重置（10-28 已实证）
+                [curl, "-sk", "--http1.1", "--max-time", "180", "-K", "-", "-X", "POST", url,
+                 "--data", f"@{handle.name}"],
+                input=config,
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300,
+            )
+            text = (done.stdout or "").strip()
+            if done.returncode == 0 and text.startswith("{"):
+                data = json.loads(text)
+                if "properties" in data:
+                    return data
+                code = str((data.get("error") or {}).get("code") or "")
+                if code == "429" or "Too many requests" in text:
+                    wait = 45 * (attempt + 1)
+                    print(f"  curl 被限流，{wait}s 后重试（{attempt + 1}/3）", file=sys.stderr)
+                    time.sleep(wait)
+                    continue
+                print(f"  curl 返回异常：{text[:200]}", file=sys.stderr)
+                return None
+            detail = (done.stderr or done.stdout or "").strip()[:160]
+            print(f"  curl 失败 rc={done.returncode}：{detail}"
+                  + ("，15s 后重试" if attempt < 2 else ""), file=sys.stderr)
+            if attempt < 2:
+                time.sleep(15)
         return None
-    except Exception:
+    except Exception as exc:
+        # 只报类型与消息，并把可能的 token 回显擦掉（异常文本可能带命令行）。
+        detail = f"{type(exc).__name__}: {exc}".replace(token_text, "***") if token_text else f"{type(exc).__name__}"
+        print(f"  curl 兜底异常：{detail[:200]}", file=sys.stderr)
         return None
     finally:
         Path(handle.name).unlink(missing_ok=True)
@@ -162,20 +190,22 @@ def run_query(az: list[str], subscription: str, body: dict, retries: int = 3) ->
 def aggregate(payload: dict, cny_per_usd: float) -> dict[str, dict[str, object]]:
     """把 Cost Management 的 rows 按服务汇总；同时返回币种与美元估算。"""
     table: dict[str, dict[str, object]] = {
-        key: {"label": label, "cost": 0.0, "currency": "", "cost_usd": 0.0, "resources": {}}
+        key: {"label": label, "cost": 0.0, "currency": "", "cost_usd": 0.0,
+              "resources": {}, "meters": {}}
         for _, key, label in RESOURCE_MAP
     }
     props = payload.get("properties") or {}
     columns = [str(col.get("name", "")) for col in props.get("columns", [])]
-    try:
-        i_cost, i_res, i_cur = columns.index("Cost"), columns.index("ResourceId"), columns.index("Currency")
-    except ValueError:
+    if "Cost" not in columns or "ResourceId" not in columns:
         return table
+    i_cost, i_res = columns.index("Cost"), columns.index("ResourceId")
+    i_cur = columns.index("Currency") if "Currency" in columns else None
+    i_meter = columns.index("Meter") if "Meter" in columns else None
     for row in props.get("rows", []):
         try:
             cost = float(row[i_cost] or 0)
             resource = str(row[i_res] or "")
-            currency = str(row[i_cur] or "")
+            currency = str(row[i_cur] or "") if i_cur is not None else ""
         except (TypeError, ValueError, IndexError):
             continue
         mapped = service_for_resource(resource)
@@ -188,6 +218,10 @@ def aggregate(payload: dict, cny_per_usd: float) -> dict[str, dict[str, object]]
         resources: dict[str, float] = entry["resources"]  # type: ignore[assignment]
         name = resource.rstrip("/").rsplit("/", 1)[-1]
         resources[name] = round(resources.get(name, 0.0) + cost, 6)
+        if i_meter is not None:
+            meter = str(row[i_meter] or "(unknown)")
+            meters: dict[str, float] = entry["meters"]  # type: ignore[assignment]
+            meters[meter] = round(meters.get(meter, 0.0) + cost, 6)
     for entry in table.values():
         currency = str(entry["currency"] or "USD").upper()
         cost = float(entry["cost"])  # type: ignore[arg-type]
@@ -245,6 +279,7 @@ def main(argv: list[str] | None = None) -> int:
             "cost_usd": round(usd, 4),
             "reached": ok,
             "resources": entry["resources"],
+            "meters": entry["meters"],
         })
 
     if args.json:

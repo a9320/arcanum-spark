@@ -22,6 +22,7 @@ stringIndexType 固定 UnicodeCodePoint：offset/length 可直接用于 Python �
 """
 from __future__ import annotations
 
+import hashlib
 import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -43,6 +44,11 @@ MAX_DOC_CHARS = 5000  # 服务端单文档上限 5,120 字符，留余量
 _REQUIRED_ENVS = (ENDPOINT_ENV, KEY_ENV)
 _REASON_LIMIT = 240
 _MASK = "[REDACTED:{}]"
+
+
+def _short_doc_id(value: str) -> str:
+    """doc_id 的短哈希：报告里只留 8 位可对照标识，不回显原值（通常是文件路径）。"""
+    return hashlib.sha256(str(value).encode("utf-8", "replace")).hexdigest()[:8]
 
 
 class _CallFailed(Exception):
@@ -225,7 +231,9 @@ class LanguageClient:
                     )
                 )
                 degraded = True
-                reasons.append(f"{doc_id}: 超长")
+                # 汇总 reason 会进报告：只留"超长"事实 + doc_id 短哈希，不回显调用方键名
+                # （键名常是文件路径，可能含用户名/内部目录；与 MCP 的 sha256/len 口径一致）。
+                reasons.append(f"超长文档 {_short_doc_id(doc_id)}")
             else:
                 pending.append((doc_id, text))
 

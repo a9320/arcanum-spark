@@ -24,6 +24,8 @@
 #     默认 uaenorth，Language 付费档必须 eastasia 或 koreacentral（UAENorth 无该计量）。
 #   * 计费是真实发生的：达标后立刻跑 cleanup_10_services.sh（时间型四项按小时/天计费）。
 set -uo pipefail
+# 新建文件默认 600：凭据文件从创建那一刻就该不可被他人读，而不是写完再补 chmod。
+umask 077
 
 RG="${ARCA_IC27_RG:-rg-arcanum-ic27}"
 LOC="${ARCA_IC27_LOCATION:-uaenorth}"
@@ -165,7 +167,7 @@ append_env() { # KEY VALUE（写临时文件，收尾时与已有 env 合并：�
 
 merge_env() {
   [ -s "$ENV_NEW" ] || return 0
-  touch "$ENV_OUT"
+  ( umask 077; touch "$ENV_OUT" )
   while IFS='=' read -r key _; do
     [ -n "$key" ] || continue
     sed -i "/^${key}=/d" "$ENV_OUT"
@@ -315,7 +317,12 @@ if [ "$DRY" = 0 ]; then
     awk 'NR>1{printf ",\n"} {printf "%s", $0}' "$ROWS" >> "$MANIFEST"
     printf '\n]}\n' >> "$MANIFEST"
     merge_env
-    chmod 600 "$ENV_OUT" 2>/dev/null || true
+    if ! chmod 600 "$ENV_OUT" 2>/dev/null; then
+      say "! 无法把 $ENV_OUT 权限收紧到 600（文件系统不支持 chmod？请手动检查）"
+    fi
+    if [ "$(stat -c '%a' "$ENV_OUT" 2>/dev/null || stat -f '%Lp' "$ENV_OUT" 2>/dev/null)" != "600" ]; then
+      say "! 警告：$ENV_OUT 当前权限不是 600，其中含资源密钥，请勿共享该文件"
+    fi
     say ""
     say "资源清单：$MANIFEST"
     say "凭据文件：$ENV_OUT（chmod 600，勿入库；generate_usage.py --env-file 读它）"

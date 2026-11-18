@@ -236,3 +236,21 @@ def test_provision_dry_run_exits_zero(tmp_path):
     )
     assert done.returncode == 0, done.stderr
     assert "dry-run" in done.stderr
+
+
+# ---------------------------------------------------- 外部审查修复的锁（F1/F2） ----
+def test_curl_token_not_in_argv():
+    """F1：bearer token 不得作为 curl 的 argv（同机进程可读命令行）；走 -K - stdin。"""
+    src = (AZDIR / "check_usage.py").read_text(encoding="utf-8")
+    assert '"-H", f"Authorization: Bearer' not in src
+    assert '"-K", "-"' in src
+    assert "--http1.1" in src
+    assert "input=config" in src
+
+
+def test_provision_env_file_permissions_hardened():
+    """F2：凭据文件从创建起就是 600，且 chmod 失败不再被静默吞掉。"""
+    src = (AZDIR / "provision_10_services.sh").read_text(encoding="utf-8")
+    assert "umask 077" in src
+    assert 'chmod 600 "$ENV_OUT" 2>/dev/null || true' not in src
+    assert "umask 077; touch" in src

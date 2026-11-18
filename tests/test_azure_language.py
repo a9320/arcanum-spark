@@ -259,3 +259,12 @@ def test_entities_type_mismatch_degrades():
 
     assert result.degraded is True
     assert result.degraded_ids() == ("a.py",)
+
+def test_oversize_reason_does_not_echo_doc_id():
+    """外部审查 F4：汇总 reason 不回显调用方键名（常是文件路径），只留短哈希。"""
+    doc_id = r"C:\Users\someone\secret\path\notes.txt"
+    client = _client(lambda request: httpx.Response(200, json={"results": {"documents": []}}))
+    result = client.redact_texts({doc_id: "x" * (MAX_DOC_CHARS + 1)})
+    assert "超长" in result.reason
+    assert "secret" not in result.reason
+    assert doc_id not in result.reason
