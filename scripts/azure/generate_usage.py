@@ -478,12 +478,16 @@ def run_keyvault(vault_url: str, token: str, target_usd: float, workers: int, dr
                 ok_n += 1
             else:
                 bad_n += 1
+            if (ok_n + bad_n) % 500 == 0:  # 每 500 次汇总一次，便于观察进度
+                with lock:
+                    counts["done"] += ok_n
+                    counts["failed"] += bad_n
+                ok_n = bad_n = 0
         conn.close()
         with lock:
             counts["done"] += ok_n + bad_n
             counts["failed"] += bad_n
-            if counts["done"] % 20000 < (ok_n + bad_n):
-                print(f"  [keyvault] {counts['done']}/{total} ops, failed={counts['failed']}", file=sys.stderr)
+            print(f"  [keyvault] {counts['done']}/{total} ops, failed={counts['failed']}", file=sys.stderr)
 
     import concurrent.futures as _f
     t0 = time.perf_counter()
@@ -498,7 +502,9 @@ def run_keyvault(vault_url: str, token: str, target_usd: float, workers: int, dr
         "units": units,
         "estimated_usd": round(units * float(PRICES["keyvault"]["unit_usd"]), 4),
         "elapsed_s": round(time.perf_counter() - t0, 1),
-        "ok": counts["failed"] == 0,
+        # 大批量打点允许少量瞬时失败（Key Vault 限流/连接抖动）；>1% 才判失败。
+        "ok": counts["failed"] <= max(1, total // 100),
+        "fail_rate": round(counts["failed"] / max(1, total), 4),
     }
 
 
