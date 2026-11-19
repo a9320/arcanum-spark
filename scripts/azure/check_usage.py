@@ -119,6 +119,8 @@ def _curl_query(az: list[str], subscription: str, body: dict) -> dict | None:
         lines = (token.stderr or token.stdout or "").strip().splitlines()
         detail = lines[0][:160] if lines else "(无输出)"
         print(f"  拿不到 access token（az 登录/网络问题）：{detail}", file=sys.stderr)
+        print("  提示：若本机到 AAD 的 IPv6 不通但存在本地代理，可试 "
+              "HTTPS_PROXY=http://127.0.0.1:<port> NO_PROXY=management.azure.com", file=sys.stderr)
         return None
     # curl config 用双引号包裹 header；含引号/换行/反斜杠就能注入（外审 1c 实测）。
     if not token_config_safe(token_text):

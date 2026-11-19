@@ -82,7 +82,10 @@ bash scripts/azure/cleanup_10_services.sh --yes
    否则 `/subscriptions/...` 会被改写成 `D:/Git/...`。
 4. **Log Analytics 的 $1 依赖 ACA 日志**：`provision` 里的 logflood 容器每 0.1 秒打一行，
    0.25 vCPU 常驻；若容器没起来，LA 摄入上不去——先查 `az containerapp logs show`。
-5. **学生订阅用不了 `az consumption usage list`**（只返回一行占位记录，金额/计量全 None）；
+5. **代理拆分**：本机实测 AAD 与 ARM 的路由要求不同——AAD 需 `HTTPS_PROXY=http://127.0.0.1:<port>`
+   （IPv6 到 AAD 不通时），ARM 需 `NO_PROXY=management.azure.com` 直连。两个都设上再跑
+   `check_usage` 与 `cleanup`；否则会看到 `Status_NoNetwork` 或 curl rc=7。
+6. **学生订阅用不了 `az consumption usage list`**（只返回一行占位记录，金额/计量全 None）；
    且账单的 ServiceName 维度把 5 项 AI 服务合并成 "Foundry Tools"。所以 `check_usage.py`
    改走 **Cost Management 查询 + ResourceId 分组**，并按 **CNY→USD（--cny-per-usd，默认 7.2）**
    折算后对 $1 判定；防火墙/代理导致 `az rest` 间歇重置时，脚本自动用 curl 兜底。
