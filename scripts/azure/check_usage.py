@@ -115,6 +115,10 @@ def _curl_query(az: list[str], subscription: str, body: dict) -> dict | None:
     )
     token_text = (token.stdout or "").strip()
     if token.returncode != 0 or not token_text:
+        # 只在失败分支取 stderr/stdout 首行（成功分支绝不打 stdout，避免回显 token）
+        lines = (token.stderr or token.stdout or "").strip().splitlines()
+        detail = lines[0][:160] if lines else "(无输出)"
+        print(f"  拿不到 access token（az 登录/网络问题）：{detail}", file=sys.stderr)
         return None
     # curl config 用双引号包裹 header；含引号/换行/反斜杠就能注入（外审 1c 实测）。
     if not token_config_safe(token_text):
