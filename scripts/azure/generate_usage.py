@@ -77,6 +77,13 @@ PRICES: dict[str, dict[str, object]] = {
         "unit_usd": 0.001,  # $1.00 / 1K 页
         "unit": "page",
     },
+    "keyvault": {
+        "service": "Azure Key Vault",
+        "meter": "Standard Operations",
+        "region": "uaenorth",
+        "unit_usd": 0.00000396,  # $0.0396 / 10K ops
+        "unit": "op",
+    },
     "speech": {
         "service": "Azure AI Speech",
         "meter": "S1 Speech To Text",
@@ -88,6 +95,7 @@ PRICES: dict[str, dict[str, object]] = {
 
 # 单项请求承载的计费单位数（多单位/请求可显著缩短跑量时间）。
 UNITS_PER_CALL: dict[str, int] = {
+    "keyvault": 1,
     "cs": 1,          # text:analyze 一次一条文本记录
     "language": 5,    # analyze-text 一次最多 5 篇文档（每篇 1 条记录）
     "docintel": 10,   # 一份 10 页 PDF 一次分析 = 10 页
@@ -434,6 +442,66 @@ def run_vision(endpoint: str, key: str, target_usd: float, workers: int, dry: bo
     return _drive("vision", total, one, workers)
 
 
+def run_keyvault(vault_url: str, token: str, target_usd: float, workers: int, dry: bool) -> dict:
+    """Key Vault 操作量：复用 keep-alive 连接打 secret GET（凭 AAD token）。"""
+    total = calls_needed("keyvault", target_usd)
+    if dry:
+        return _dry("keyvault", total, target_usd)
+    from urllib.parse import urlsplit
+    import http.client
+
+    parts = urlsplit(vault_url if "://" in vault_url else "https://" + vault_url)
+    host = parts.hostname or ""
+    path = "/secrets/ping-ic27?api-version=7.4"
+    headers = {"Authorization": "Bearer " + token, "Accept": "application/json"}
+    per = max(1, total // max(1, workers))
+    counts = {"done": 0, "failed": 0}
+    lock = __import__("threading").Lock()
+
+    def worker(n: int) -> None:
+        conn = http.client.HTTPSConnection(host, timeout=30)
+        ok_n = bad_n = 0
+        for _ in range(n):
+            try:
+                conn.request("GET", path, headers=headers)
+                resp = conn.getresponse()
+                resp.read()
+                ok_flag = 200 <= resp.status < 300
+            except Exception:
+                ok_flag = False
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+                conn = http.client.HTTPSConnection(host, timeout=30)
+            if ok_flag:
+                ok_n += 1
+            else:
+                bad_n += 1
+        conn.close()
+        with lock:
+            counts["done"] += ok_n + bad_n
+            counts["failed"] += bad_n
+            if counts["done"] % 20000 < (ok_n + bad_n):
+                print(f"  [keyvault] {counts['done']}/{total} ops, failed={counts['failed']}", file=sys.stderr)
+
+    import concurrent.futures as _f
+    t0 = time.perf_counter()
+    with _f.ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        list(pool.map(worker, [per] * max(1, workers)))
+    units = counts["done"] - counts["failed"]
+    return {
+        "service": "keyvault",
+        "meter": PRICES["keyvault"]["meter"],
+        "calls": counts["done"],
+        "failed": counts["failed"],
+        "units": units,
+        "estimated_usd": round(units * float(PRICES["keyvault"]["unit_usd"]), 4),
+        "elapsed_s": round(time.perf_counter() - t0, 1),
+        "ok": counts["failed"] == 0,
+    }
+
+
 def run_speech(region: str, key: str, target_usd: float, workers: int, dry: bool) -> dict:
     total = calls_needed("speech", target_usd)
     if dry:
@@ -545,6 +613,10 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--key")
         p.add_argument("--region", help="speech 用（默认取 env 的 SPEECH_REGION）")
 
+    kv = sub.add_parser("keyvault", parents=[common], help="跑 Key Vault 操作量（需 AAD token）")
+    kv.add_argument("--vault-url", help="如 https://arca-kv-ic27.vault.azure.net")
+    kv.add_argument("--token", help="AAD access token（默认用 az 现取，resource=https://vault.azure.net）")
+
     sub.add_parser("all-ai", parents=[common], help="一次跑完 5 项 AI 服务（需要 --env-file）")
     return ap
 
@@ -586,6 +658,28 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  [{name}] skipped: {exc}", file=sys.stderr)
                 results.append({"service": name, "ok": False, "error": str(exc)})
         return _report(results, args.json)
+
+    if args.cmd == "keyvault":
+        vault_url = args.vault_url or _from_env(env, "KV_URL")
+        if not vault_url:
+            print("keyvault 需要 --vault-url 或 env ARCA_IC27_KV_URL", file=sys.stderr)
+            return 2
+        token = args.token or ""
+        if not token:
+            try:
+                done = __import__("subprocess").run(
+                    ["cmd", "/c", "az", "account", "get-access-token", "--resource",
+                     "https://vault.azure.net", "--query", "accessToken", "-o", "tsv"],
+                    capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+                )
+                token = (done.stdout or "").strip()
+            except Exception as exc:
+                print(f"取 Key Vault token 失败：{type(exc).__name__}", file=sys.stderr)
+        if not token:
+            print("拿不到 Key Vault AAD token（检查 az 登录与代理分流）", file=sys.stderr)
+            return 2
+        result = run_keyvault(vault_url, token, args.target_usd, args.workers, args.dry_run)
+        return _report([result], args.json)
 
     endpoint, key = args.endpoint, args.key
     if env:

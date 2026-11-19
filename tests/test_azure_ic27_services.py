@@ -261,3 +261,9 @@ def test_token_config_safe_rejects_injection_chars(chk):
     assert chk.token_config_safe("eyJ0eXAiOiJKV1QifQ.eyJzdWIiOiIxIn0.abc-_123")
     for bad in ('a"b', "a\nb", "a\rb", "a" + chr(92) + "b"):
         assert not chk.token_config_safe(bad), repr(bad)
+
+
+def test_keyvault_volume_math(gen):
+    """Key Vault 走操作量：$1.25 需 315,657 次 GET（$0.0396/10K）。"""
+    assert gen.units_needed("keyvault", 1.25) == 315657
+    assert gen.calls_needed("keyvault", 1.25) == 315657
