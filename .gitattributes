@@ -1,2 +1,5 @@
 *.sh text eol=lf
 *.py text eol=lf
+# 数据文件按字节钉定（scripts/k1_data_check.py 校验 sha256）：
+# 禁止任何行尾转换，否则 Windows core.autocrlf=true 的 clone 会把 LF 转 CRLF 导致校验失败。
+data/** -text
