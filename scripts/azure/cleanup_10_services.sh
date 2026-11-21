@@ -26,7 +26,7 @@ while [ $# -gt 0 ]; do
     --keep-plan-b) KEEP_PLAN_B=1 ;;
     --suffix) SUFFIX="${2:?}"; shift ;;
     --subscription) SUB="${2:?}"; shift ;;
-    -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; echo "注：--keep-plan-b 只豁免 ASP/SQL；Key Vault 恒保留（按操作计费，停用后零增量费用）"; exit 0 ;;
     *) echo "未知参数：$1" >&2; exit 2 ;;
   esac
   shift
@@ -77,7 +77,7 @@ else
   doit az appservice plan delete -n "$ASP_PLAN" -g "$RG" --yes
   doit az sql server delete -n "$SQL_SERVER" -g "$RG" --yes
 fi
-say "保留 arca-kv-ic27（Key Vault：按操作计费，停用后零增量费用；彻底删除属 soft-delete，另行处理）"
+say "保留 $KV_NAME（Key Vault：按操作计费，停用后零增量费用；彻底删除属 soft-delete，另行处理）"
 if [ "$KEEP_LA" = 1 ]; then
   say "保留 Log Analytics：$LAW_NAME（--keep-log-analytics）"
 else

@@ -238,6 +238,40 @@ def test_provision_dry_run_exits_zero(tmp_path):
     assert "dry-run" in done.stderr
 
 
+@pytest.mark.skipif(BASH is None, reason="需要 Git Bash / MSYS bash（WSL 桩不算）")
+def test_cleanup_dry_run_previews_plan_b_and_protects_gate(tmp_path):
+    """cleanup dry-run：方案 B（ASP/SQL）入删除名单、KV 保留、gate F0 绝不出现在删除行。"""
+    done = subprocess.run(
+        [BASH, (AZDIR / "cleanup_10_services.sh").as_posix()],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        cwd=tmp_path,
+    )
+    assert done.returncode == 0, done.stderr
+    err = done.stderr
+    assert "dry-run" in err
+    assert "az appservice plan delete -n arca-asp-ic27" in err
+    assert "az sql server delete -n arca-sql-ic27" in err
+    assert "保留 arca-kv-ic27" in err
+    delete_lines = [ln for ln in err.splitlines() if "[dry-run] az" in ln and "delete" in ln]
+    assert delete_lines, err
+    assert not any("arca-cs-ic27" in ln or "arca-lang-ic27" in ln for ln in delete_lines), err
+
+
+@pytest.mark.skipif(BASH is None, reason="需要 Git Bash / MSYS bash（WSL 桩不算）")
+def test_cleanup_keep_plan_b_skips_asp_sql(tmp_path):
+    """--keep-plan-b：跳过 ASP/SQL 删除行，出保留声明，其余删除行不变。"""
+    done = subprocess.run(
+        [BASH, (AZDIR / "cleanup_10_services.sh").as_posix(), "--keep-plan-b"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        cwd=tmp_path,
+    )
+    assert done.returncode == 0, done.stderr
+    err = done.stderr
+    assert "保留方案 B：arca-asp-ic27 / arca-sql-ic27" in err
+    assert "az appservice plan delete" not in err
+    assert "az sql server delete" not in err
+
+
 # ---------------------------------------------------- 外部审查修复的锁（F1/F2） ----
 def test_curl_token_not_in_argv():
     """F1：bearer token 不得作为 curl 的 argv（同机进程可读命令行）；走 -K - stdin。"""
