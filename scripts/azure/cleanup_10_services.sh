@@ -9,7 +9,8 @@
 #   bash scripts/azure/cleanup_10_services.sh --yes           # 真删
 #   bash scripts/azure/cleanup_10_services.sh --yes --keep-log-analytics
 #
-# 顺序：容器应用 → 环境 → 镜像仓 → 消息（SB/EH）→ 认知服务 → 日志工作区（最后，便于回看摄入量）。
+# 顺序：容器应用 → 环境 → 镜像仓 → 消息（SB/EH）→ 认知服务 → 方案 B（ASP/SQL，时间型持续计费）→ 日志工作区（最后，便于回看摄入量）。
+# 方案 B（11-21 拍板）：ASP/SQL 按时间计费、达标后必须停；Key Vault 按操作计费、停用后零增量费用故保留。
 set -uo pipefail
 
 RG="${ARCA_IC27_RG:-rg-arcanum-ic27}"
@@ -22,6 +23,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --yes) YES=1 ;;
     --keep-log-analytics) KEEP_LA=1 ;;
+    --keep-plan-b) KEEP_PLAN_B=1 ;;
     --suffix) SUFFIX="${2:?}"; shift ;;
     --subscription) SUB="${2:?}"; shift ;;
     -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
@@ -40,6 +42,10 @@ SB_NAME="arca-sb-${SUFFIX}"
 EH_NAME="arca-eh-${SUFFIX}"
 LAW_NAME="arca-law-${SUFFIX}"
 COGS=(arca-cs-usage arca-lang-usage arca-di-usage arca-cv-usage arca-sp-usage arca-ai-usage)
+ASP_PLAN="arca-asp-ic27"
+SQL_SERVER="arca-sql-ic27"
+KV_NAME="arca-kv-ic27"
+KEEP_PLAN_B="${KEEP_PLAN_B:-0}"
 
 say() { printf '%s\n' "$*" >&2; }
 doit() {
@@ -63,6 +69,15 @@ doit az eventhubs namespace delete -n "$EH_NAME" -g "$RG"
 for name in "${COGS[@]}"; do
   doit az cognitiveservices account delete -n "$name" -g "$RG"
 done
+if [ "$KEEP_PLAN_B" = 1 ]; then
+  say "保留方案 B：$ASP_PLAN / $SQL_SERVER（--keep-plan-b）"
+else
+  # ASP（B1 $0.075/h）与 SQL（Basic DTU）按时间持续计费，达标后必须停；
+  # SQL server delete 连带其下 DB（arca-db-ic27）。
+  doit az appservice plan delete -n "$ASP_PLAN" -g "$RG" --yes
+  doit az sql server delete -n "$SQL_SERVER" -g "$RG" --yes
+fi
+say "保留 arca-kv-ic27（Key Vault：按操作计费，停用后零增量费用；彻底删除属 soft-delete，另行处理）"
 if [ "$KEEP_LA" = 1 ]; then
   say "保留 Log Analytics：$LAW_NAME（--keep-log-analytics）"
 else
@@ -70,5 +85,5 @@ else
 fi
 
 say ""
-say "未触碰：arca-cs-ic27 / arca-lang-ic27（gate 用的 F0 资源）与资源组本身"
+say "未触碰：arca-cs-ic27 / arca-lang-ic27（gate 用的 F0 资源）、arca-kv-ic27（方案 B 保留件）与资源组本身"
 [ "$YES" = 0 ] && say "以上为预览；确认无误后加 --yes 真删"
