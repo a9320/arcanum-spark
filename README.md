@@ -50,6 +50,8 @@ flowchart LR
 git clone https://github.com/a9320/arcanum-spark && cd arcanum-spark
 pip install -r requirements-verify.txt
 python -m codeark.cli scan demo/vuln-demo-repo --dry --formats json,html --out reports/quickstart
+# default: Chinese; set ARCA_REPORT_LANG=en for English
+ARCA_REPORT_LANG=en python -m codeark.cli scan demo/vuln-demo-repo --dry --formats json,html --out reports/quickstart-en
 # → reports/quickstart/report.{json,html} — 12 expected PITAX hits, no model calls
 #   scope note: the demo repo is a single planted fixture (n=1); the 12-hit figure is
 #   demo-scope, not a general effectiveness claim — full numbers live in docs/EVAL-LEDGER.md.
@@ -60,7 +62,7 @@ bash verify.sh   # 5-step deterministic regression (tests + demo scan + eval + c
 Got Office documents instead of a repo? Same rules, different carrier:
 
 ```bash
-python -m codeark.cli docs-scan ./my-docs --formats json,html --out reports/office
+python -m codeark.cli docs-scan demo/poisoned-doc --formats json,html --out reports/office
 # scans .docx / .xlsx / .pptx text (including hidden runs and speaker notes) for
 # prompt-injection, invisible characters and encoded payloads; self-contained HTML report
 ```

@@ -28,11 +28,12 @@ _internal-backup/
 # 创空间 LFS hook 拒绝 zip 大对象：快照产物一律仓库外保存
 *.zip
 
-# ephemeral dry-run outputs (default --out)
-reports/report.json
-reports/report.md
-reports/report.sarif
-reports/summary.json
+# ephemeral dry-run outputs (default --out): ignore everything under reports/ except
+# the evidence-log exemption below (2026-09-30 incident 9e5a0d1 guard — do NOT collapse
+# to a bare 'reports/' or the '!reports/**/*.log' exemption is silently overridden)
+reports/**
+!reports/**/
+!reports/**/*.log
 
 # 本地实验产物留盘不跟踪（2026-10-24 定性：e2e-concurrency=9-25 旧并发冒烟、
 # smoke-armA=10-5 armA 冒烟三题；证据价值已被 DSW runs 与 docs 台账覆盖，

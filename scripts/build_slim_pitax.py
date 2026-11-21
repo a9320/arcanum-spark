@@ -31,7 +31,7 @@ from codeark.pitax.rules import PITAX_VERSION  # noqa: E402
 
 DEFAULT_OUT = ROOT.parent / "slim-build"
 PKG = "codeark_pitax"
-VERSION = "0.2.2"
+VERSION = "0.2.3"
 
 # 复制映射：源 → 生成文件名；rewrites 逐条替换导入
 COPY_PLAN: list[tuple[Path, str, list[tuple[str, str]]]] = [
@@ -243,7 +243,7 @@ GitHub code scanning. Nothing is uploaded and no model is called.
 
 ```yaml
 # .github/workflows/pitax.yml
-- run: pip install "codeark-pitax>=0.2.2"
+- run: pip install "codeark-pitax>=0.2.3"
 - run: codeark-pitax . --fail-on high --formats sarif,json
 - uses: github/codeql-action/upload-sarif@v3
   if: always()

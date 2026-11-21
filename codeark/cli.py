@@ -220,7 +220,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="CodeRisk Arcanum — 6-agent AI vulnerability scan pipeline",
         epilog="examples:  python -m codeark.cli demo/vuln-demo-repo --dry --formats json,html --out reports/quickstart\n"
-               "            python -m codeark.cli docs-scan ./my-docs --formats json,html\n"
+               "            ARCA_REPORT_LANG=en python -m codeark.cli scan demo/vuln-demo-repo --dry --formats json,html\n"
+               "            python -m codeark.cli docs-scan demo/poisoned-doc --formats json,html\n"
+               "            note: reports are Chinese by default; set ARCA_REPORT_LANG=en for English\n"
                "            note: 'scan' is a compatibility alias — `codeark scan <repo>` is the same as `codeark <repo>`",
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("repo", help="repository directory to scan")
