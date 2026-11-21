@@ -19,6 +19,7 @@ def _import_config(env_extra: dict) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, "-c", "import app.config"],
         cwd=str(REPO), env=env, capture_output=True, text=True,
+        encoding="utf-8", errors="replace",
     )
 
 
