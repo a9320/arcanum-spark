@@ -189,13 +189,21 @@ async def _main(args: argparse.Namespace) -> int:
         print(f"   - {fp} ({fp.stat().st_size} B)")
 
     # 风险分与命中数落盘为 summary.json
+    # 口径（11-26 T26 Qoder 发现）：confirmed_verifications=CONFIRMED 判决数，
+    # confirmed_findings=最终报告 findings 数（两者可不等：多条判决可收敛到同一条
+    # finding，或证据不足的判决不产 finding）。原字段名 confirmed 语义含糊，已拆分。
+    try:
+        _final_findings = len(json.loads(result.reports.get("json") or "{}").get("findings", []))
+    except (ValueError, TypeError, AttributeError):
+        _final_findings = -1  # 未请求 json 格式时无法计数（-1=未知，非 0）
     (out_dir / "summary.json").write_text(
         json.dumps({
             "risk_score": result.risk_score,
             "agent0_findings": len(result.agent0_findings),
             "hypotheses": len(hyps),
             "verifications": len(result.verifications),
-            "confirmed": sum(1 for v in result.verifications if getattr(v, "verdict", "") == "CONFIRMED"),
+            "confirmed_verifications": sum(1 for v in result.verifications if getattr(v, "verdict", "") == "CONFIRMED"),
+            "confirmed_findings": _final_findings,
             "attack_chains": len(result.attack_chains),
             "deepen_failures": getattr(result, "deepen_failures", 0),
             "quarantine_stats": getattr(result, "quarantine_stats", {}),

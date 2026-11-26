@@ -14,6 +14,8 @@ from __future__ import annotations
 import json
 import re
 from pathlib import PurePath
+
+from ..report_lang import is_en
 from typing import Any
 
 # 内置已知漏洞库（OSV 本地数据缺失时回落）
@@ -32,6 +34,22 @@ _LOCAL_VULN_DB: dict[str, dict] = {
     "phpmailer/phpmailer": {"vulnerable_below": "5.2.20",  "cwe": "CWE-74",  "desc": "旧版 PHPMailer 发件人字段注入可致远程代码执行（OSV GHSA-4pc3-96mx-wwc8 / CVE-2016-10045）"},
     "smarty/smarty":       {"vulnerable_below": "3.1.21",  "cwe": "CWE-94",  "desc": "旧版 Smarty 任意 PHP 代码执行（OSV GHSA-2pmx-6mm6-6v72 / CVE-2014-8350）"},
     "guzzlehttp/psr7":     {"vulnerable_below": "2.10.2",  "cwe": "CWE-113", "desc": "旧版 guzzlehttp/psr7 URI Host 组件 CRLF 注入（OSV GHSA-hq7v-mx3g-29hw / CVE-2026-49214）"},
+}
+
+# 英文描述（ARCA_REPORT_LANG=en；T26 WorkBuddy 审计发现内置库 desc 未 i18n）
+_LOCAL_VULN_DESC_EN: dict[str, str] = {
+    "django": "Outdated Django version is vulnerable to SQL injection",
+    "flask": "Outdated Flask version is vulnerable to XSS",
+    "requests": "Outdated requests version has a certificate validation flaw",
+    "pyyaml": "Outdated PyYAML: yaml.load() can lead to arbitrary code execution",
+    "pillow": "Outdated Pillow version has a buffer overflow",
+    "cryptography": "Outdated cryptography version allows weak algorithms",
+    "lodash": "Outdated lodash version is vulnerable to prototype pollution",
+    "express": "Outdated Express version has an open redirect",
+    "axios": "Outdated Axios version is vulnerable to SSRF",
+    "phpmailer/phpmailer": "Outdated PHPMailer: sender-field injection can lead to remote code execution (OSV GHSA-4pc3-96mx-wwc8 / CVE-2016-10045)",
+    "smarty/smarty": "Outdated Smarty allows arbitrary PHP code execution (OSV GHSA-2pmx-6mm6-6v72 / CVE-2014-8350)",
+    "guzzlehttp/psr7": "Outdated guzzlehttp/psr7: URI host component CRLF injection (OSV GHSA-hq7v-mx3g-29hw / CVE-2026-49214)",
 }
 
 
@@ -275,8 +293,9 @@ def _check_deps(deps: list[tuple[str, str]], ecosystem: str, file: str) -> list[
                     "version": version,
                     "ecosystem": ecosystem,
                     "cwe": vuln["cwe"],
-                    "description": vuln["desc"],
-                    "fix": f"升级 {pkg} 至 >= {vuln['vulnerable_below']}",
+                    "description": (_LOCAL_VULN_DESC_EN.get(pkg) or vuln["desc"]) if is_en() else vuln["desc"],
+                    "fix": (f"Upgrade {pkg} to >= {vuln['vulnerable_below']}" if is_en()
+                            else f"升级 {pkg} 至 >= {vuln['vulnerable_below']}"),
                     "source": "local_fallback",
                     "file": file,
                     "severity": "high",

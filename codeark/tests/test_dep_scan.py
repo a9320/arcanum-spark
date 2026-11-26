@@ -226,3 +226,31 @@ if __name__ == "__main__":
     test_composer_parse_helpers()
     test_windows_absolute_path_keys_still_dispatch()
     print("\n全部通过 ✅")
+
+def test_local_vuln_db_english_desc_complete():
+    """T26 WorkBuddy 审计：内置漏洞库 en 面不得漏中文（desc/fix 都要 i18n）。"""
+    import re
+    from codeark.tools.dep_scan import _LOCAL_VULN_DB, _LOCAL_VULN_DESC_EN
+
+    cjk = re.compile(r"[\u4e00-\u9fff]")
+    missing = [k for k in _LOCAL_VULN_DB if k not in _LOCAL_VULN_DESC_EN]
+    assert not missing, f"缺英文描述的包: {missing}"
+    bad = [k for k, v in _LOCAL_VULN_DESC_EN.items() if cjk.search(v)]
+    assert not bad, f"英文描述含 CJK: {bad}"
+    # 中文原文保持中文（不被 i18n 改动影响）
+    assert cjk.search(_LOCAL_VULN_DB["django"]["desc"])
+
+
+def test_en_mode_dep_finding_use_english(monkeypatch):
+    """ARCA_REPORT_LANG=en 时 description/fix 走英文（zh 默认不变）。"""
+    from codeark.tools.dep_scan import scan_deps
+
+    files = {"requirements.txt": "django==3.2.0\n"}
+    monkeypatch.setenv("ARCA_REPORT_LANG", "en")
+    en = scan_deps(files)
+    assert en and all("Django" in f["description"] for f in en)
+    assert all(f["fix"].startswith("Upgrade django") for f in en)
+    monkeypatch.delenv("ARCA_REPORT_LANG", raising=False)
+    zh = scan_deps(files)
+    assert zh and any("旧版 Django" in f["description"] for f in zh)
+    assert any("升级 django" in f["fix"] for f in zh)

@@ -68,7 +68,8 @@ COPY_PLAN: list[tuple[Path, str, list[tuple[str, str]]]] = [
             ("from codeark.tools.pitax_scan import scan_file", "from .scan_engine import scan_file"),
         ],
     ),
-    (ROOT / "codeark" / "tools" / "dep_scan.py", "dep_scan.py", []),
+    (ROOT / "codeark" / "tools" / "dep_scan.py", "dep_scan.py",
+     [("from ..report_lang import is_en", "from .report_lang import is_en")]),
     # laya 假设排序运行时（rank_hypotheses 用）：顶层纯标准库，torch 只在
     # vendor rl_agent_api.py（随 checkpoint 目录）运行时引入，slim 可安全携带
     (ROOT / "codeark" / "graph" / "laya_runtime.py", "laya_runtime.py",
