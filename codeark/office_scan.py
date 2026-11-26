@@ -203,6 +203,9 @@ def run_cli(argv: list[str]) -> int:
                         help="Report output directory (default ./reports)" if is_en()
                         else "报告输出目录（默认 ./reports）")
     parser.add_argument("--formats", default="json,html", help="json,html")
+    parser.add_argument("--fail-on-findings", action="store_true",
+                        help="exit 3 when any finding is reported (CI gate)" if is_en()
+                        else "命中任一发现时以退出码 3 收口（CI 闸门）")
     args = parser.parse_args(argv)
 
     target = Path(args.target).resolve()
@@ -241,6 +244,11 @@ def run_cli(argv: list[str]) -> int:
     for fp in written:
         print(f"   - {fp} ({fp.stat().st_size} B)")
     print("generation ≠ publication; nothing sent externally.")
+    # --fail-on-findings：与 slim CLI 同语义（0=clean / 3=findings）；不加 flag 时默认 rc 仍 0
+    if args.fail_on_findings and findings:
+        print(f"GATE: {len(findings)} finding(s) — failing" if is_en()
+              else f"GATE: {len(findings)} 条发现——闸门不通过")
+        return 3
     return 0
 
 

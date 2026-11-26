@@ -250,3 +250,32 @@ def test_docs_scan_warns_on_unsupported_formats(tmp_path, capsys):
     assert "sarif" in captured and "markdown" in captured   # 两个都不静默
     assert "不支持" in captured or "ignored" in captured
     assert (out / "office-report.json").exists() and (out / "office-report.html").exists()
+
+
+def test_docs_scan_fail_on_findings_gates_rc3(tmp_path, capsys):
+    """--fail-on-findings：有命中 → rc=3 + GATE 行（落盘照常，闸门只改退出码）。"""
+    from codeark.office_scan import run_cli
+    p = tmp_path / "r.docx"
+    with zipfile.ZipFile(p, "w") as zf:
+        zf.writestr("word/document.xml", _docx_xml(INJECTION))
+    out = tmp_path / "out"
+    rc = run_cli([str(p), "--out", str(out), "--fail-on-findings"])
+    captured = capsys.readouterr().out
+    assert rc == 3
+    assert "GATE" in captured
+    assert (out / "office-report.json").exists() and (out / "office-report.html").exists()
+
+
+def test_docs_scan_fail_on_findings_clean_rc0(tmp_path):
+    """--fail-on-findings：clean → rc=0；不加 flag 时有命中也 rc=0（默认行为不变）。"""
+    from codeark.office_scan import run_cli
+    clean = tmp_path / "c.docx"
+    with zipfile.ZipFile(clean, "w") as zf:
+        zf.writestr("word/document.xml", _docx_xml("quarterly budget summary, all normal"))
+    rc_clean = run_cli([str(clean), "--out", str(tmp_path / "o1"), "--fail-on-findings"])
+    assert rc_clean == 0
+    p = tmp_path / "r.docx"
+    with zipfile.ZipFile(p, "w") as zf:
+        zf.writestr("word/document.xml", _docx_xml(INJECTION))
+    rc_default = run_cli([str(p), "--out", str(tmp_path / "o2")])
+    assert rc_default == 0
