@@ -27,6 +27,7 @@ from codeark.pitax.detectors import (
     detect_invisible_text,
     detect_trojan_source,
 )
+from .report_lang import is_en
 from codeark.tools.pitax_scan import scan_file  # noqa: F401  (与产品同源的检测入口)
 
 MAX_FILE_BYTES = 20 * 1024 * 1024
@@ -193,9 +194,14 @@ def build_report(findings: list[dict], meta: dict[str, Any]) -> dict[str, str]:
 def run_cli(argv: list[str]) -> int:
     import argparse
 
-    parser = argparse.ArgumentParser(prog="codeark docs-scan", description="Office 文档注入体检")
-    parser.add_argument("target", help="docx/xlsx/pptx 文件或目录")
-    parser.add_argument("--out", default="./reports", help="报告输出目录（默认 ./reports）")
+    parser = argparse.ArgumentParser(
+        prog="codeark docs-scan",
+        description="Office document injection scan" if is_en() else "Office 文档注入体检")
+    parser.add_argument("target", help="docx/xlsx/pptx file or directory" if is_en()
+                        else "docx/xlsx/pptx 文件或目录")
+    parser.add_argument("--out", default="./reports",
+                        help="Report output directory (default ./reports)" if is_en()
+                        else "报告输出目录（默认 ./reports）")
     parser.add_argument("--formats", default="json,html", help="json,html")
     args = parser.parse_args(argv)
 
@@ -219,7 +225,8 @@ def run_cli(argv: list[str]) -> int:
             fp.write_text(reports["html"], encoding="utf-8")
         else:
             # 静默丢弃会让用户以为 sarif/markdown 已生成（T25 Qoder 实证），显式提示
-            print(f"⚠ docs-scan 不支持 format={name}，已忽略（当前支持：json,html）")
+            print(f"⚠ docs-scan does not support format={name}; ignored (supported: json,html)" if is_en()
+                  else f"⚠ docs-scan 不支持 format={name}，已忽略（当前支持：json,html）")
             continue
         written.append(fp)
 
@@ -227,7 +234,9 @@ def run_cli(argv: list[str]) -> int:
     print(f"📄 Office scan: {cov['files']} file(s), {cov['parts']} part(s), "
           f"{cov['chars']} chars, {cov['skipped']} skipped, {len(findings)} finding(s)")
     if cov.get("caps", {}).get("stopped_by"):
-        print(f"⚠ 目录遍历被上限截断: {cov['caps']['stopped_by']} "
+        print(f"⚠ Directory walk truncated by cap: {cov['caps']['stopped_by']} "
+              "(scan scope incomplete; see meta.office_scan.caps)" if is_en() else
+              f"⚠ 目录遍历被上限截断: {cov['caps']['stopped_by']} "
               "（扫描范围不完整，见 meta.office_scan.caps）")
     for fp in written:
         print(f"   - {fp} ({fp.stat().st_size} B)")

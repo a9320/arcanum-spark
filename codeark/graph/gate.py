@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from codeark.models.schemas import HypothesisSet, assign_hypothesis_ids
+from codeark.report_lang import is_en
 
 __all__ = ["GateResult", "PRUNE_MODES", "rerank_hypotheses"]
 
@@ -105,15 +106,20 @@ def rerank_hypotheses(
     mode = str(prune_mode or "off").strip().lower()
     if mode in _SHELVED_PRUNE_MODES:
         raise ValueError(
+            f"prune_mode={mode!r} is shelved per GATE-V2-DESIGN §6 v1.1 (tau double-negative); "
+            f"only {PRUNE_MODES} supported" if is_en() else
             f"prune_mode={mode!r} 已按 GATE-V2-DESIGN §6 v1.1 搁置（τ 双负结果）；"
             f"仅支持 {PRUNE_MODES}"
         )
     if mode not in PRUNE_MODES:
-        raise ValueError(f"unsupported prune_mode: {prune_mode!r}（仅支持 {PRUNE_MODES}）")
+        raise ValueError(f"unsupported prune_mode: {prune_mode!r} (only {PRUNE_MODES} supported)" if is_en()
+                         else f"unsupported prune_mode: {prune_mode!r}（仅支持 {PRUNE_MODES}）")
     if tau is not None or max_keep is not None:
-        raise ValueError("tau/max_keep 仅属 threshold/cap 姿态（已搁置）；off/structural 下不得设置")
+        raise ValueError("tau/max_keep belong to the shelved threshold/cap posture; must not be set under off/structural"
+                         if is_en() else "tau/max_keep 仅属 threshold/cap 姿态（已搁置）；off/structural 下不得设置")
     if isinstance(min_keep, bool) or not isinstance(min_keep, int) or min_keep < 1:
-        raise ValueError(f"min_keep 必须是 >=1 的整数: {min_keep!r}")
+        raise ValueError(f"min_keep must be an integer >= 1: {min_keep!r}" if is_en()
+                         else f"min_keep 必须是 >=1 的整数: {min_keep!r}")
     copied = hypothesis_set.model_copy(deep=True)
     assign_hypothesis_ids(copied)
     hypotheses = list(copied.hypotheses)

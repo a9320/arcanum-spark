@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..report_lang import is_en
+
 # Strands @tool 装饰器。若环境不可用则退化为普通函数（保可导入、可单测）。
 try:  # pragma: no cover - 导入降级分支
     from strands.tools import tool as _strands_tool
@@ -75,7 +77,8 @@ def scan_file(path: str, content: str, _n: int = 0, *, strict: bool = False) -> 
         if strict:
             # 基准/测试用：静默按 clean 返回就是漏报，必须让调用方看见
             raise
-        print(f"[pitax_scan] 扫描 {path} 失败: {exc}")
+        print(f"[pitax_scan] failed to scan {path}: {exc}" if is_en()
+              else f"[pitax_scan] 扫描 {path} 失败: {exc}")
         return []
 
     # 统一转为带 id 的 report_dict（同文件内递增）

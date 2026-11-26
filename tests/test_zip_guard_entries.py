@@ -18,6 +18,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.zipguard import extract_zip  # noqa: E402
+from codeark.report_lang import is_en  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -47,7 +48,7 @@ def test_declared_total_size_over_limit_rejected(tmp_path):
 
 def test_member_count_over_limit_rejected(tmp_path):
     data = _zip_bytes({f"f{i}.txt": b"x" for i in range(5001)})
-    with pytest.raises(ValueError, match="条目|member"):
+    with pytest.raises(ValueError, match="entry" if is_en() else "条目|member"):
         extract_zip(data, tmp_path)
 
 

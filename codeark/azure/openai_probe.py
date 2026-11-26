@@ -19,6 +19,8 @@ from urllib.parse import quote
 
 import httpx
 
+from ..report_lang import is_en
+
 DEFAULT_API_VERSION = "2024-10-21"
 DEFAULT_TIMEOUT = 30.0
 DEFAULT_PROMPT = "Reply with the single word: pong"
@@ -65,9 +67,9 @@ class ChatProbeResult:
 def _root_endpoint(endpoint: str) -> str:
     root = (endpoint or "").strip().rstrip("/")
     if not root:
-        raise ValueError("Azure OpenAI endpoint 为空")
+        raise ValueError("Azure OpenAI endpoint is empty" if is_en() else "Azure OpenAI endpoint 为空")
     if not root.startswith(("https://", "http://")):
-        raise ValueError("Azure OpenAI endpoint 必须以 https:// 或 http:// 开头")
+        raise ValueError("Azure OpenAI endpoint must start with https:// or http://" if is_en() else "Azure OpenAI endpoint 必须以 https:// 或 http:// 开头")
     suffix = "/openai/v1"
     if root.endswith(suffix):
         root = root[: -len(suffix)].rstrip("/")
@@ -111,9 +113,9 @@ def probe_chat_completion(
     key = (key or "").strip()
     deployment = (deployment or "").strip()
     if not key:
-        raise ValueError("Azure OpenAI key 为空")
+        raise ValueError("Azure OpenAI key is empty" if is_en() else "Azure OpenAI key 为空")
     if not deployment:
-        raise ValueError("Azure OpenAI deployment 为空")
+        raise ValueError("Azure OpenAI deployment is empty" if is_en() else "Azure OpenAI deployment 为空")
     root = _root_endpoint(endpoint)
     v1_url = f"{root}/openai/v1/chat/completions"
     classic_url = (

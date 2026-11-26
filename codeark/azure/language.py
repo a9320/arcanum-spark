@@ -31,6 +31,8 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from ..report_lang import is_en
+
 ENDPOINT_ENV = "ARCA_AZURE_LANGUAGE_ENDPOINT"
 KEY_ENV = "ARCA_AZURE_LANGUAGE_KEY"
 API_VERSION_ENV = "ARCA_AZURE_LANGUAGE_API_VERSION"
@@ -153,11 +155,11 @@ class LanguageClient:
         endpoint = (endpoint or "").strip().rstrip("/")
         key = (key or "").strip()
         if not endpoint:
-            raise ValueError("Language endpoint 为空")
+            raise ValueError("Language endpoint is empty" if is_en() else "Language endpoint 为空")
         if not endpoint.startswith(("https://", "http://")):
-            raise ValueError("Language endpoint 必须以 https:// 或 http:// 开头")
+            raise ValueError("Language endpoint must start with https:// or http://" if is_en() else "Language endpoint 必须以 https:// 或 http:// 开头")
         if not key:
-            raise ValueError("Language key 为空")
+            raise ValueError("Language key is empty" if is_en() else "Language key 为空")
         self.endpoint = endpoint
         self.api_version = (api_version or "").strip() or DEFAULT_API_VERSION
         self._key = key
@@ -305,9 +307,9 @@ class LanguageClient:
         try:
             data = resp.json()
         except ValueError:
-            raise _CallFailed("响应不是合法 JSON") from None
+            raise _CallFailed("Response is not valid JSON" if is_en() else "响应不是合法 JSON") from None
         if not isinstance(data, dict):
-            raise _CallFailed("响应 JSON 顶层不是对象")
+            raise _CallFailed("Response JSON top level is not an object" if is_en() else "响应 JSON 顶层不是对象")
         return data
 
     def _parse_chunk(

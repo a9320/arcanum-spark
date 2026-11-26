@@ -11,6 +11,8 @@ import time
 from datetime import datetime
 from pathlib import Path  # ← 新增
 
+from codeark.report_lang import is_en
+
 # ── Configuration ──
 # 魔搭创空间单容器模式：localhost；docker-compose 多容器模式：api 服务名
 API_BASE = os.environ.get("API_URL", "http://api:8000")
@@ -217,7 +219,7 @@ with st.sidebar:
     st.link_button("💻 GitHub Repo", "https://github.com/a9320/coderisk-cloud", use_container_width=True)
     st.link_button("📑 Nutrient DWS", "https://www.nutrient.io/", use_container_width=True)
     st.markdown("---")
-    st.caption("DevNetwork 2026 · AI溢出安全实验室")
+    st.caption("DevNetwork 2026 · Overflow Security Lab" if is_en() else "DevNetwork 2026 · AI溢出安全实验室")
 
 # ── Main: Submit Form ──
 st.markdown('<div class="section-title">Submit New Analysis</div>', unsafe_allow_html=True)
@@ -497,4 +499,4 @@ if has_pending:
         st.rerun()
 
 st.markdown("---")
-st.caption("CodeRisk Cloud v1.0.0 · DevNetwork 2026 · AI溢出安全实验室")
+st.caption("CodeRisk Cloud v1.0.0 · DevNetwork 2026 · Overflow Security Lab" if is_en() else "CodeRisk Cloud v1.0.0 · DevNetwork 2026 · AI溢出安全实验室")

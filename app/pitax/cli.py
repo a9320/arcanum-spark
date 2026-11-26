@@ -10,6 +10,8 @@ import argparse
 import json
 import sys
 
+from codeark.report_lang import is_en
+
 from .rules import PITAX_VERSION
 from .sanitizer import scan_directory
 from .sarif import build_sarif
@@ -17,9 +19,11 @@ from .sarif import build_sarif
 
 def main() -> int:
     ap = argparse.ArgumentParser(prog="coderisk-pitax")
-    ap.add_argument("path", help="要扫描的目录")
-    ap.add_argument("--json", action="store_true", help="输出 JSON 报告")
-    ap.add_argument("--sarif", action="store_true", help="输出 SARIF 2.1.0 报告")
+    ap.add_argument("path", help="Directory to scan" if is_en() else "要扫描的目录")
+    ap.add_argument("--json", action="store_true",
+                    help="Output JSON report" if is_en() else "输出 JSON 报告")
+    ap.add_argument("--sarif", action="store_true",
+                    help="Output SARIF 2.1.0 report" if is_en() else "输出 SARIF 2.1.0 报告")
     args = ap.parse_args()
 
     findings, stats = scan_directory(args.path)
@@ -34,9 +38,12 @@ def main() -> int:
         return 1 if findings else 0
 
     print(f"╔══ CodeRisk PITAX Scanner (taxonomy v{stats['pitax_version']}) ══╗")
-    print(f"  扫描文件: {stats['files_scanned']}  跳过: {stats['files_skipped']}")
-    print(f"  规则集:   {', '.join(stats['rules'])}")
-    print(f"  检出 AI 漏洞: {len(findings)}")
+    print(f"  Files scanned: {stats['files_scanned']}  Skipped: {stats['files_skipped']}" if is_en()
+          else f"  扫描文件: {stats['files_scanned']}  跳过: {stats['files_skipped']}")
+    print(f"  Rules:      {', '.join(stats['rules'])}" if is_en()
+          else f"  规则集:   {', '.join(stats['rules'])}")
+    print(f"  AI vulnerabilities found: {len(findings)}" if is_en()
+          else f"  检出 AI 漏洞: {len(findings)}")
     print("╚" + "═" * 58 + "╝")
     for f in findings:
         refs = f["pitax"]["references"][0]
@@ -49,11 +56,14 @@ def main() -> int:
             meta.append(f"CVE {f['pitax']['cve']}")
         print(f"\n[{f['type']}] {f['severity'].upper():8} {f['file']}:{f['line']}")
         print(f"  {f['description']}")
-        print(f"  证据: {f['pitax']['evidence']}")
+        print(f"  Evidence: {f['pitax']['evidence']}" if is_en()
+              else f"  证据: {f['pitax']['evidence']}")
         if f["pitax"].get("decoded_payload"):
-            print(f"  解码载荷: {f['pitax']['decoded_payload'][:120]}")
-        print(f"  映射: {', '.join(meta) if meta else '-'}")
-        print(f"  参考: {refs}")
+            print(f"  Decoded payload: {f['pitax']['decoded_payload'][:120]}" if is_en()
+                  else f"  解码载荷: {f['pitax']['decoded_payload'][:120]}")
+        print(f"  Mappings: {', '.join(meta) if meta else '-'}" if is_en()
+              else f"  映射: {', '.join(meta) if meta else '-'}")
+        print(f"  References: {refs}" if is_en() else f"  参考: {refs}")
     return 1 if findings else 0
 
 

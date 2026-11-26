@@ -13,6 +13,7 @@ import pytest
 
 import codeark.agents.verify_agent as va
 from codeark.models.schemas import VerificationResult
+from codeark.report_lang import is_en
 
 
 class _Hyp:
@@ -70,7 +71,7 @@ async def test_persistent_missing_id_degrades_without_backfill():
     assert len(agent.calls) == 2
     assert out.verdict == "UNCERTAIN"
     assert out.verification_method == "none(degraded)"
-    assert "禁止按序回填" in out.evidence
+    assert ("no positional backfill" if is_en() else "禁止按序回填") in out.evidence
     assert out.hypothesis_id == "H1"  # 降级记录绑定调用目标，非模型自报
     assert out.degraded is True
 
@@ -102,5 +103,5 @@ async def test_invoke_failure_degrades_explicitly():
 
     assert out.verdict == "UNCERTAIN"
     assert out.verification_method == "none(degraded)"
-    assert "invoke 失败" in out.evidence
+    assert ("invoke failed" if is_en() else "invoke 失败") in out.evidence
     assert out.degraded is True

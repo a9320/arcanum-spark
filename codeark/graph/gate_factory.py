@@ -21,6 +21,7 @@ from typing import Callable
 from codeark.graph.gate import PRUNE_MODES, GateResult, rerank_hypotheses
 from codeark.graph.laya_runtime import score_laya  # 唯一实现（2026-11-05 自 eval/replay.py 提升）
 from codeark.models.schemas import HypothesisSet
+from codeark.report_lang import is_en
 
 __all__ = [
     "baseline_rows_from_agent0",
@@ -74,7 +75,8 @@ def make_laya_gate(model_path: str, prune_mode: str = "off", min_keep: int = 1) 
     prune_mode="structural" 时叠加结构性剪枝（剪枝面与打分独立，I3 仍只认精确键）。
     """
     if not model_path:
-        raise ValueError("laya gate 需要 --model <模型目录>")
+        raise ValueError("laya gate requires --model <model directory>" if is_en()
+                         else "laya gate 需要 --model <模型目录>")
 
     def gate(hypothesis_set, agent0_findings):
         items = [
@@ -131,10 +133,13 @@ def resolve_prune(explicit: str | None, env_value: str | None) -> str:
         return value
     if value in ("threshold", "cap"):
         raise ValueError(
+            f"prune_mode {value!r} is shelved per GATE-V2-DESIGN §6 v1.1 (tau double-negative); "
+            f"only {PRUNE_MODES} supported" if is_en() else
             f"prune_mode {value!r} 已按 GATE-V2-DESIGN §6 v1.1 搁置（τ 双负结果）；"
             f"仅支持 {PRUNE_MODES}"
         )
-    raise ValueError(f"unsupported prune mode: {raw!r}（仅支持 {PRUNE_MODES}）")
+    raise ValueError(f"unsupported prune mode: {raw!r} (only {PRUNE_MODES} supported)" if is_en()
+                     else f"unsupported prune mode: {raw!r}（仅支持 {PRUNE_MODES}）")
 
 
 def _resolve_min_keep(env_value: str | None) -> int:
@@ -144,9 +149,11 @@ def _resolve_min_keep(env_value: str | None) -> int:
     try:
         value = int(raw)
     except ValueError:
-        raise ValueError(f"ARCA_GATE_PRUNE_MIN_KEEP 非法: {raw!r}") from None
+        raise ValueError(f"ARCA_GATE_PRUNE_MIN_KEEP is invalid: {raw!r}" if is_en()
+                         else f"ARCA_GATE_PRUNE_MIN_KEEP 非法: {raw!r}") from None
     if value < 1:
-        raise ValueError(f"ARCA_GATE_PRUNE_MIN_KEEP 必须是 >=1 的整数: {raw!r}")
+        raise ValueError(f"ARCA_GATE_PRUNE_MIN_KEEP must be an integer >= 1: {raw!r}" if is_en()
+                         else f"ARCA_GATE_PRUNE_MIN_KEEP 必须是 >=1 的整数: {raw!r}")
     return value
 
 
@@ -170,6 +177,8 @@ def build_gate_from_env(
         for knob in ("ARCA_GATE_PRUNE_TAU", "ARCA_GATE_PRUNE_MAX"):
             if (os.environ.get(knob) or "").strip():
                 raise ValueError(
+                    f"{knob} is shelved per §6 v1.1 (threshold/cap not implemented); must not be set"
+                    if is_en() else
                     f"{knob} 已按 §6 v1.1 搁置（threshold/cap 未实施），不得设置"
                 )
     except ValueError as exc:

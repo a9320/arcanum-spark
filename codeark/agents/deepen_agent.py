@@ -23,6 +23,7 @@ from strands import Agent
 from strands.models import OpenAIModel
 
 from codeark.models.factory import make_model, ModelProvider, ModelTier
+from codeark.report_lang import is_en
 from codeark.models.schemas import AttackChain, VerificationResult
 from codeark.graph.quarantine import (
     quarantine_files,
@@ -215,8 +216,10 @@ def _make_model_fallback() -> OpenAIModel:
         try:
             return fn()
         except Exception as e:
-            print(f"[Deepen] {name} 初始化失败: {e}")
-    raise RuntimeError("所有 Deepen 模型初始化均失败")
+            print(f"[Deepen] {name} initialization failed: {e}" if is_en()
+                  else f"[Deepen] {name} 初始化失败: {e}")
+    raise RuntimeError("All Deepen models failed to initialize" if is_en()
+                       else "所有 Deepen 模型初始化均失败")
 
 
 # ── 严格 JSON 解析（prompt 钉模板，代码端最后把关）──
@@ -401,15 +404,19 @@ async def run_deepen(
             )
         if chain is None:
             failures += 1
-            print(f"[Deepen] 第 {i + 1}/{len(confirmed)} 条链解析失败（降级占位）")
+            print(f"[Deepen] chain {i + 1}/{len(confirmed)} parse failed (degraded placeholder)" if is_en()
+                  else f"[Deepen] 第 {i + 1}/{len(confirmed)} 条链解析失败（降级占位）")
             chain = AttackChain(
                 preconditions=[],
                 lateral_moves=[],
                 impact=(
+                    f"[Deepen parse failed; manual review required] original hypothesis: {v.hypothesis_title}; "
+                    f"model raw output excerpt: {_redact_creds(raw[:400])}" if is_en() else
                     f"【Deepen 格式解析失败·需人工复核】原假设：{v.hypothesis_title}；"
                     f"模型原始输出节选：{_redact_creds(raw[:400])}"
                 ),
-                remediation="（自动链推演失败；验证层证据仍然有效，请人工推演攻击链）",
+                remediation="(Automatic chain derivation failed; verification-layer evidence remains valid; please derive the attack chain manually)" if is_en()
+                else "（自动链推演失败；验证层证据仍然有效，请人工推演攻击链）",
             )
         return chain
 

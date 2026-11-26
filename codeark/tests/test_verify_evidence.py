@@ -9,6 +9,7 @@ import pytest
 
 import codeark.agents.verify_agent as va
 from codeark.models.schemas import HypothesisSet, VerificationResult, VulnHypothesis
+from codeark.report_lang import is_en
 
 
 def _hyp(**kw) -> VulnHypothesis:
@@ -336,8 +337,8 @@ async def test_fallback_logs_attempt_and_failure(monkeypatch, capsys):
         retry_agent=_AlwaysFailAgent())
     assert out.degraded is True
     captured = capsys.readouterr().out
-    assert "无工具兜底尝试" in captured
-    assert "无工具兜底失败" in captured
+    assert ("no-tool fallback attempt" if is_en() else "无工具兜底尝试") in captured
+    assert ("no-tool fallback failed" if is_en() else "无工具兜底失败") in captured
 
 
 class _MissingIdTwiceAgent:

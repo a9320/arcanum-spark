@@ -30,6 +30,7 @@ from codeark.models.schemas import (
 )
 from codeark.graph.quarantine import render_sections
 from codeark import report_lang as _report_lang
+from codeark.report_lang import is_en
 
 __all__ = ["ARBITER_SYSTEM_PROMPT", "build_arbiter_agent", "run_arbiter"]
 
@@ -168,8 +169,10 @@ def _make_model_fallback() -> OpenAIModel:
         try:
             return fn()
         except Exception as e:
-            print(f"[Arbiter] {name} 初始化失败: {e}")
-    raise RuntimeError("所有 Arbiter 模型初始化均失败")
+            print(f"[Arbiter] {name} initialization failed: {e}" if is_en()
+                  else f"[Arbiter] {name} 初始化失败: {e}")
+    raise RuntimeError("All Arbiter models failed to initialize" if is_en()
+                       else "所有 Arbiter 模型初始化均失败")
 
 
 # ── 运行入口（供 Graph 编排调用）──
@@ -202,12 +205,12 @@ async def run_arbiter(
         + render_sections(sections)
     )
 
-    last_reason = "未知"
+    last_reason = "unknown" if is_en() else "未知"
     for attempt in range(1, max_attempts + 1):
         try:
             result = await agent.invoke_async(prompt)
         except Exception as exc:
-            last_reason = f"第{attempt}次调用异常: {exc}"
+            last_reason = f"attempt {attempt}: call error: {exc}" if is_en() else f"第{attempt}次调用异常: {exc}"
             print(f"[Arbiter] ⚠ {last_reason}")
             continue
         rep = _normalize_final_report(
@@ -215,10 +218,11 @@ async def run_arbiter(
         )
         if rep is not None:
             return rep
-        last_reason = f"第{attempt}次输出为空或不可解析"
+        last_reason = f"attempt {attempt}: output empty or unparseable" if is_en() else f"第{attempt}次输出为空或不可解析"
         print(f"[Arbiter] ⚠ {last_reason}")
 
-    print(f"[Arbiter] ⚠ {max_attempts} 次尝试均失败（{last_reason}），切换确定性兜底定稿")
+    print(f"[Arbiter] ⚠ all {max_attempts} attempts failed ({last_reason}); switching to deterministic fallback report" if is_en()
+          else f"[Arbiter] ⚠ {max_attempts} 次尝试均失败（{last_reason}），切换确定性兜底定稿")
     return _deterministic_fallback_report(
         verifications, attack_chains, hypothesis_set, reason=last_reason
     )

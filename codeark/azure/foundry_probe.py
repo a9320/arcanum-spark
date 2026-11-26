@@ -24,6 +24,8 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from ..report_lang import is_en
+
 ENDPOINT_ENV = "ARCA_FOUNDRY_ENDPOINT"
 KEY_ENV = "ARCA_FOUNDRY_KEY"
 DEPLOYMENT_ENV = "ARCA_FOUNDRY_DEPLOYMENT"
@@ -105,9 +107,9 @@ class FoundryClient:
         key = (key or "").strip()
         deployment = (deployment or "").strip()
         if not endpoint.startswith(("https://", "http://")):
-            raise ValueError("Foundry endpoint 必须以 https:// 或 http:// 开头")
+            raise ValueError("Foundry endpoint must start with https:// or http://" if is_en() else "Foundry endpoint 必须以 https:// 或 http:// 开头")
         if not key or not deployment:
-            raise ValueError("Foundry key/deployment 不能为空")
+            raise ValueError("Foundry key/deployment must not be empty" if is_en() else "Foundry key/deployment 不能为空")
         self.endpoint = endpoint
         self.deployment = deployment
         self.api_version = (api_version or "").strip() or DEFAULT_API_VERSION

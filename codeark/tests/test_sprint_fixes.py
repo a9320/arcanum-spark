@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from codeark.agents.arbiter_agent import _deterministic_fallback_report, _normalize_final_report
+from codeark.report_lang import is_en
 from codeark.agents.deepen_agent import (
     ChainList,
     _coerce_chain,
@@ -147,7 +148,7 @@ def test_deterministic_fallback_confirmed_only():
     f = rep.findings[0]
     assert f.title == "CI 注入" and f.file_path == ".github/ci.yml"
     assert f.remediation == "删注释" and f.evidence == "pitax 命中 T-51"
-    assert "确定性兜底定稿" in rep.conclusion and "测试" in rep.conclusion
+    assert ("Deterministic fallback" if is_en() else "确定性兜底定稿") in rep.conclusion and "测试" in rep.conclusion
 
 
 # ────────────────────────── 任务 3：报告去重与渲染 ──────────────────────────
@@ -175,9 +176,9 @@ def test_render_report_includes_chains_conclusion_meta():
               "deepen_failures": 0},
     )
     md = reports["markdown"]
-    assert "攻击链推演" in md and "凭据泄漏" in md
-    assert "Prompt 隔离层" in md and "中和注入触发词 1 处" in md
-    assert "确定性兜底定稿" in md
+    assert ("Attack Chain Derivation" if is_en() else "攻击链推演") in md and "凭据泄漏" in md
+    assert ("Prompt Quarantine" if is_en() else "Prompt 隔离层") in md and ("neutralized 1 injection trigger phrase" if is_en() else "中和注入触发词 1 处") in md
+    assert ("Deterministic fallback" if is_en() else "确定性兜底定稿") in md
     import json as _json
     payload = _json.loads(reports["json"])
     assert payload["attack_chains"] and payload["conclusion"]

@@ -21,6 +21,8 @@ import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from .report_lang import is_en
+
 SUPPORTED_OFFICE_EXTS = {".docx", ".xlsx", ".pptx"}
 
 _W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -79,7 +81,9 @@ def extract_office_text(path: str | Path) -> list[tuple[str, str]]:
     p = Path(path)
     ext = p.suffix.lower()
     if ext not in SUPPORTED_OFFICE_EXTS:
-        raise ValueError(f"unsupported office file: {p.name} (支持 {sorted(SUPPORTED_OFFICE_EXTS)})")
+        raise ValueError(f"unsupported office file: {p.name} (supported: {sorted(SUPPORTED_OFFICE_EXTS)})"
+                         if is_en() else
+                         f"unsupported office file: {p.name} (支持 {sorted(SUPPORTED_OFFICE_EXTS)})")
 
     parts: list[tuple[str, str]] = []
     with _open_verified(p) as fh, zipfile.ZipFile(fh) as zf:

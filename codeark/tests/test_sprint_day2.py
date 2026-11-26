@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 
 from codeark.agents.report_agent import apply_severity_floor
+from codeark.report_lang import is_en
 from codeark.agents.verify_agent import (
     _coerce_verification,
     _match_file,
@@ -167,8 +168,8 @@ def test_run_verify_split_invoke_failure_degrades(monkeypatch):
     results = _run(run_verify_split, hs, files)
     assert len(results) == 1
     assert results[0].verdict == "UNCERTAIN"
-    assert "降级" in results[0].evidence and "boom" in results[0].evidence
-    assert "重试" in results[0].evidence
+    assert ("degraded" if is_en() else "降级") in results[0].evidence and "boom" in results[0].evidence
+    assert ("retry" if is_en() else "重试") in results[0].evidence
     assert len(fake.calls) == 2                  # 恰好 1 次重试
 
 
@@ -298,7 +299,7 @@ def test_run_verify_split_watchdog_timeout_degrades(monkeypatch):
     results = _run(run_verify_split, hs, files, None, None, 0.0, 1, 0.05)
     assert len(results) == 1
     assert results[0].verdict == "UNCERTAIN"
-    assert "超时" in results[0].evidence
+    assert ("timeout" if is_en() else "超时") in results[0].evidence
     assert slow.calls == 2            # 看门狗打断后恰好重试一次
 
 

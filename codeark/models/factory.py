@@ -20,6 +20,7 @@ from enum import Enum
 from pathlib import Path
 from strands.models import OpenAIModel, OpenAIResponsesModel
 
+from ..report_lang import is_en
 from .local_step import LocalStepModel
 from .routing import EndpointConfig, StageModels, StageTuning
 from .xml_model import XMLToolCallModel
@@ -148,13 +149,17 @@ def _read_key(filename: str) -> str:
     key_dir = os.getenv("CODERISK_KEY_DIR", "")
     if not key_dir:
         raise FileNotFoundError(
+            f"Key file '{filename}' not found: set CODERISK_KEY_DIR to the key directory, "
+            "or use the corresponding environment variable (TOKENROUTER_API_KEY / MOONSHOT_API_KEY / AMD_API_KEY etc.)"
+            if is_en() else
             f"找不到 key 文件 '{filename}'：请设置 CODERISK_KEY_DIR 指向 key 目录，"
             "或改用对应环境变量（TOKENROUTER_API_KEY / MOONSHOT_API_KEY / AMD_API_KEY 等）"
         )
     p = Path(key_dir) / filename
     if p.exists():
         return _extract_key(p.read_text(encoding="utf-8-sig"))
-    raise FileNotFoundError(f"key 文件不存在: {p}")
+    raise FileNotFoundError(f"Key file does not exist: {p}" if is_en()
+                            else f"key 文件不存在: {p}")
 
 
 # 创空间等没有本地 key 文件的环境：环境变量优先（空间设置页配置，保存后不可回查）
@@ -290,6 +295,8 @@ def make_model(
     config = _MODEL_MAP.get((provider, tier))
     if not config:
         raise ValueError(
+            f"Unsupported combination: provider={provider.value}, tier={tier.value}\n"
+            f"Supported: {list(_MODEL_MAP.keys())}" if is_en() else
             f"不支持的组合: provider={provider.value}, tier={tier.value}\n"
             f"支持: {list(_MODEL_MAP.keys())}"
         )
@@ -867,6 +874,6 @@ def model_name(model: OpenAIModel) -> str:
 
 def list_models() -> None:
     """打印支持的模型矩阵（调试用）。"""
-    print("支持的模型矩阵:")
+    print("Supported model matrix:" if is_en() else "支持的模型矩阵:")
     for (prov, tier), cfg in _MODEL_MAP.items():
         print(f"  [{prov.value}/{tier.value}] {cfg['model_id']} @ {cfg['base_url']}")

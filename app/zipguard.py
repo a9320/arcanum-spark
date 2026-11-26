@@ -13,6 +13,8 @@ import io
 import zipfile
 from pathlib import Path
 
+from codeark.report_lang import is_en
+
 MAX_TOTAL_BYTES = 200 * 1024 * 1024  # 解压后合计 ≤200MB
 MAX_ENTRIES = 5000
 
@@ -22,12 +24,12 @@ def extract_zip(data: bytes, dest: Path) -> None:
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
         infos = zf.infolist()
         if len(infos) > MAX_ENTRIES:
-            raise ValueError(f"zip 条目数超限（{len(infos)} > {MAX_ENTRIES}）")
+            raise ValueError(f"zip entry count exceeded ({len(infos)} > {MAX_ENTRIES})" if is_en() else f"zip 条目数超限（{len(infos)} > {MAX_ENTRIES}）")
         total = sum(i.file_size for i in infos)
         if total > MAX_TOTAL_BYTES:
-            raise ValueError(f"zip 解压后总尺寸超限（{total} > {MAX_TOTAL_BYTES} 字节）")
+            raise ValueError(f"zip total extracted size exceeded ({total} > {MAX_TOTAL_BYTES} bytes)" if is_en() else f"zip 解压后总尺寸超限（{total} > {MAX_TOTAL_BYTES} 字节）")
         for info in infos:
             target = (dest / info.filename).resolve()
             if not target.is_relative_to(dest.resolve()):
-                raise ValueError("非法 zip 路径（路径遍历攻击）")
+                raise ValueError("Illegal zip path (path traversal attack)" if is_en() else "非法 zip 路径（路径遍历攻击）")
             zf.extract(info, dest)

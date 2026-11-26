@@ -32,6 +32,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ..report_lang import is_en
+
 __all__ = ["score_laya", "LAYA_RUNTIME_NOTE"]
 
 # Windows CPU 用户提示（MCP 工具输出与文档共用同一段文字，避免两处口径漂移）
@@ -57,7 +59,8 @@ def _load_laya_agent(model_path: str):
     （rl_common 等）依赖 sys.path，插入模型目录后不回收（CLI 一次性进程无害）。
     """
     if not model_path:
-        raise ValueError("laya 后端需要 --model <模型目录>（DSW: /mnt/workspace/models/laya）")
+        raise ValueError("laya backend requires --model <model directory> (DSW: /mnt/workspace/models/laya)" if is_en()
+                         else "laya 后端需要 --model <模型目录>（DSW: /mnt/workspace/models/laya）")
     import importlib.util
     import sys
 
@@ -65,6 +68,9 @@ def _load_laya_agent(model_path: str):
     api = root / "rl_agent_api.py"
     if not api.exists():
         raise FileNotFoundError(
+            f"{api} not found——rl_agent_api.py/rl_common.py should ship with the model directory "
+            "(multi-checkpoint layout: only single-checkpoint subdirectories contain the API scripts)"
+            if is_en() else
             f"未找到 {api}——rl_agent_api.py/rl_common.py 应随模型目录自带"
             "（多 checkpoint 布局：单检查点子目录才含 API 脚本）")
     sys.path.insert(0, str(root))

@@ -21,6 +21,7 @@ from strands.models import OpenAIModel
 
 from codeark.models.factory import make_model, ModelProvider, ModelTier
 from codeark.models.routing import redact_error
+from codeark.report_lang import is_en
 from codeark.models.schemas import HypothesisSet
 from codeark.tools.pitax_scan import pitax_scan, make_bound_tool
 from codeark.graph.quarantine import quarantine_files, quarantine_text, render_data_block
@@ -198,8 +199,10 @@ def _make_fallback_scout() -> OpenAIModel:
         try:
             return fn()
         except Exception as e:
-            print(f"[Scout] {name} 初始化失败: {e}")
-    raise RuntimeError("所有 Scout 模型初始化均失败")
+            print(f"[Scout] {name} initialization failed: {e}" if is_en()
+                  else f"[Scout] {name} 初始化失败: {e}")
+    raise RuntimeError("All Scout models failed to initialize" if is_en()
+                       else "所有 Scout 模型初始化均失败")
 
 
 # ── 运行入口（供 Graph 编排调用）──

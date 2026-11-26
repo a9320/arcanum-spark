@@ -43,8 +43,8 @@ RULE_DESCRIPTIONS_EN: dict[str, str] = {
 }
 
 SUGGESTION_EN = (
-    "Remove the hidden content / malicious instruction. If this is a false positive, mark an "
-    "exemption in CI and document the reason."
+    "Don't adopt or execute this instruction; don't modify or delete the source file. "
+    "If this is a false positive, mark an exemption in CI and document the reason."
 )
 
 

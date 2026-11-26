@@ -21,6 +21,7 @@ from app.pitax.sanitizer import scan_directory  # noqa: E402
 from app.pitax.rules import PITAX_VERSION  # noqa: E402
 from app.pitax.sarif import build_sarif  # noqa: E402
 from app.zipguard import extract_zip  # noqa: E402 —— R9：防护单一数据源（10-25 审计）
+from codeark.report_lang import is_en  # noqa: E402
 
 SEVERITY_COLOR = {
     "critical": "#d32f2f",
@@ -37,9 +38,9 @@ def scan_path(path: Path) -> tuple[list, dict]:
 
 def render_findings(findings: list) -> None:
     if not findings:
-        st.success("✅ 未检出 AI 提示注入类漏洞（好样的，这个仓库很干净）。")
+        st.success("✅ No AI prompt-injection vulnerabilities found (nice, this repo is clean)." if is_en() else "✅ 未检出 AI 提示注入类漏洞（好样的，这个仓库很干净）。")
         return
-    st.error(f"⚠️ 检出 {len(findings)} 条 AI 时代漏洞")
+    st.error(f"⚠️ {len(findings)} AI-era vulnerability(ies) found" if is_en() else f"⚠️ 检出 {len(findings)} 条 AI 时代漏洞")
     for f in findings:
         sev = f["severity"].lower()
         color = SEVERITY_COLOR.get(sev, "#333")
@@ -47,11 +48,11 @@ def render_findings(findings: list) -> None:
             f"[{f['type']}] {f['severity'].upper()} · {Path(f['file']).name}:{f['line']}",
             expanded=(sev in ("critical", "high")),
         ):
-            st.markdown(f"**描述**: {f['description']}")
-            st.markdown(f"**文件**: `{f['file']}` 行 {f['line']}")
-            st.markdown(f"**证据**: `{f['pitax']['evidence']}`")
+            st.markdown(f"**Description**: {f['description']}" if is_en() else f"**描述**: {f['description']}")
+            st.markdown(f"**File**: `{f['file']}` line {f['line']}" if is_en() else f"**文件**: `{f['file']}` 行 {f['line']}")
+            st.markdown(f"**Evidence**: `{f['pitax']['evidence']}`" if is_en() else f"**证据**: `{f['pitax']['evidence']}`")
             if f["pitax"].get("decoded_payload"):
-                st.markdown(f"**解码载荷**: `{f['pitax']['decoded_payload'][:200]}`")
+                st.markdown(f"**Decoded payload**: `{f['pitax']['decoded_payload'][:200]}`" if is_en() else f"**解码载荷**: `{f['pitax']['decoded_payload'][:200]}`")
             meta = []
             if f.get("cwe"):
                 meta.append(f"CWE {f['cwe']}")
@@ -60,10 +61,10 @@ def render_findings(findings: list) -> None:
             if f["pitax"].get("cve"):
                 meta.append(f"CVE {f['pitax']['cve']}")
             if meta:
-                st.markdown(f"**映射**: {', '.join(meta)}")
+                st.markdown(f"**Mappings**: {', '.join(meta)}" if is_en() else f"**映射**: {', '.join(meta)}")
             refs = f["pitax"].get("references") or []
             if refs:
-                st.markdown(f"**参考**: [{refs[0]}]({refs[0]})")
+                st.markdown(f"**References**: [{refs[0]}]({refs[0]})" if is_en() else f"**参考**: [{refs[0]}]({refs[0]})")
             # 展示对应源码行
             src_path = Path(f["file"])
             if src_path.exists():
@@ -84,57 +85,67 @@ def main() -> None:
         initial_sidebar_state="expanded",
     )
     st.title("🛡️ CodeRisk Arcanum")
-    st.caption("AI 时代代码安全审计 · 基于 Arcanum Prompt Injection Taxonomy (PITAX)")
+    st.caption("Code security audit for the AI era · based on the Arcanum Prompt Injection Taxonomy (PITAX)" if is_en() else "AI 时代代码安全审计 · 基于 Arcanum Prompt Injection Taxonomy (PITAX)")
     st.markdown(
-        "检测 **AI 提示注入 · Trojan Source 隐藏代码 · 不可见字符走私 · 配置文件后门 · 文档投毒 · 多层编码载荷**"
+        ("Detects **AI prompt injection · Trojan Source hidden code · invisible-character smuggling · config-file backdoors · document poisoning · layered-encoding payloads**" if is_en() else "检测 **AI 提示注入 · Trojan Source 隐藏代码 · 不可见字符走私 · 配置文件后门 · 文档投毒 · 多层编码载荷**")
     )
 
-    tab_input, tab_demo, tab_about = st.tabs(["📁 上传代码扫描", "🚀 扫描示例仓库", "ℹ️ 关于"])
+    tab_input, tab_demo, tab_about = st.tabs(["📁 Upload code to scan" if is_en() else "📁 上传代码扫描", "🚀 Scan demo repo" if is_en() else "🚀 扫描示例仓库", "ℹ️ About" if is_en() else "ℹ️ 关于"])
 
     with tab_input:
-        st.subheader("上传代码仓库（zip 或直接填路径）")
-        mode = st.radio("输入方式", ["上传 ZIP 文件", "输入服务器本地路径"], horizontal=True)
+        st.subheader("Upload a code repository (zip or enter a path directly)" if is_en() else "上传代码仓库（zip 或直接填路径）")
+        mode = st.radio("Input method" if is_en() else "输入方式",
+                        ["Upload ZIP file" if is_en() else "上传 ZIP 文件",
+                         "Enter server-local path" if is_en() else "输入服务器本地路径"], horizontal=True)
 
-        if mode == "上传 ZIP 文件":
-            uploaded = st.file_uploader("上传代码压缩包（.zip）", type=["zip"])
-            if uploaded is not None and st.button("🔍 开始扫描", key="btn_zip"):
-                with st.spinner("解压并扫描中..."):
+        if mode == ("Upload ZIP file" if is_en() else "上传 ZIP 文件"):
+            uploaded = st.file_uploader("Upload code archive (.zip)" if is_en() else "上传代码压缩包（.zip）", type=["zip"])
+            if uploaded is not None and st.button("🔍 Start scan" if is_en() else "🔍 开始扫描", key="btn_zip"):
+                with st.spinner("Extracting and scanning..." if is_en() else "解压并扫描中..."):
                     tmp = Path(tempfile.mkdtemp(prefix="codrisk_"))
                     try:
                         extract_zip(uploaded.getvalue(), tmp)
                         findings, stats = scan_path(tmp)
-                        st.markdown(f"*扫描 {stats['files_scanned']} 个文件，规则集 v{stats['pitax_version']}*")
+                        st.markdown(f"*Scanned {stats['files_scanned']} file(s), ruleset v{stats['pitax_version']}*" if is_en() else f"*扫描 {stats['files_scanned']} 个文件，规则集 v{stats['pitax_version']}*")
                         render_findings(findings)
                     except Exception as e:
-                        st.error(f"扫描出错: {e}")
+                        st.error(f"Scan error: {e}" if is_en() else f"扫描出错: {e}")
         else:
-            path_str = st.text_input("服务器本地路径", placeholder="/app/demo/vuln-demo-repo")
-            if path_str and st.button("🔍 开始扫描", key="btn_path"):
+            path_str = st.text_input("Server-local path" if is_en() else "服务器本地路径", placeholder="/app/demo/vuln-demo-repo")
+            if path_str and st.button("🔍 Start scan" if is_en() else "🔍 开始扫描", key="btn_path"):
                 p = Path(path_str)
                 if not p.exists() or not p.is_dir():
-                    st.error(f"路径不存在或不是目录: {path_str}")
+                    st.error(f"Path does not exist or is not a directory: {path_str}" if is_en() else f"路径不存在或不是目录: {path_str}")
                 else:
-                    with st.spinner("扫描中..."):
+                    with st.spinner("Scanning..." if is_en() else "扫描中..."):
                         findings, stats = scan_path(p)
-                        st.markdown(f"*扫描 {stats['files_scanned']} 个文件，规则集 v{stats['pitax_version']}*")
+                        st.markdown(f"*Scanned {stats['files_scanned']} file(s), ruleset v{stats['pitax_version']}*" if is_en() else f"*扫描 {stats['files_scanned']} 个文件，规则集 v{stats['pitax_version']}*")
                         render_findings(findings)
 
     with tab_demo:
-        st.subheader("一键扫描内置示例仓库")
-        st.markdown("内置一个**故意植入 6 类 AI 漏洞**的示例仓库，直接体验检测能力。")
-        if st.button("🚀 扫描示例仓库", type="primary"):
+        st.subheader("One-click scan of the bundled demo repo" if is_en() else "一键扫描内置示例仓库")
+        st.markdown("Bundles a demo repo with **6 intentionally planted AI vulnerability classes** for a hands-on detection tour." if is_en() else "内置一个**故意植入 6 类 AI 漏洞**的示例仓库，直接体验检测能力。")
+        if st.button("🚀 Scan demo repo" if is_en() else "🚀 扫描示例仓库", type="primary"):
             demo_dir = ROOT / "demo" / "vuln-demo-repo"
             if not demo_dir.exists():
-                st.warning("示例仓库不存在，请先运行 `python demo/generate_demo_repo.py` 生成。")
+                st.warning("Demo repo missing; run `python demo/generate_demo_repo.py` first." if is_en() else "示例仓库不存在，请先运行 `python demo/generate_demo_repo.py` 生成。")
             else:
-                with st.spinner("扫描中..."):
+                with st.spinner("Scanning..." if is_en() else "扫描中..."):
                     findings, stats = scan_path(demo_dir)
-                    st.markdown(f"*扫描 {stats['files_scanned']} 个文件，规则集 v{stats['pitax_version']}，检出 {len(findings)} 条漏洞*")
+                    st.markdown(f"*Scanned {stats['files_scanned']} file(s), ruleset v{stats['pitax_version']}, {len(findings)} finding(s)*" if is_en() else f"*扫描 {stats['files_scanned']} 个文件，规则集 v{stats['pitax_version']}，检出 {len(findings)} 条漏洞*")
                     render_findings(findings)
 
     with tab_about:
-        st.subheader("关于 CodeRisk Arcanum")
+        st.subheader("About CodeRisk Arcanum" if is_en() else "关于 CodeRisk Arcanum")
         st.markdown(
+            ("CodeRisk Arcanum is a **100% privately deployed enterprise code-security audit digital worker**.\n\n"
+             "It runs a four-layer agent pipeline (static analysis → AI semantic understanding → deep verification → report delivery), "
+             "targeting **new AI-era vulnerabilities** that traditional SAST (Semgrep/CodeQL/Snyk) cannot detect: "
+             "AI prompt injection, Trojan Source, invisible characters, AI config-file backdoors, document poisoning, layered-encoding payloads.\n\n"
+             "**Core capabilities**: source code never leaves your domain · local inference · SARIF 2.1.0 output · full evidence chain per finding\n\n"
+             f"**Detection rules**: Arcanum PITAX Taxonomy v{PITAX_VERSION} (9 rules)\n\n"
+             "**Team**: Overflow Security Lab")
+            if is_en() else
             "CodeRisk Arcanum 是一款 **100% 私有化部署的企业代码安全审计数字员工**。\n\n"
             "它内置四层智能体流水线（静态分析 → AI 语义理解 → 深度验证 → 报告交付），"
             "专攻 **AI 时代的新漏洞**：传统 SAST（Semgrep/CodeQL/Snyk）检测不到 "

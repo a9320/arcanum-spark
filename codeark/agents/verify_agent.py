@@ -18,6 +18,7 @@ from strands.models import OpenAIModel
 
 from codeark.models.factory import make_model, ModelProvider, ModelTier
 from codeark.models.schemas import HypothesisSet, VerificationResult, VerificationSet
+from codeark.report_lang import is_en
 from codeark.tools.static_scan import static_scan, make_bound_tool as _bind_static
 from codeark.tools.taint_flow import taint_flow, make_bound_tool as _bind_taint
 from codeark.tools.dep_scan import dep_scan, make_bound_tool as _bind_dep
@@ -75,7 +76,9 @@ def _align_hypothesis_id(v: VerificationResult, hyp) -> VerificationResult:
     expected = str(getattr(hyp, "id", "") or "")
     got = str(getattr(v, "hypothesis_id", "") or "")
     if expected and got != expected:
-        print(f"[Verify] ⚠ hypothesis_id 纠偏: {got!r} → {expected!r}"
+        print(f"[Verify] ⚠ hypothesis_id corrected: {got!r} → {expected!r}"
+              f" ({str(v.hypothesis_title or '')[:40]})" if is_en() else
+              f"[Verify] ⚠ hypothesis_id 纠偏: {got!r} → {expected!r}"
               f"（{str(v.hypothesis_title or '')[:40]}）")
         v.hypothesis_id = expected
     return v
@@ -161,8 +164,10 @@ def _make_model_fallback() -> OpenAIModel:
         try:
             return fn()
         except Exception as e:
-            print(f"[Verify] {name} 初始化失败: {e}")
-    raise RuntimeError("所有 Verify 模型初始化均失败")
+            print(f"[Verify] {name} initialization failed: {e}" if is_en()
+                  else f"[Verify] {name} 初始化失败: {e}")
+    raise RuntimeError("All Verify models failed to initialize" if is_en()
+                       else "所有 Verify 模型初始化均失败")
 
 
 # ── 运行入口（供 Graph 编排调用）──
@@ -193,6 +198,8 @@ async def run_verify(
     if out is not None:
         return _normalize_verifications(out)
     raise RuntimeError(
+        f"[Verify] model did not produce a structured VerificationSet"
+        f" (raw={str(result)[:300]!r})" if is_en() else
         f"[Verify] 模型未产出结构化 VerificationSet"
         f"（raw={str(result)[:300]!r}）"
     )
@@ -557,7 +564,7 @@ def _degraded_verification(hyp, detail: str, reason: str = "") -> VerificationRe
         hypothesis_title=str(getattr(hyp, "title", "") or ""),
         verdict="UNCERTAIN",
         confidence=0.3,
-        evidence=f"[verify 降级人工复核] {detail}",
+        evidence=f"[verify degraded; manual review required] {detail}" if is_en() else f"[verify 降级人工复核] {detail}",
         verification_method="none(degraded)",
         degraded=True,
         degraded_reason=_degraded_reason(detail, reason),
@@ -700,7 +707,8 @@ async def _verify_one(
             "不要代码围栏、不要任何前后缀。\n"
             + data_block
         )
-        print(f"[Verify] … {expected} 无工具兜底尝试（tools=off, structured=off）")
+        print(f"[Verify] … {expected} no-tool fallback attempt (tools=off, structured=off)" if is_en()
+              else f"[Verify] … {expected} 无工具兜底尝试（tools=off, structured=off）")
         try:
             result = await _aio.wait_for(
                 retry_agent.invoke_async(no_tool_prompt),
@@ -708,14 +716,16 @@ async def _verify_one(
             )
             last_exc = None
             used_no_tools = True
-            print(f"[Verify] ✓ {expected} peg-native 无工具兜底成功")
+            print(f"[Verify] ✓ {expected} peg-native no-tool fallback succeeded" if is_en()
+                  else f"[Verify] ✓ {expected} peg-native 无工具兜底成功")
         except Exception as exc:
             last_exc = exc
-            print(f"[Verify] × {expected} 无工具兜底失败：{exc!r}")
+            print(f"[Verify] × {expected} no-tool fallback failed: {exc!r}" if is_en()
+                  else f"[Verify] × {expected} 无工具兜底失败：{exc!r}")
 
     if result is None:
-        reason = "invoke 超时" if isinstance(last_exc, _aio.TimeoutError) else "invoke 失败"
-        return _degraded_verification(hyp, f"{reason}（含 1 次重试）：{last_exc}")
+        reason = ("invoke timeout" if isinstance(last_exc, _aio.TimeoutError) else "invoke failed") if is_en() else ("invoke 超时" if isinstance(last_exc, _aio.TimeoutError) else "invoke 失败")
+        return _degraded_verification(hyp, f"{reason} (incl. 1 retry): {last_exc}" if is_en() else f"{reason}（含 1 次重试）：{last_exc}")
 
     v, contract_error = _extract_checked(result, hyp)
     if v is not None and not contract_error:
@@ -744,7 +754,8 @@ async def _verify_one(
                     "本次禁止调用任何工具，只输出一个 JSON 对象（不要代码围栏）；"
                     f"hypothesis_id 必须原样输出 \"{expected}\"。"
                 )
-                print(f"[Verify] … {expected} id 契约无工具兜底尝试（tools=off, structured=off）")
+                print(f"[Verify] … {expected} id-contract no-tool fallback attempt (tools=off, structured=off)" if is_en()
+                      else f"[Verify] … {expected} id 契约无工具兜底尝试（tools=off, structured=off）")
                 try:
                     retry = await _aio.wait_for(
                         retry_agent.invoke_async(no_tool_repair_prompt),
@@ -752,26 +763,35 @@ async def _verify_one(
                     )
                     v3, contract_error3 = _extract_checked(retry, hyp)
                     if v3 is not None and not contract_error3:
-                        print(f"[Verify] ✓ {expected} id 契约无工具兜底成功")
+                        print(f"[Verify] ✓ {expected} id-contract no-tool fallback succeeded" if is_en()
+                              else f"[Verify] ✓ {expected} id 契约无工具兜底成功")
                         return v3
-                    print(f"[Verify] × {expected} id 契约无工具兜底失败："
+                    print(f"[Verify] × {expected} id-contract no-tool fallback failed: "
+                          f"{contract_error3 or 'no structured verdict produced'}" if is_en() else
+                          f"[Verify] × {expected} id 契约无工具兜底失败："
                           f"{contract_error3 or '未产出结构化裁决'}")
                     return _degraded_verification(
                         hyp,
+                        "id-contract no-tool fallback failed: "
+                        f"{contract_error3 or 'no structured verdict produced'}" if is_en() else
                         "id 契约无工具兜底失败："
                         f"{contract_error3 or '未产出结构化裁决'}",
                     )
                 except Exception as exc2:
-                    print(f"[Verify] × {expected} id 契约无工具兜底失败：{exc2!r}")
+                    print(f"[Verify] × {expected} id-contract no-tool fallback failed: {exc2!r}" if is_en()
+                          else f"[Verify] × {expected} id 契约无工具兜底失败：{exc2!r}")
                     return _degraded_verification(
-                        hyp, f"id 契约修复调用失败（{contract_error}）：{exc2}"
+                        hyp, f"id-contract repair call failed ({contract_error}): {exc2}" if is_en()
+                        else f"id 契约修复调用失败（{contract_error}）：{exc2}"
                     )
             return _degraded_verification(
-                hyp, f"id 契约修复调用失败（{contract_error}）：{exc}"
+                hyp, f"id-contract repair call failed ({contract_error}): {exc}" if is_en()
+                else f"id 契约修复调用失败（{contract_error}）：{exc}"
             )
         v2, contract_error2 = _extract_checked(retry, hyp)
         if v2 is not None and not contract_error2:
-            print(f"[Verify] ✓ {expected} id 契约修复成功（原错误：{contract_error}）")
+            print(f"[Verify] ✓ {expected} id-contract repair succeeded (original error: {contract_error})" if is_en()
+                  else f"[Verify] ✓ {expected} id 契约修复成功（原错误：{contract_error}）")
             return v2
         detail = contract_error2 or contract_error
         # 2026-10-20 H4 r2 实证：契约修复返回但两次都缺 id（无异常），旧逻辑直接
@@ -783,7 +803,8 @@ async def _verify_one(
                 "本次禁止调用任何工具，只输出一个 JSON 对象（不要代码围栏）；"
                 f"hypothesis_id 必须原样输出 \"{expected}\"。"
             )
-            print(f"[Verify] … {expected} 契约修复仍不合格，转无工具兜底")
+            print(f"[Verify] … {expected} contract repair still invalid; switching to no-tool fallback" if is_en()
+                  else f"[Verify] … {expected} 契约修复仍不合格，转无工具兜底")
             try:
                 retry2 = await _aio.wait_for(
                     retry_agent.invoke_async(no_tool_repair_prompt),
@@ -791,17 +812,22 @@ async def _verify_one(
                 )
                 v4, contract_error4 = _extract_checked(retry2, hyp)
                 if v4 is not None and not contract_error4:
-                    print(f"[Verify] ✓ {expected} 契约无工具兜底成功（二次）")
+                    print(f"[Verify] ✓ {expected} contract no-tool fallback succeeded (second)" if is_en()
+                          else f"[Verify] ✓ {expected} 契约无工具兜底成功（二次）")
                     return v4
-                print(f"[Verify] × {expected} 契约无工具兜底失败（二次）："
+                print(f"[Verify] × {expected} contract no-tool fallback failed (second): "
+                      f"{contract_error4 or 'no structured verdict produced'}" if is_en() else
+                      f"[Verify] × {expected} 契约无工具兜底失败（二次）："
                       f"{contract_error4 or '未产出结构化裁决'}")
                 detail = contract_error4 or detail
             except Exception as exc3:
-                print(f"[Verify] × {expected} 契约无工具兜底失败（二次）：{exc3!r}")
-                detail = f"{detail}；无工具兜底异常：{exc3}"
+                print(f"[Verify] × {expected} contract no-tool fallback failed (second): {exc3!r}" if is_en()
+                      else f"[Verify] × {expected} 契约无工具兜底失败（二次）：{exc3!r}")
+                detail = f"{detail}; no-tool fallback exception: {exc3}" if is_en() else f"{detail}；无工具兜底异常：{exc3}"
         return _degraded_verification(
             hyp,
-            f"id 契约失败（已修复重试 1 次，禁止按序回填）：{detail}",
+            f"id-contract failure (1 repair retry done; no positional backfill): {detail}" if is_en()
+            else f"id 契约失败（已修复重试 1 次，禁止按序回填）：{detail}",
         )
 
     if v is not None:  # 上游无 id 基准：保留模型自报值（旧路径兼容）

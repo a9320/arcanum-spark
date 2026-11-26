@@ -28,7 +28,7 @@ from codeark.graph.quarantine import quarantine_files
 from codeark.models.factory import make_stage_tuning_from_env
 from codeark.models.routing import StageModels, StageTuning, redact_error
 from codeark.provenance import collect_provenance
-from codeark.report_lang import t as _t
+from codeark.report_lang import is_en, t as _t
 
 __all__ = [
     "GraphResult",
@@ -216,16 +216,16 @@ class CodeRiskGraph:
         kept_ids = [getattr(h, "id", "") for h in getattr(gated, "hypotheses", [])]
         pruned_ids = [str(pid) for pid in (gate_meta.get("pruned_ids") or [])]
         if len(kept_ids) != len(set(kept_ids)):
-            raise ValueError("gate 不变量 I1 违反：kept 含重复 id")
+            raise ValueError("gate invariant I1 violated: kept contains duplicate ids" if is_en() else "gate 不变量 I1 违反：kept 含重复 id")
         if not set(kept_ids) <= set(original_ids):
-            raise ValueError("gate 不变量 I1 违反：kept 含原集外 id")
+            raise ValueError("gate invariant I1 violated: kept contains ids outside the original set" if is_en() else "gate 不变量 I1 违反：kept 含原集外 id")
         if set(kept_ids) & set(pruned_ids):
-            raise ValueError("gate 不变量 I1 违反：kept ∩ pruned 非空")
+            raise ValueError("gate invariant I1 violated: kept ∩ pruned is not empty" if is_en() else "gate 不变量 I1 违反：kept ∩ pruned 非空")
         if set(kept_ids) | set(pruned_ids) != set(original_ids):
-            raise ValueError("gate 不变量 I1 违反：kept ∪ pruned != original")
+            raise ValueError("gate invariant I1 violated: kept ∪ pruned != original" if is_en() else "gate 不变量 I1 违反：kept ∪ pruned != original")
         protected_ids = {str(pid) for pid in (gate_meta.get("protected_ids") or [])}
         if protected_ids & set(pruned_ids):
-            raise ValueError("gate 不变量 I2 违反：protected 假设被剪")
+            raise ValueError("gate invariant I2 violated: protected hypotheses were pruned" if is_en() else "gate 不变量 I2 违反：protected 假设被剪")
 
     # ── 主入口 ──
     async def run(
@@ -290,7 +290,7 @@ class CodeRiskGraph:
                 )
             except Exception as exc:
                 res.node_errors["scout"] = f"{type(exc).__name__}: {redact_error(exc)}"
-                print(f"[Pipeline] ⚠ Scout 失败，降级为规则基线假设: {redact_error(exc)}")
+                print(f"[Pipeline] ⚠ Scout failed, degrading to rule-baseline hypotheses: {redact_error(exc)}" if is_en() else f"[Pipeline] ⚠ Scout 失败，降级为规则基线假设: {redact_error(exc)}")
                 res.hypothesis_set = self._dry_scout(files, res.agent0_findings)
         # 假设编号 H1..Hn（确定性，验证/报告按 id 结构化对齐，替代 title 字符串匹配）
         from codeark.models.schemas import assign_hypothesis_ids
@@ -323,7 +323,7 @@ class CodeRiskGraph:
                     "selected_ids": [getattr(h, "id", "") for h in res.hypothesis_set.hypotheses],
                     "pruned_ids": [],
                 }
-                print(f"[Pipeline] ⚠ gate 失败，回退原始假设顺序: {redact_error(exc)}")
+                print(f"[Pipeline] ⚠ gate failed, falling back to original hypothesis order: {redact_error(exc)}" if is_en() else f"[Pipeline] ⚠ gate 失败，回退原始假设顺序: {redact_error(exc)}")
                 verify_hypothesis_set = res.hypothesis_set
         res.gated_hypothesis_set = verify_hypothesis_set if self.hypothesis_gate is not None and not self.dry else None
 
@@ -341,7 +341,7 @@ class CodeRiskGraph:
                 )
             except Exception as exc:
                 res.node_errors["verify"] = f"{type(exc).__name__}: {redact_error(exc)}"
-                print(f"[Pipeline] ⚠ Verify 失败，降级为规则证实口径: {redact_error(exc)}")
+                print(f"[Pipeline] ⚠ Verify failed, degrading to rule-verified verdicts: {redact_error(exc)}" if is_en() else f"[Pipeline] ⚠ Verify 失败，降级为规则证实口径: {redact_error(exc)}")
                 res.verifications = self._dry_verify(verify_hypothesis_set)
 
         # 3.5 可选跨 run 记忆：只写稳定类型/路径键，不持久化原文证据。
@@ -378,7 +378,7 @@ class CodeRiskGraph:
                 )
             except Exception as exc:
                 res.node_errors["deepen"] = f"{type(exc).__name__}: {redact_error(exc)}"
-                print(f"[Pipeline] ⚠ Deepen 失败，输出占位链并记降级: {redact_error(exc)}")
+                print(f"[Pipeline] ⚠ Deepen failed, emitting placeholder chains and recording degradation: {redact_error(exc)}" if is_en() else f"[Pipeline] ⚠ Deepen 失败，输出占位链并记降级: {redact_error(exc)}")
                 res.attack_chains = self._dry_chains(confirmed)
                 res.deepen_failures = len(confirmed)
             else:
@@ -398,11 +398,11 @@ class CodeRiskGraph:
                 )
             except Exception as exc:
                 res.node_errors["arbiter"] = f"{type(exc).__name__}: {redact_error(exc)}"
-                print(f"[Pipeline] ⚠ Arbiter 异常，切换确定性兜底定稿: {redact_error(exc)}")
+                print(f"[Pipeline] ⚠ Arbiter error, switching to deterministic fallback report: {redact_error(exc)}" if is_en() else f"[Pipeline] ⚠ Arbiter 异常，切换确定性兜底定稿: {redact_error(exc)}")
                 from codeark.agents.arbiter_agent import _deterministic_fallback_report
                 res.final_report = _deterministic_fallback_report(
                     res.verifications, res.attack_chains, verify_hypothesis_set,
-                    reason=f"arbiter 异常 {type(exc).__name__}: {redact_error(exc)}",
+                    reason=f"arbiter error {type(exc).__name__}: {redact_error(exc)}" if is_en() else f"arbiter 异常 {type(exc).__name__}: {redact_error(exc)}",
                 )
 
         # 5.5 severity 确定性打底（§11-H）：规则级别是底线，LLM 只能带证据升级
@@ -410,7 +410,8 @@ class CodeRiskGraph:
             res.final_report, res.agent0_findings
         )
         if res.severity_floor_upgraded:
-            print(f"[Pipeline] severity 打底: {res.severity_floor_upgraded} 条被 LLM 降级，已抬回规则底线")
+            print(f"[Pipeline] severity floor: {res.severity_floor_upgraded} finding(s) downgraded by LLM were raised back to the rule floor" if is_en()
+              else f"[Pipeline] severity 打底: {res.severity_floor_upgraded} 条被 LLM 降级，已抬回规则底线")
 
         # 6. 报告：确定性渲染（JSON/SARIF/Markdown），生成≠发布
         # 攻击链与隔离层统计一并进报告（§11：链曾只存不渲）

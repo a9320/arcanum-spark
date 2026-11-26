@@ -11,6 +11,7 @@ from codeark.graph.gate_factory import (
     resolve_prune,
 )
 from codeark.models.schemas import HypothesisSet, VulnHypothesis
+from codeark.report_lang import is_en
 
 
 def _hyp(hid: str, title: str, vuln_type: str, file_path: str, attack_path: str) -> VulnHypothesis:
@@ -163,7 +164,7 @@ def test_build_gate_from_env_shelved_knobs_degrade_not_silent(monkeypatch):
     monkeypatch.setenv("ARCA_GATE_PRUNE_TAU", "0.5")
     gate, meta = build_gate_from_env()
     assert gate is None
-    assert "搁置" in meta
+    assert ("shelved" if is_en() else "搁置") in meta
 
 
 def test_build_gate_from_env_min_keep_validation(monkeypatch):

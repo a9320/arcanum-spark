@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Literal
 
+from ..report_lang import is_en
+
 from pydantic import BaseModel, Field, field_validator
 
 __all__ = [
@@ -36,7 +38,8 @@ def confidence_to_float(value: "str | float | int") -> float:
     if isinstance(value, str):
         v = _CONFEnum_TO_FLOAT.get(value.strip().lower())
         if v is None:
-            raise ValueError(f"未知 confidence 枚举: {value!r}")
+            raise ValueError(f"Unknown confidence enum: {value!r}" if is_en()
+                             else f"未知 confidence 枚举: {value!r}")
         return v
     f = float(value)
     return max(0.0, min(1.0, f))

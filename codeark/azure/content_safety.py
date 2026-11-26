@@ -38,6 +38,8 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from ..report_lang import is_en
+
 ENDPOINT_ENV = "ARCA_AZURE_CONTENT_SAFETY_ENDPOINT"
 KEY_ENV = "ARCA_AZURE_CONTENT_SAFETY_KEY"
 API_VERSION_ENV = "ARCA_AZURE_CONTENT_SAFETY_API_VERSION"
@@ -138,11 +140,11 @@ class ContentSafetyClient:
         endpoint = (endpoint or "").strip().rstrip("/")
         key = (key or "").strip()
         if not endpoint:
-            raise ValueError("Content Safety endpoint 为空")
+            raise ValueError("Content Safety endpoint is empty" if is_en() else "Content Safety endpoint 为空")
         if not endpoint.startswith(("https://", "http://")):
-            raise ValueError("Content Safety endpoint 必须以 https:// 或 http:// 开头")
+            raise ValueError("Content Safety endpoint must start with https:// or http://" if is_en() else "Content Safety endpoint 必须以 https:// 或 http:// 开头")
         if not key:
-            raise ValueError("Content Safety key 为空")
+            raise ValueError("Content Safety key is empty" if is_en() else "Content Safety key 为空")
         self.endpoint = endpoint
         self.api_version = (api_version or "").strip() or DEFAULT_API_VERSION
         self._key = key
@@ -289,7 +291,7 @@ class ContentSafetyClient:
         try:
             data = resp.json()
         except ValueError:
-            raise _CallFailed("响应不是合法 JSON") from None
+            raise _CallFailed("Response is not valid JSON" if is_en() else "响应不是合法 JSON") from None
         if not isinstance(data, dict):
-            raise _CallFailed("响应 JSON 顶层不是对象")
+            raise _CallFailed("Response JSON top level is not an object" if is_en() else "响应 JSON 顶层不是对象")
         return data
