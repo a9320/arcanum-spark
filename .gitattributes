@@ -5,3 +5,5 @@
 data/** -text
 # 评测冻结件按字节钉定（T1/T2 冻结输入逐字节核验；注意 sources 为混合行尾，不可归一化）：
 eval/pitax_bench/*.jsonl -text
+# eval 下 JSON 夹具同样按字节钉定（expected.json 等；T25 Qoder 发现原口径只覆盖 jsonl）
+eval/**/*.json -text

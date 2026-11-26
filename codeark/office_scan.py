@@ -218,6 +218,8 @@ def run_cli(argv: list[str]) -> int:
             fp = out_dir / "office-report.html"
             fp.write_text(reports["html"], encoding="utf-8")
         else:
+            # 静默丢弃会让用户以为 sarif/markdown 已生成（T25 Qoder 实证），显式提示
+            print(f"⚠ docs-scan 不支持 format={name}，已忽略（当前支持：json,html）")
             continue
         written.append(fp)
 

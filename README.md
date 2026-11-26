@@ -53,6 +53,8 @@ python -m codeark.cli scan demo/vuln-demo-repo --dry --formats json,html --out r
 # default: Chinese; set ARCA_REPORT_LANG=en for English
 ARCA_REPORT_LANG=en python -m codeark.cli scan demo/vuln-demo-repo --dry --formats json,html --out reports/quickstart-en
 # → reports/quickstart/report.{json,html} — 12 expected PITAX hits, no model calls
+#   12 = agent-0 raw hits; the final report lists the 7 confirmed findings
+#   (confirmation is a separate stage — summary.json records both counts)
 #   scope note: the demo repo is a single planted fixture (n=1); the 12-hit figure is
 #   demo-scope, not a general effectiveness claim — full numbers live in docs/EVAL-LEDGER.md.
 #   report.html is a self-contained single page (no CDN/fonts/scripts; safe to open offline)
@@ -65,7 +67,17 @@ Got Office documents instead of a repo? Same rules, different carrier:
 python -m codeark.cli docs-scan demo/poisoned-doc --formats json,html --out reports/office
 # scans .docx / .xlsx / .pptx text (including hidden runs and speaker notes) for
 # prompt-injection, invisible characters and encoded payloads; self-contained HTML report
+# note: docs-scan supports --formats json,html today — other names are ignored with a warning
 ```
+
+**Exit codes.** `python -m codeark.cli ...` is advisory-first: it returns `0` when the scan
+completes, even with findings (`1` = bad arguments or missing path). For CI gating use the
+slim PyPI package `codeark-pitax`: `0` = nothing at/above threshold, `1` = bad arguments or
+missing path, `3` = findings at/above the threshold (`--fail-on-findings` / `--fail-on low|medium|high|critical`).
+
+**Proxy note (Windows).** If `verify.sh` fails inside the Azure-dependent tests with
+`httpx.InvalidURL`, clear proxy env vars for that run (`HTTP_PROXY= HTTPS_PROXY= NO_PROXY=`) —
+a `NO_PROXY` entry such as `[::1]` trips httpx 0.28.x.
 
 `python -m codeark.cli <repo>` (without `scan`) still works — same command, kept for
 backward compatibility. Need the full model council? → `bash deploy/mi300x-oneclick.sh`,
@@ -78,7 +90,7 @@ then `ARCA_DEPLOYMENT=local python test_e2e.py`. CI/CD usage: [`docs/CI-CD.md`](
 ```bash
 bash verify.sh
 # → deterministic test suite; count via scripts/test_count.py (zero LLM calls)
-# → dry scan of the demo repo (12 expected PITAX hits)
+# → dry scan of the demo repo (12 agent-0 raw hits; final report = 7 confirmed findings)
 # → eval regression check (full expected-coverage + severity floor)
 # → clean control repo currently produces zero findings on the checked control fixture (not a population-wide FP rate)
 ```

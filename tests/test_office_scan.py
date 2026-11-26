@@ -234,3 +234,19 @@ def test_extract_rejects_identity_swap_between_walk_and_open(tmp_path, monkeypat
     monkeypatch.setattr(office_text.os, "open", fake_open)
     with pytest.raises(OSError):
         extract_office_text(real_doc)
+
+
+def test_docs_scan_warns_on_unsupported_formats(tmp_path, capsys):
+    """T25 Qoder 发现：--formats 传 sarif/markdown 时被静默丢弃——必须显式告警。"""
+    from codeark.office_scan import run_cli
+
+    p = tmp_path / "r.docx"
+    with zipfile.ZipFile(p, "w") as zf:
+        zf.writestr("word/document.xml", _docx_xml(INJECTION))
+    out = tmp_path / "out"
+    rc = run_cli([str(p), "--out", str(out), "--formats", "json,html,sarif,markdown"])
+    captured = capsys.readouterr().out
+    assert rc == 0
+    assert "sarif" in captured and "markdown" in captured   # 两个都不静默
+    assert "不支持" in captured or "ignored" in captured
+    assert (out / "office-report.json").exists() and (out / "office-report.html").exists()
