@@ -464,7 +464,7 @@ def build_html(
         (m.get("verify_degraded", 0), "degraded verdicts"),
     ]
     parts = [
-        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">",
+        f"<!doctype html><html lang=\"{'en' if is_en() else 'zh-CN'}\"><head><meta charset=\"utf-8\">",
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
         "<meta name=\"generator\" content=\"codeark\">",
         "<title>CodeRisk Arcanum — Scan Report</title>",
@@ -477,6 +477,11 @@ def build_html(
     for value, label in cards:
         parts.append(f'<div class="card"><b>{_esc(value)}</b><span>{_esc(label)}</span></div>')
     parts.append("</div>")
+    # T26-fix：findings 与 PITAX rule hits 口径不同，并列须解释（否则出现无说明的 4 vs 0）
+    parts.append(
+        '<p class="note">findings = final deduplicated rows; '
+        'PITAX rule hits = deterministic rule-engine rows merged into findings '
+        '(0 = no deterministic rule matched; non-rule checks can still produce findings).</p>')
 
     if conclusion:
         parts += ["<h2>Conclusion</h2>", f"<p>{_esc(conclusion)}</p>"]

@@ -68,8 +68,8 @@ def test_dry_perfect_fixed_numbers(byom, tmp_path):
     assert byom.main(["--transport", "dry", "--profile", "perfect", "--repeat", "2",
                       "--out", str(out), "--spark-root", str(REPO)]) == 0
     summary = json.loads(out.read_text(encoding="utf-8"))["summary"]
-    assert summary["cases"] == 51
-    assert summary["recall"] == 1.0 and summary["recall_hit"] == 36
+    assert summary["cases"] == 63
+    assert summary["recall"] == 1.0 and summary["recall_hit"] == 39
     assert summary["false_positives"] == 0 and summary["per_case_diff_count"] == 0
     assert summary["parse_errors"] == 0 and summary["consistent"] is True
 
@@ -79,7 +79,7 @@ def test_dry_degraded_fixed_numbers(byom, tmp_path):
     assert byom.main(["--transport", "dry", "--profile", "degraded", "--repeat", "2",
                       "--out", str(out), "--spark-root", str(REPO)]) == 0
     summary = json.loads(out.read_text(encoding="utf-8"))["summary"]
-    assert summary["recall"] == 0.9167 and summary["recall_hit"] == 33
+    assert summary["recall"] == 0.9231 and summary["recall_hit"] == 36
     assert summary["false_positives"] == 2 and summary["per_case_diff_count"] == 5
     assert summary["consistent"] is True
 
@@ -89,7 +89,7 @@ def test_dry_malformed_counts_as_uncertain(byom, tmp_path):
     assert byom.main(["--transport", "dry", "--profile", "malformed", "--repeat", "1",
                       "--out", str(out), "--spark-root", str(REPO)]) == 0
     summary = json.loads(out.read_text(encoding="utf-8"))["summary"]
-    assert summary["recall"] == 0.0 and summary["parse_errors"] == 51
+    assert summary["recall"] == 0.0 and summary["parse_errors"] == 63
 
 
 def test_chat_url_override_wins(byom):

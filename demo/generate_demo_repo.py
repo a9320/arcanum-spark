@@ -72,6 +72,13 @@ _DOC_SURFACE = [
     r"绕过(?:所有)?安全",
     r"以前の指示を無視",
     r"跳过(?:所有)?安全",
+    r"(?:请|务必|必须|直接|立即)[^。.\n]{0,4}(?:报告|输出|回复|告诉)[^。.\n]{0,12}(?<!是否)(?<!无)(?<!非)(?:clean|安全|通过)(?![^。.\n]{0,2}(?:吗|么))",
+    r"(?:把|将)[^。.\n]{0,24}(?:全部|所有)[^。.\n]{0,20}(?:发送|上传|外传|传到|发给|提交到|邮寄到)[^。.\n]{0,10}(?:外部|远程|attacker|陌生)",
+    r"(?:把|将|发送|上传|外传)[^。.\n]{0,20}(?:密钥|密码|凭据|令牌|通讯录|聊天记录|数据库备份|api[\s_-]?key)[^。.\n]{0,16}(?:发送|上传|外传|传到|发给|提交到|邮寄到)[^。.\n]{0,10}(?:外部|远程|attacker|陌生|https?://|[A-Za-z0-9._%+-]+@)",
+    r"(?im)(?:^|[.!?]\s+|;\s*|please\s+|now\s+)(?:report|state|output|reply|tell[^.\n]{0,12}user)(?!\s+(?:whether|if|says|said|is|was|the\s+results))[^.\n]{0,20}\b(?:clean|safe|passed|benign|harmless)\b",
+    r"(?im)(?:\balways\s+|^\s*[\w.-]+\s*:\s*(?:always\s+)?|(?:^|[.!?]\s+|;\s*)\s*(?:please\s+|now\s+)?)approve\s+(?:all|every)\s+(?:findings?|results?|verdicts?)",
+    r"(?i)email\s+(?:the\s+)?api[\s_-]?keys?\b",
+    r"(?i)\bexfiltrate\s+(?:the\s+)?[\w][\w\s.-]{0,40}?\bto\s+[\w@./:+-]+",
 ]
 _E57_SURFACE = [
     '(?i)\\bignore\\s+(all\\s+)?previous\\s+instructions\\b',
