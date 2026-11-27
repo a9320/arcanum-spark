@@ -31,7 +31,7 @@ from codeark.pitax.rules import PITAX_VERSION  # noqa: E402
 
 DEFAULT_OUT = ROOT.parent / "slim-build"
 PKG = "codeark_pitax"
-VERSION = "0.2.3"
+VERSION = "0.2.4"
 
 # 复制映射：源 → 生成文件名；rewrites 逐条替换导入
 COPY_PLAN: list[tuple[Path, str, list[tuple[str, str]]]] = [
@@ -318,7 +318,7 @@ def main(argv: list[str] | None = None) -> int:
     env.setdefault("UV_CACHE_DIR", "D:/desk-top/tools/uv-cache")
     try:
         subprocess.run(
-            ["uv", "build", "--wheel", "--out-dir", str(dist), str(out / "codeark-pitax")],
+            ["uv", "build", "--out-dir", str(dist), str(out / "codeark-pitax")],
             check=True, env=env,
         )
     except FileNotFoundError:
