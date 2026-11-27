@@ -5,7 +5,7 @@
 
 用途
 ----
-同一批 `eval/pitax_bench/cases.jsonl`（51 例 = 36 正 / 15 负），分别取
+同一批 `eval/pitax_bench/cases.jsonl`（动态读取全量用例；v1=51 例 36 正/15 负，2026-11-26 规则矿后 v2=63 例 39 正/24 负），分别取
 「确定性规则」与「模型」的 detected 规则集，逐例对拍：
   recall          = 正例中 expected 全部命中的比例（与 run.py 同口径）
   negative FP     = 负例中模型给了任何 detection 的数量
